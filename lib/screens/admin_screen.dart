@@ -88,6 +88,100 @@ class _AdminScreenState extends State<AdminScreen>
   }
 }
 
+class _AdminWrites {
+  static final FirebaseService _svc = FirebaseService.instance;
+
+  static Future<void> applyProductAction(String productId, String action) async {
+    final ref = _svc.products.doc(productId);
+    if (action == 'approve') {
+      await ref.set({'adminStatus': 'active', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'reject') {
+      await ref.set({
+        'adminStatus': 'rejected',
+        'isHidden': true,
+        'moderatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else if (action == 'hide') {
+      await ref.set({'isHidden': true, 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'unhide') {
+      await ref.set({'isHidden': false, 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'feature') {
+      await ref.set({'isFeatured': true, 'featuredAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'unfeature') {
+      await ref.set({'isFeatured': false}, SetOptions(merge: true));
+    } else if (action == 'delete') {
+      await ref.delete();
+    }
+  }
+
+  static Future<void> applyUserAction(String userId, String action) async {
+    final ref = _svc.users.doc(userId);
+    if (action == 'flag') {
+      await ref.set({'trustStatus': 'flagged', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'resolve') {
+      await ref.set({'trustStatus': 'active', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+    } else if (action == 'suspend') {
+      await ref.set({
+        'trustStatus': 'suspended',
+        'disabledAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else if (action == 'activate') {
+      await ref.set({'trustStatus': 'active', 'disabledAt': FieldValue.delete()}, SetOptions(merge: true));
+    }
+  }
+
+  static Future<void> rejectPriceRow(_PriceRow row) async {
+    final ref = _svc.products.doc(row.productDocId);
+    final snap = await ref.get();
+    final data = snap.data();
+    if (data == null) return;
+    final history = List<Map<String, dynamic>>.from(
+      ((data['priceHistory'] as List?) ?? const []).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    if (row.entryIndex < 0 || row.entryIndex >= history.length) return;
+    history.removeAt(row.entryIndex);
+    await ref.update({
+      'priceHistory': history,
+      'moderatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> approvePriceRow(_PriceRow row) async {
+    await _svc.products.doc(row.productDocId).set({
+      'moderatedAt': FieldValue.serverTimestamp(),
+      'lastApprovedPriceBy': 'admin',
+      'lastApprovedPriceAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> sendAnnouncement(QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
+    final d = doc.data();
+    final title = (d['title'] as String?)?.trim() ?? '';
+    final body = (d['body'] as String?)?.trim() ?? '';
+    if (title.isEmpty || body.isEmpty) {
+      await doc.reference.set({'status': 'sent', 'sentAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+      return;
+    }
+    final usersSnap = await _svc.users.limit(200).get();
+    final batch = _svc.db.batch();
+    batch.set(
+      doc.reference,
+      {'status': 'sent', 'sentAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
+    );
+    for (final u in usersSnap.docs) {
+      batch.set(_svc.userNotifications(u.id).doc(), {
+        'title': title,
+        'body': body,
+        'createdAt': FieldValue.serverTimestamp(),
+        'source': 'admin',
+        'announcementId': doc.id,
+      });
+    }
+    await batch.commit();
+  }
+}
+
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab({
     required this.onGoContent,
@@ -503,20 +597,32 @@ class _ContentTabState extends State<_ContentTab> {
                     subtitle: 'Gerçek ürün dokümanları',
                   ),
                   const SizedBox(height: 12),
-                  ...filtered.map((doc) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _ProductAdminRow(productDoc: doc),
-                      )),
+                  if (filtered.isEmpty)
+                    const _AdminEmptyCard(
+                      title: 'Ürün kuyruğu boş',
+                      subtitle: 'Seçili filtre için yönetilecek ürün bulunmuyor.',
+                    )
+                  else
+                    ...filtered.map((doc) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _ProductAdminRow(productDoc: doc),
+                        )),
                   const SizedBox(height: 16),
                   const _SectionHeader(
                     title: 'Fiyat Kayıtları',
                     subtitle: 'Ürün priceHistory akışından',
                   ),
                   const SizedBox(height: 12),
-                  ...priceRows.map((row) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _PriceReportRow(row: row),
-                      )),
+                  if (priceRows.isEmpty)
+                    const _AdminEmptyCard(
+                      title: 'Fiyat kaydı yok',
+                      subtitle: 'Modere edilecek yeni fiyat raporu bulunmuyor.',
+                    )
+                  else
+                    ...priceRows.map((row) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _PriceReportRow(row: row),
+                        )),
                 ],
               ),
             ),
@@ -595,74 +701,82 @@ class _ProductAdminRow extends StatelessWidget {
       _ => CoffeeColors.cocoa,
     };
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: status == 'pending' ? CoffeeColors.caramel.withOpacity(0.35) : CoffeeColors.crema,
-          width: status == 'pending' ? 1.5 : 1,
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _ProductModerationDetailScreen(productId: productDoc.id),
         ),
-        boxShadow: FR.softShadow,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  (product['name'] as String?) ?? '-',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: CoffeeColors.espresso,
-                    fontSize: 14,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: status == 'pending' ? CoffeeColors.caramel.withOpacity(0.35) : CoffeeColors.crema,
+            width: status == 'pending' ? 1.5 : 1,
+          ),
+          boxShadow: FR.softShadow,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    (product['name'] as String?) ?? '-',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: CoffeeColors.espresso,
+                      fontSize: 14,
+                    ),
                   ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${(product['category'] as String?) ?? '-'} · ${((product['priceHistory'] as List?) ?? const []).length} kayıt',
+                    style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: statusColor.withOpacity(0.25)),
+              ),
+              child: Text(
+                isHidden ? 'Gizli' : status,
+                style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 8),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: CoffeeColors.cocoa, size: 18),
+              color: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              onSelected: (val) => _handleProductAction(context, val, productDoc.id),
+              itemBuilder: (_) => [
+                if (status == 'pending')
+                  const PopupMenuItem(value: 'approve', child: Text('Onayla')),
+                if (status == 'pending')
+                  const PopupMenuItem(value: 'reject', child: Text('Reddet')),
+                PopupMenuItem(
+                  value: isHidden ? 'unhide' : 'hide',
+                  child: Text(isHidden ? 'Gizlemeyi Kaldır' : 'Gizle'),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '${(product['category'] as String?) ?? '-'} · ${((product['priceHistory'] as List?) ?? const []).length} kayıt',
-                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                PopupMenuItem(
+                  value: isFeatured ? 'unfeature' : 'feature',
+                  child: Text(isFeatured ? 'Öne Çıkarmayı Kaldır' : 'Öne Çıkar'),
                 ),
+                const PopupMenuItem(value: 'delete', child: Text('Sil')),
               ],
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: statusColor.withOpacity(0.25)),
-            ),
-            child: Text(
-              isHidden ? 'Gizli' : status,
-              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 8),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: CoffeeColors.cocoa, size: 18),
-            color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            onSelected: (val) => _handleProductAction(context, val, productDoc),
-            itemBuilder: (_) => [
-              if (status == 'pending')
-                const PopupMenuItem(value: 'approve', child: Text('Onayla')),
-              if (status == 'pending')
-                const PopupMenuItem(value: 'reject', child: Text('Reddet')),
-              PopupMenuItem(
-                value: isHidden ? 'unhide' : 'hide',
-                child: Text(isHidden ? 'Gizlemeyi Kaldır' : 'Gizle'),
-              ),
-              PopupMenuItem(
-                value: isFeatured ? 'unfeature' : 'feature',
-                child: Text(isFeatured ? 'Öne Çıkarmayı Kaldır' : 'Öne Çıkar'),
-              ),
-              const PopupMenuItem(value: 'delete', child: Text('Sil')),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -670,28 +784,9 @@ class _ProductAdminRow extends StatelessWidget {
   Future<void> _handleProductAction(
     BuildContext context,
     String action,
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    String productId,
   ) async {
-    final ref = FirebaseService.instance.products.doc(doc.id);
-    if (action == 'approve') {
-      await ref.set({'adminStatus': 'active', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    } else if (action == 'reject') {
-      await ref.set({
-        'adminStatus': 'rejected',
-        'isHidden': true,
-        'moderatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } else if (action == 'hide') {
-      await ref.set({'isHidden': true, 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    } else if (action == 'unhide') {
-      await ref.set({'isHidden': false, 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    } else if (action == 'feature') {
-      await ref.set({'isFeatured': true, 'featuredAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    } else if (action == 'unfeature') {
-      await ref.set({'isFeatured': false}, SetOptions(merge: true));
-    } else if (action == 'delete') {
-      await ref.delete();
-    }
+    await _AdminWrites.applyProductAction(productId, action);
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -710,58 +805,64 @@ class _PriceReportRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: CoffeeColors.crema),
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => _PriceReportDetailScreen(row: row)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  row.productName,
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 13),
-                ),
-                Text(
-                  '${row.store} · ₺${row.price.toStringAsFixed(2)} · ${row.reportedBy}',
-                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
-                ),
-                if (row.date != null)
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: CoffeeColors.crema),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    '${row.date}',
-                    style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 10),
+                    row.productName,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 13),
                   ),
-              ],
+                  Text(
+                    '${row.store} · ₺${row.price.toStringAsFixed(2)} · ${row.reportedBy}',
+                    style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                  ),
+                  if (row.date != null)
+                    Text(
+                      '${row.date}',
+                      style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 10),
+                    ),
+                ],
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () => _rejectPriceReport(context),
-            child: const Text('Reddet'),
-          ),
-        ],
+            TextButton(
+              onPressed: () => _approvePriceReport(context),
+              child: const Text('Onayla'),
+            ),
+            TextButton(
+              onPressed: () => _rejectPriceReport(context),
+              child: const Text('Reddet'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _rejectPriceReport(BuildContext context) async {
-    final ref = FirebaseService.instance.products.doc(row.productDocId);
-    final snap = await ref.get();
-    final data = snap.data();
-    if (data == null) return;
-    final history = List<Map<String, dynamic>>.from(
-      ((data['priceHistory'] as List?) ?? const []).map((e) => Map<String, dynamic>.from(e as Map)),
+  Future<void> _approvePriceReport(BuildContext context) async {
+    await _AdminWrites.approvePriceRow(row);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fiyat kaydı onaylandı.'), backgroundColor: CoffeeColors.darkRoast),
     );
-    if (row.entryIndex < 0 || row.entryIndex >= history.length) return;
-    history.removeAt(row.entryIndex);
-    await ref.update({
-      'priceHistory': history,
-      'moderatedAt': FieldValue.serverTimestamp(),
-    });
+  }
+
+  Future<void> _rejectPriceReport(BuildContext context) async {
+    await _AdminWrites.rejectPriceRow(row);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Fiyat kaydı kaldırıldı.'), backgroundColor: CoffeeColors.darkRoast),
@@ -818,10 +919,16 @@ class _UsersTab extends StatelessWidget {
             const SizedBox(height: 20),
             const _SectionHeader(title: 'Kullanıcı Listesi', subtitle: 'Gerçek kullanıcı belgeleri'),
             const SizedBox(height: 12),
-            ...users.map((u) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _UserAdminRow(userDoc: u),
-                )),
+            if (users.isEmpty)
+              const _AdminEmptyCard(
+                title: 'Kullanıcı bulunamadı',
+                subtitle: 'Bu ortamda listelenecek kullanıcı dokümanı yok.',
+              )
+            else
+              ...users.map((u) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _UserAdminRow(userDoc: u),
+                  )),
           ],
         );
       },
@@ -873,95 +980,89 @@ class _UserAdminRow extends StatelessWidget {
     final username = (user['username'] as String?) ?? '@anon';
     final points = ((user['points'] as num?) ?? 0).toInt();
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isFlagged ? CoffeeColors.danger.withOpacity(0.3) : CoffeeColors.crema,
-          width: isFlagged ? 1.5 : 1,
-        ),
-        boxShadow: FR.softShadow,
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => _UserModerationDetailScreen(userId: userDoc.id)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isFlagged ? CoffeeColors.danger.withOpacity(0.10) : CoffeeColors.foam,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              isFlagged ? Icons.flag_outlined : Icons.person_outline,
-              color: isFlagged ? CoffeeColors.danger : CoffeeColors.darkRoast,
-              size: 20,
-            ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isFlagged ? CoffeeColors.danger.withOpacity(0.3) : CoffeeColors.crema,
+            width: isFlagged ? 1.5 : 1,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 14),
-                ),
-                Text(
-                  '$username · $points puan',
-                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
-                ),
+          boxShadow: FR.softShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isFlagged ? CoffeeColors.danger.withOpacity(0.10) : CoffeeColors.foam,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                isFlagged ? Icons.flag_outlined : Icons.person_outline,
+                color: isFlagged ? CoffeeColors.danger : CoffeeColors.darkRoast,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 14),
+                  ),
+                  Text(
+                    '$username · $points puan',
+                    style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: CoffeeColors.cocoa, size: 18),
+              color: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              onSelected: (val) => _handleUserAction(context, val),
+              itemBuilder: (_) => [
+                if (!isFlagged)
+                  const PopupMenuItem(value: 'flag', child: Text('Bayrakla')),
+                if (isFlagged)
+                  const PopupMenuItem(value: 'resolve', child: Text('Bayrağı Kaldır')),
+                if (!isSuspended)
+                  const PopupMenuItem(value: 'suspend', child: Text('Askıya Al')),
+                if (isSuspended)
+                  const PopupMenuItem(value: 'activate', child: Text('Aktifleştir')),
               ],
             ),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: CoffeeColors.cocoa, size: 18),
-            color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            onSelected: (val) => _handleUserAction(context, val),
-            itemBuilder: (_) => [
-              if (!isFlagged)
-                const PopupMenuItem(value: 'flag', child: Text('Bayrakla')),
-              if (isFlagged)
-                const PopupMenuItem(value: 'resolve', child: Text('Bayrağı Kaldır')),
-              if (!isSuspended)
-                const PopupMenuItem(value: 'suspend', child: Text('Askıya Al')),
-              if (isSuspended)
-                const PopupMenuItem(value: 'activate', child: Text('Aktifleştir')),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: trustColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: trustColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                trustStatus,
+                style: TextStyle(color: trustColor, fontSize: 10, fontWeight: FontWeight.w700),
+              ),
             ),
-            child: Text(
-              trustStatus,
-              style: TextStyle(color: trustColor, fontSize: 10, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Future<void> _handleUserAction(BuildContext context, String action) async {
-    final ref = FirebaseService.instance.users.doc(userDoc.id);
-    if (action == 'flag') {
-      await ref.set({'trustStatus': 'flagged', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    } else if (action == 'resolve') {
-      await ref.set({'trustStatus': 'active', 'moderatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    } else if (action == 'suspend') {
-      await ref.set({
-        'trustStatus': 'suspended',
-        'disabledAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } else if (action == 'activate') {
-      await ref.set({'trustStatus': 'active', 'disabledAt': FieldValue.delete()}, SetOptions(merge: true));
-    }
+    await _AdminWrites.applyUserAction(userDoc.id, action);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Kullanıcı aksiyonu uygulandı.'), backgroundColor: CoffeeColors.darkRoast),
@@ -1037,20 +1138,35 @@ class _NotificationsTabState extends State<_NotificationsTab> {
             const SizedBox(height: 24),
             const _SectionHeader(title: 'Planlanmış & Taslak', subtitle: 'adminAnnouncements'),
             const SizedBox(height: 12),
-            ...docs.where((d) {
+            if (docs.where((d) {
               final s = (d.data()['status'] as String?) ?? 'draft';
               return s == 'draft' || s == 'scheduled';
-            }).map((d) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _AnnouncementCard(doc: d),
-                )),
+            }).isEmpty)
+              const _AdminEmptyCard(
+                title: 'Taslak / planlı duyuru yok',
+                subtitle: 'Gönderime hazır yeni duyuru bulunmuyor.',
+              )
+            else
+              ...docs.where((d) {
+                final s = (d.data()['status'] as String?) ?? 'draft';
+                return s == 'draft' || s == 'scheduled';
+              }).map((d) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _AnnouncementCard(doc: d),
+                  )),
             const SizedBox(height: 24),
             const _SectionHeader(title: 'Gönderim Geçmişi', subtitle: 'status = sent'),
             const SizedBox(height: 12),
-            ...sent.map((d) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _SentAnnouncementRow(doc: d),
-                )),
+            if (sent.isEmpty)
+              const _AdminEmptyCard(
+                title: 'Gönderim geçmişi boş',
+                subtitle: 'Henüz gönderilmiş admin duyurusu yok.',
+              )
+            else
+              ...sent.map((d) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _SentAnnouncementRow(doc: d),
+                  )),
           ],
         );
       },
@@ -1163,43 +1279,49 @@ class _AnnouncementCard extends StatelessWidget {
     final status = (d['status'] as String?) ?? 'draft';
     final color = status == 'scheduled' ? CoffeeColors.success : CoffeeColors.caramel;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
-        boxShadow: FR.softShadow,
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => _AnnouncementDetailScreen(announcementId: doc.id)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  (d['title'] as String?) ?? '-',
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 14),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${(d['audience'] as String?) ?? '-'} · $status',
-                  style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
-                ),
-              ],
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: FR.softShadow,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    (d['title'] as String?) ?? '-',
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: CoffeeColors.espresso, fontSize: 14),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${(d['audience'] as String?) ?? '-'} · $status',
+                    style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () async {
-              await doc.reference.set({'status': 'sent', 'sentAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Duyuru gönderime alındı.'), backgroundColor: CoffeeColors.darkRoast),
-              );
-            },
-            child: const Text('Gönder'),
-          ),
-        ],
+            TextButton(
+              onPressed: () async {
+                await _AdminWrites.sendAnnouncement(doc);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Duyuru gönderildi.'), backgroundColor: CoffeeColors.darkRoast),
+                );
+              },
+              child: const Text('Gönder'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1241,6 +1363,318 @@ class _SentAnnouncementRow extends StatelessWidget {
                   (d['audience'] as String?) ?? '-',
                   style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductModerationDetailScreen extends StatelessWidget {
+  const _ProductModerationDetailScreen({required this.productId});
+
+  final String productId;
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = FirebaseService.instance;
+    return Scaffold(
+      backgroundColor: CoffeeColors.cream,
+      appBar: AppBar(title: const Text('Ürün Detayı')),
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: svc.products.doc(productId).snapshots(),
+        builder: (context, snap) {
+          final data = snap.data?.data();
+          if (data == null) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: _AdminEmptyCard(
+                title: 'Ürün bulunamadı',
+                subtitle: 'Bu ürün silinmiş veya erişilemiyor olabilir.',
+              ),
+            );
+          }
+          final status = (data['adminStatus'] as String?) ?? 'active';
+          final isHidden = data['isHidden'] == true;
+          final isFeatured = data['isFeatured'] == true;
+          final history = (data['priceHistory'] as List?) ?? const [];
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
+              _DetailCard(
+                title: (data['name'] as String?) ?? '-',
+                subtitle: '${(data['brand'] as String?) ?? '-'} · ${(data['category'] as String?) ?? '-'}',
+                meta: 'Durum: ${isHidden ? 'Gizli' : status} · ${history.length} fiyat kaydı',
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _AdminActionChip(label: 'Onayla', onTap: () => _run(context, 'approve')),
+                  _AdminActionChip(label: 'Reddet', onTap: () => _run(context, 'reject')),
+                  _AdminActionChip(label: isHidden ? 'Unhide' : 'Hide', onTap: () => _run(context, isHidden ? 'unhide' : 'hide')),
+                  _AdminActionChip(label: isFeatured ? 'Unfeature' : 'Feature', onTap: () => _run(context, isFeatured ? 'unfeature' : 'feature')),
+                  _AdminActionChip(label: 'Sil', destructive: true, onTap: () => _run(context, 'delete')),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _run(BuildContext context, String action) async {
+    await _AdminWrites.applyProductAction(productId, action);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Ürün aksiyonu: $action'), backgroundColor: CoffeeColors.darkRoast),
+    );
+  }
+}
+
+class _PriceReportDetailScreen extends StatelessWidget {
+  const _PriceReportDetailScreen({required this.row});
+
+  final _PriceRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CoffeeColors.cream,
+      appBar: AppBar(title: const Text('Rapor Detayı')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        children: [
+          _DetailCard(
+            title: row.productName,
+            subtitle: '${row.store} · ₺${row.price.toStringAsFixed(2)}',
+            meta: '${row.reportedBy} · ${row.date ?? '-'}',
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AdminActionChip(
+                label: 'Approve',
+                onTap: () async {
+                  await _AdminWrites.approvePriceRow(row);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Rapor onaylandı.'), backgroundColor: CoffeeColors.darkRoast),
+                  );
+                },
+              ),
+              _AdminActionChip(
+                label: 'Reject',
+                destructive: true,
+                onTap: () async {
+                  await _AdminWrites.rejectPriceRow(row);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Rapor reddedildi.'), backgroundColor: CoffeeColors.darkRoast),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserModerationDetailScreen extends StatelessWidget {
+  const _UserModerationDetailScreen({required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = FirebaseService.instance;
+    return Scaffold(
+      backgroundColor: CoffeeColors.cream,
+      appBar: AppBar(title: const Text('Kullanıcı Detayı')),
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: svc.users.doc(userId).snapshots(),
+        builder: (context, snap) {
+          final user = snap.data?.data();
+          if (user == null) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: _AdminEmptyCard(
+                title: 'Kullanıcı bulunamadı',
+                subtitle: 'Belge silinmiş veya erişilemiyor olabilir.',
+              ),
+            );
+          }
+          final status = (user['trustStatus'] as String?) ?? 'active';
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
+              _DetailCard(
+                title: (user['displayName'] as String?) ?? '-',
+                subtitle: (user['username'] as String?) ?? '@anon',
+                meta: 'Trust: $status · Puan: ${((user['points'] as num?) ?? 0).toInt()}',
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _AdminActionChip(label: 'Flag', onTap: () => _run(context, 'flag')),
+                  _AdminActionChip(label: 'Resolve', onTap: () => _run(context, 'resolve')),
+                  _AdminActionChip(label: 'Suspend', destructive: true, onTap: () => _run(context, 'suspend')),
+                  _AdminActionChip(label: 'Activate', onTap: () => _run(context, 'activate')),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _run(BuildContext context, String action) async {
+    await _AdminWrites.applyUserAction(userId, action);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Kullanıcı aksiyonu: $action'), backgroundColor: CoffeeColors.darkRoast),
+    );
+  }
+}
+
+class _AnnouncementDetailScreen extends StatelessWidget {
+  const _AnnouncementDetailScreen({required this.announcementId});
+
+  final String announcementId;
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = FirebaseService.instance;
+    return Scaffold(
+      backgroundColor: CoffeeColors.cream,
+      appBar: AppBar(title: const Text('Moderasyon Detayı')),
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: svc.db.collection('adminAnnouncements').doc(announcementId).snapshots(),
+        builder: (context, snap) {
+          final d = snap.data?.data();
+          if (d == null) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: _AdminEmptyCard(
+                title: 'Duyuru bulunamadı',
+                subtitle: 'Belge silinmiş veya taşınmış olabilir.',
+              ),
+            );
+          }
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
+              _DetailCard(
+                title: (d['title'] as String?) ?? '-',
+                subtitle: (d['body'] as String?) ?? '-',
+                meta: 'Status: ${(d['status'] as String?) ?? 'draft'} · Audience: ${(d['audience'] as String?) ?? '-'}',
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DetailCard extends StatelessWidget {
+  const _DetailCard({required this.title, required this.subtitle, required this.meta});
+
+  final String title;
+  final String subtitle;
+  final String meta;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: CoffeeColors.crema),
+        boxShadow: FR.softShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: CoffeeColors.espresso, fontSize: 16)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(color: CoffeeColors.darkRoast, fontSize: 13)),
+          const SizedBox(height: 6),
+          Text(meta, style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminActionChip extends StatelessWidget {
+  const _AdminActionChip({required this.label, required this.onTap, this.destructive = false});
+
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: destructive ? CoffeeColors.danger.withOpacity(0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: destructive ? CoffeeColors.danger.withOpacity(0.25) : CoffeeColors.crema),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: destructive ? CoffeeColors.danger : CoffeeColors.darkRoast,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminEmptyCard extends StatelessWidget {
+  const _AdminEmptyCard({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: CoffeeColors.crema),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.inbox_outlined, color: CoffeeColors.caramel, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: CoffeeColors.espresso, fontWeight: FontWeight.w800, fontSize: 13)),
+                Text(subtitle, style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 11)),
               ],
             ),
           ),

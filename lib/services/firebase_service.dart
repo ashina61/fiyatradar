@@ -32,6 +32,32 @@ class FirebaseService {
     return cred.user!;
   }
 
+  Future<UserCredential> signInWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return auth.signInWithEmailAndPassword(email: email, password: password);
+  }
+
+  Future<UserCredential> registerWithEmail({
+    required String email,
+    required String password,
+    String? displayName,
+  }) async {
+    final cred = await auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      await cred.user?.updateDisplayName(displayName.trim());
+    }
+    return cred;
+  }
+
+  Future<void> sendPasswordReset(String email) {
+    return auth.sendPasswordResetEmail(email: email);
+  }
+
   /// Seeds Firestore collections on first launch so the app is never empty.
   /// After first run, all data is sourced from Firestore.
   Future<void> bootstrap() async {

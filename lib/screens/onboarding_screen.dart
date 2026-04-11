@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/firebase_service.dart';
 import '../theme.dart';
 import '../widgets/design.dart';
 import 'login_screen.dart';
+import 'main_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -17,36 +20,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _slides = [
     _Slide(
-      emoji: '📡',
-      title: 'Canlı Fiyat Sinyali',
-      body:
-          'Topluluk her gün binlerce fiyat gözlemi ekliyor. Gerçek zamanlı veri, anlık karar.',
-      tag: 'GERÇEK ZAMANLI',
-      highlight: 'Bugün 847 yeni kayıt eklendi.',
+      emoji: '🔎',
+      title: 'Ürün Ara, Net Gör',
+      body: 'Keşfet’te ürünü bul, marketlerdeki güncel fiyatı tek bakışta gör.',
+      tag: 'HIZLI KEŞİF',
+      highlight: 'Arama + filtre ile hızlı karar.',
     ),
     _Slide(
       emoji: '⚖️',
-      title: 'Akıllı Karşılaştırma',
-      body:
-          'Marketleri yan yana gör. En avantajlı sepeti tek ekranda hesapla. Tasarrufu kaçırma.',
+      title: 'Karşılaştır ve Karar Ver',
+      body: 'Sepetine ekle, en iyi marketi veya karma kombinasyonu anında karşılaştır.',
       tag: 'KARAR DESTEĞİ',
-      highlight: 'Ortalama %18 daha ucuz market bulunuyor.',
+      highlight: 'Daha iyi fiyatı kaçırma.',
     ),
     _Slide(
-      emoji: '☕',
-      title: 'Katkı Sağla, Puan Kazan',
-      body:
-          'Markette gördüğün fiyatı saniyeler içinde paylaş. Topluluk güçlenir, sen puan kazanırsın.',
-      tag: 'TOPLULUK KATKISI',
-      highlight: '1.200+ aktif katkıcı toplulukta.',
-    ),
-    _Slide(
-      emoji: '🛡️',
-      title: 'Güvenilir Veri',
-      body:
-          'Her fiyat zaman damgasıyla doğrulanır. Birden fazla kullanıcı onayladığında güven skoru yükselir.',
-      tag: 'DOĞRULANMIŞ VERİ',
-      highlight: 'Topluluk moderasyonu + algoritma filtresi.',
+      emoji: '📈',
+      title: 'Katkı Yap, Alarm Kur',
+      body: 'Fiyat ekleyip topluluğu güçlendir, alarm kurup hedef fiyatı takip et.',
+      tag: 'AKILLI TAKİP',
+      highlight: 'Daha iyi alışveriş kararı ver.',
     ),
   ];
 
@@ -54,8 +46,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_done', true);
     if (!mounted) return;
+    final user = FirebaseService.instance.auth.currentUser;
+    final goMain = user != null && !user.isAnonymous;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(
+        builder: (_) => goMain ? const MainScreen() : const LoginScreen(),
+      ),
     );
   }
 
