@@ -17,13 +17,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   late int _index;
-  static const _tabs = [
-    HomeTab(),
-    ExploreTab(),
-    AddPriceTab(),
-    BasketTab(),
-    ProfileTab(),
-  ];
+  static const _tabs = [HomeTab(), ExploreTab(), AddPriceTab(), BasketTab(), ProfileTab()];
 
   @override
   void initState() {
@@ -39,13 +33,17 @@ class _MainScreenState extends State<MainScreen> {
         top: false,
         child: Container(
           height: 72,
-          decoration: const BoxDecoration(
+          padding: const EdgeInsets.only(bottom: 5),
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
-              colors: [ProtoColors.bgPrimary.withAlpha(247), ProtoColors.bgPrimary.withAlpha(208)],
+              colors: [
+                ProtoColors.bgPrimary.withOpacity(0.97),
+                ProtoColors.bgPrimary.withOpacity(0.82),
+              ],
             ),
-            border: Border(top: BorderSide(color: ProtoColors.border)),
+            border: const Border(top: BorderSide(color: ProtoColors.border)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -54,7 +52,7 @@ class _MainScreenState extends State<MainScreen> {
               _item(1, Icons.search, 'Ara'),
               _item(2, Icons.add_circle_outline, 'Ekle'),
               _item(3, Icons.shopping_basket_outlined, 'Sepet'),
-              _item(4, Icons.person_outline, 'Profil'),
+              _item(4, Icons.person, 'Profil'),
             ],
           ),
         ),
@@ -67,20 +65,36 @@ class _MainScreenState extends State<MainScreen> {
     return GestureDetector(
       onTap: () => setState(() => _index = i),
       child: Container(
-        padding: FRInsets.navItem,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? ProtoColors.tan.withOpacity(0.1) : Colors.transparent,
+          color: active ? ProtoColors.tan.withOpacity(0.06) : Colors.transparent,
           borderRadius: FRRadii.lg,
         ),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 18, color: active ? ProtoColors.tan : ProtoColors.textSubtle),
-          const SizedBox(height: 4),
-          Text(label,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: active ? ProtoColors.tan : ProtoColors.textSubtle),
+            const SizedBox(height: 4),
+            Text(
+              label,
               style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: active ? ProtoColors.tan : ProtoColors.textSubtle)),
-        ]),
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: active ? ProtoColors.tan : ProtoColors.textSubtle,
+              ),
+            ),
+            const SizedBox(height: 1),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 3,
+              height: 3,
+              decoration: BoxDecoration(
+                color: active ? ProtoColors.tan : Colors.transparent,
+                borderRadius: FRRadii.pill,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

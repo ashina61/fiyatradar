@@ -12,7 +12,14 @@ class ExploreTab extends StatefulWidget {
 }
 
 class _ExploreTabState extends State<ExploreTab> {
+  final TextEditingController _ctrl = TextEditingController();
   String _q = '';
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,28 +29,63 @@ class _ExploreTabState extends State<ExploreTab> {
     return SafeArea(
       child: Column(
         children: [
-          const ProtoTopBar(title: 'Ara'),
-          ProtoSearchField(hint: 'Ürün, marka, platform', onChanged: (v) => setState(() => _q = v)),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 16, 24, 12),
+            child: Row(children: [
+              Icon(Icons.arrow_back, size: 20),
+              SizedBox(width: 12),
+              Expanded(child: Text('Ara', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+              SizedBox(width: 36),
+            ]),
+          ),
+          Container(
+            margin: FRInsets.searchWrap,
+            padding: FRInsets.searchContent,
+            decoration: protoSurface(),
+            child: Row(
+              children: [
+                const Icon(Icons.search, color: ProtoColors.tan),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    onChanged: (v) => setState(() => _q = v),
+                    style: const TextStyle(color: ProtoColors.textPrimary),
+                    decoration: const InputDecoration.collapsed(
+                      hintText: 'Ürün, marka, platform',
+                      hintStyle: TextStyle(color: ProtoColors.textSubtle),
+                    ),
+                  ),
+                ),
+                if (_q.isNotEmpty)
+                  InkWell(
+                    onTap: () {
+                      _ctrl.clear();
+                      setState(() => _q = '');
+                    },
+                    child: const Icon(Icons.close, color: ProtoColors.textSubtle, size: 18),
+                  ),
+              ],
+            ),
+          ),
           SizedBox(
             height: 34,
             child: ListView(
-              padding: FRInsets.horizontalPage,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               scrollDirection: Axis.horizontal,
               children: const [_Fx('Tümü', true), _Fx('Elektronik', false), _Fx('Gıda', false), _Fx('Bakım', false)],
             ),
           ),
           Padding(
-            padding: FRInsets.pageHeader,
-            child: Row(
-              children: [
-                Text('${filtered.length}', style: const TextStyle(color: ProtoColors.tan, fontWeight: FontWeight.w700)),
-                const Text(' sonuç', style: TextStyle(color: ProtoColors.textSubtle, fontSize: 12)),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 10),
+            child: Row(children: [
+              Text('${filtered.length}', style: const TextStyle(fontSize: 12, color: ProtoColors.tan, fontWeight: FontWeight.w700)),
+              const Text(' sonuç', style: TextStyle(fontSize: 12, color: ProtoColors.textSubtle)),
+            ]),
           ),
           Expanded(
             child: ListView.separated(
-              padding: FRInsets.page,
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 95),
               itemCount: filtered.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (_, i) {
@@ -62,17 +104,27 @@ class _ExploreTabState extends State<ExploreTab> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text(p.brand, style: const TextStyle(color: ProtoColors.textSubtle, fontSize: 11)),
+                          Text(p.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text('${p.brand} • ${p.category}', style: const TextStyle(fontSize: 11, color: ProtoColors.textSubtle)),
+                          const SizedBox(height: 4),
+                          const Text('2 dk önce güncellendi', style: TextStyle(fontSize: 10, color: ProtoColors.textSubtle)),
                         ]),
                       ),
-                      Text('₺${(p.lowestPrice ?? 0).toStringAsFixed(0)}', style: const TextStyle(color: ProtoColors.tan, fontWeight: FontWeight.w800)),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('₺${(p.lowestPrice ?? 0).toStringAsFixed(0)}', style: const TextStyle(fontSize: 15, color: ProtoColors.tan, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 4),
+                          const Text('-12%', style: TextStyle(fontSize: 10, color: ProtoColors.success, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                     ]),
                   ),
                 );
               },
             ),
-          )
+          ),
         ],
       ),
     );
@@ -87,8 +139,8 @@ class _Fx extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: FRInsets.rightGapS,
-      padding: FRInsets.horizontalM,
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: a ? ProtoColors.tan : ProtoColors.surface,
         borderRadius: FRRadii.pill,
