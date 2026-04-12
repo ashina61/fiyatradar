@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../widgets/prototype_ui.dart';
 import '../admin_screen.dart';
@@ -14,6 +15,39 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final products = state.products.take(6).toList();
+    final bannerItems = state.banners.isNotEmpty
+        ? state.banners
+            .asMap()
+            .entries
+            .map(
+              (entry) => _HomeBannerData(
+                tag: entry.value.actionLabel,
+                title: entry.value.title,
+                desc: entry.value.subtitle,
+                colors: _bannerPalette(entry.key),
+              ),
+            )
+            .toList()
+        : const [
+            _HomeBannerData(
+              tag: '🔥 Fırsat',
+              title: 'Haftanın Fırsatları',
+              desc: 'En çok düşen fiyatları keşfet',
+              colors: [Color(0xFF8B6914), Color(0xFFB8956A)],
+            ),
+            _HomeBannerData(
+              tag: '✅ Güvenilir',
+              title: 'Doğrulanmış Düşüşler',
+              desc: 'Topluluk tarafından onaylananlar',
+              colors: [Color(0xFF4A6B5A), Color(0xFF6B8A7A)],
+            ),
+            _HomeBannerData(
+              tag: '⭐ Popüler',
+              title: 'Popüler Ürünler',
+              desc: 'Bu hafta en çok arananlar',
+              colors: [Color(0xFF6B4A8A), Color(0xFF8A6BAA)],
+            ),
+          ];
 
     return SafeArea(
       child: Stack(
@@ -122,31 +156,7 @@ class HomeTab extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
-                    SizedBox(
-                      height: 120,
-                      child: ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        scrollDirection: Axis.horizontal,
-                        children: const [
-                          _Banner('🔥 Fırsat', 'Haftanın Fırsatları', 'En çok düşen fiyatları keşfet', [Color(0xFF8B6914), Color(0xFFB8956A)]),
-                          SizedBox(width: 10),
-                          _Banner('✅ Güvenilir', 'Doğrulanmış Düşüşler', 'Topluluk tarafından onaylananlar', [Color(0xFF4A6B5A), Color(0xFF6B8A7A)]),
-                          SizedBox(width: 10),
-                          _Banner('⭐ Popüler', 'Popüler Ürünler', 'Bu hafta en çok arananlar', [Color(0xFF6B4A8A), Color(0xFF8A6BAA)]),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _Dot(true),
-                        SizedBox(width: 6),
-                        _Dot(false),
-                        SizedBox(width: 6),
-                        _Dot(false),
-                      ],
-                    ),
+                    _HomeBannerSection(bannerItems: bannerItems),
                     const SizedBox(height: 14),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 24),
@@ -180,38 +190,15 @@ class HomeTab extends StatelessWidget {
                         crossAxisCount: 2,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
-                        childAspectRatio: 0.72,
+                        childAspectRatio: 0.70,
                       ),
                       itemBuilder: (_, i) {
                         final p = products[i];
-                        return InkWell(
+                        return _ProductCard(
+                          product: p,
+                          isFavorite: state.isFavorite(p.id),
+                          onFavoriteTap: () => state.toggleFavorite(p.id),
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p))),
-                          child: Container(
-                            decoration: protoSurface(),
-                            child: Column(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    width: double.infinity,
-                                    decoration: const BoxDecoration(
-                                      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-                                      gradient: LinearGradient(colors: [ProtoColors.surfaceAlt, ProtoColors.surfaceElevated]),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(p.emoji, style: const TextStyle(fontSize: 40)),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                    const SizedBox(height: 6),
-                                    Text('₺${(p.lowestPrice ?? 0).toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, color: ProtoColors.tan)),
-                                  ]),
-                                )
-                              ],
-                            ),
-                          ),
                         );
                       },
                     ),
@@ -266,6 +253,15 @@ class HomeTab extends StatelessWidget {
   }
 }
 
+List<Color> _bannerPalette(int index) {
+  const palettes = [
+    [Color(0xFF8B6914), Color(0xFFB8956A)],
+    [Color(0xFF4A6B5A), Color(0xFF6B8A7A)],
+    [Color(0xFF6B4A8A), Color(0xFF8A6BAA)],
+  ];
+  return palettes[index % palettes.length];
+}
+
 class _Chip extends StatelessWidget {
   const _Chip(this.text, this.icon, this.active);
   final String text;
@@ -293,26 +289,320 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _Banner extends StatelessWidget {
-  const _Banner(this.tag, this.title, this.desc, this.colors);
+class _HomeBannerData {
+  const _HomeBannerData({
+    required this.tag,
+    required this.title,
+    required this.desc,
+    required this.colors,
+  });
+
   final String tag;
   final String title;
   final String desc;
   final List<Color> colors;
+}
+
+class _HomeBannerSection extends StatefulWidget {
+  const _HomeBannerSection({required this.bannerItems});
+
+  final List<_HomeBannerData> bannerItems;
+
+  @override
+  State<_HomeBannerSection> createState() => _HomeBannerSectionState();
+}
+
+class _HomeBannerSectionState extends State<_HomeBannerSection> {
+  late final PageController _pageController;
+  int _activeIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 1);
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeBannerSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_activeIndex >= widget.bannerItems.length && widget.bannerItems.isNotEmpty) {
+      setState(() => _activeIndex = widget.bannerItems.length - 1);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 156,
+      child: Column(
+        children: [
+          SizedBox(
+            height: 138,
+            child: PageView.builder(
+              controller: _pageController,
+              padEnds: false,
+              itemCount: widget.bannerItems.length,
+              onPageChanged: (index) => setState(() => _activeIndex = index),
+              itemBuilder: (_, i) {
+                return Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    start: i == 0 ? 24 : 0,
+                    end: i == widget.bannerItems.length - 1 ? 24 : 12,
+                    bottom: 8,
+                  ),
+                  child: _Banner(
+                    data: widget.bannerItems[i],
+                    width: MediaQuery.of(context).size.width - 48,
+                  ),
+                );
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < widget.bannerItems.length; i++) ...[
+                if (i > 0) const SizedBox(width: 6),
+                _Dot(i == _activeIndex),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Banner extends StatelessWidget {
+  const _Banner({required this.data, required this.width});
+  final _HomeBannerData data;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 240,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(gradient: LinearGradient(colors: colors), borderRadius: FRRadii.xl),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(tag, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
-        const SizedBox(height: 8),
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-        const SizedBox(height: 4),
-        Text(desc, style: const TextStyle(fontSize: 11, color: Colors.white70)),
-      ]),
+      width: width,
+      height: 130,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: data.colors),
+        borderRadius: FRRadii.xl,
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white.withOpacity(0.08), Colors.transparent],
+                  stops: const [0, 0.6],
+                ),
+                borderRadius: FRRadii.xl,
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: FRRadii.pill,
+                ),
+                child: Text(
+                  data.tag,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(data.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 4),
+                Text(data.desc, style: const TextStyle(fontSize: 12, color: Color.fromRGBO(255, 255, 255, 0.8))),
+              ]),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  const _ProductCard({
+    required this.product,
+    required this.isFavorite,
+    required this.onFavoriteTap,
+    required this.onTap,
+  });
+
+  final Product product;
+  final bool isFavorite;
+  final VoidCallback onFavoriteTap;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final change = product.priceChangePct;
+    final isDown = (change ?? 0) <= 0;
+    final price = product.lowestPrice ?? product.latestPrice ?? 0;
+    final cheapestStore = product.cheapestStore ?? '-';
+    final lastReporter = product.priceHistory.isNotEmpty ? product.priceHistory.last.reportedBy : 'Sen';
+
+    return InkWell(
+      borderRadius: FRRadii.xl,
+      onTap: onTap,
+      child: Container(
+        decoration: protoSurface(),
+        child: Column(
+          children: [
+            Container(
+              height: 100,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                gradient: LinearGradient(colors: [ProtoColors.surfaceAlt, ProtoColors.surfaceElevated]),
+              ),
+              child: Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.center,
+                    child: Text(product.emoji, style: const TextStyle(fontSize: 36)),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        borderRadius: FRRadii.sm,
+                        color: (isDown ? ProtoColors.success : ProtoColors.danger).withOpacity(0.12),
+                        border: Border.all(
+                          color: (isDown ? ProtoColors.success : ProtoColors.danger).withOpacity(0.25),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(isDown ? Icons.south : Icons.north, size: 10, color: isDown ? ProtoColors.success : ProtoColors.danger),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${(change ?? 0).abs().toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: isDown ? ProtoColors.success : ProtoColors.danger,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: InkWell(
+                      onTap: onFavoriteTap,
+                      borderRadius: FRRadii.pill,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(isFavorite ? 0.7 : 0.5),
+                        ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          size: 14,
+                          color: isFavorite ? ProtoColors.danger : const Color.fromRGBO(255, 255, 255, 0.6),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                      color: ProtoColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '₺${price.toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: ProtoColors.tan),
+                        ),
+                        const TextSpan(
+                          text: 'TL',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color.fromRGBO(175, 163, 152, 0.7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    const Icon(Icons.storefront, size: 8, color: ProtoColors.textSubtle),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        cheapestStore,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 9, color: ProtoColors.textSubtle),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    const Icon(Icons.person, size: 8, color: ProtoColors.textSubtle),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: 'Ekleyen: ', style: TextStyle(fontSize: 9, color: ProtoColors.textSubtle)),
+                            TextSpan(
+                              text: lastReporter,
+                              style: const TextStyle(fontSize: 9, color: ProtoColors.tan, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -373,11 +663,12 @@ class _Dot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: active ? 20 : 8,
-      height: 8,
+      width: active ? 18 : 6,
+      height: 6,
       decoration: BoxDecoration(
         color: active ? ProtoColors.tan : ProtoColors.surfaceElevated,
-        borderRadius: FRRadii.pill,
+        borderRadius: BorderRadius.circular(active ? 3 : 99),
+        border: Border.all(color: active ? ProtoColors.tan : ProtoColors.border),
       ),
     );
   }
