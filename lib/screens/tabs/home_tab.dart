@@ -230,3 +230,5 @@ class _FeedRow extends StatelessWidget {
           child: Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: ExecColors.bgSoft, borderRadius: BorderRadius.circular(12)), alignment: Alignment.center, child: Text(product.emoji, style: const TextStyle(fontSize: 22))), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: manrope(13, FontWeight.w800)), Text('${product.brand} · Kadıköy', style: manrope(11, FontWeight.w600, color: ExecColors.ink3))])), Text('${(product.lowestPrice ?? 0).toStringAsFixed(0)} ₺', style: manrope(14, FontWeight.w800))]),
         ),
       );
+
+}
