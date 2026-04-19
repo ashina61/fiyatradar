@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/prototype_ui.dart';
+import '../widgets/executive_ui.dart';
 import 'tabs/add_price_tab.dart';
 import 'tabs/basket_tab.dart';
 import 'tabs/explore_tab.dart';
@@ -28,31 +28,27 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ExecColors.bg,
       body: IndexedStack(index: _index, children: _tabs),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          height: 72,
-          padding: const EdgeInsets.only(bottom: 5),
+          margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [
-                ProtoColors.bgPrimary.withOpacity(0.97),
-                ProtoColors.bgPrimary.withOpacity(0.82),
-              ],
-            ),
-            border: const Border(top: BorderSide(color: ProtoColors.border)),
+            color: ExecColors.surface.withOpacity(.97),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: ExecColors.bgDeep),
+            boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 18, offset: Offset(0, 6))],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _item(0, Icons.home_filled, 'Ana Sayfa'),
-              _item(1, Icons.search, 'Ara'),
-              _item(2, Icons.add_circle_outline, 'Ekle'),
-              _item(3, Icons.shopping_basket_outlined, 'Sepet'),
-              _item(4, Icons.person, 'Profil'),
+              _item(0, Icons.home_rounded, 'Home'),
+              _item(1, Icons.search_rounded, 'Keşfet'),
+              _item(2, Icons.add_rounded, 'Ekle', primary: true),
+              _item(3, Icons.shopping_basket_rounded, 'Sepet'),
+              _item(4, Icons.person_rounded, 'Profil'),
             ],
           ),
         ),
@@ -60,39 +56,29 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _item(int i, IconData icon, String label) {
+  Widget _item(int i, IconData icon, String label, {bool primary = false}) {
     final active = _index == i;
     return GestureDetector(
       onTap: () => setState(() => _index = i),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        width: primary ? 58 : 64,
+        height: 50,
         decoration: BoxDecoration(
-          color: active ? ProtoColors.tan.withOpacity(0.06) : Colors.transparent,
-          borderRadius: FRRadii.lg,
+          color: primary
+              ? ExecColors.espresso
+              : active
+                  ? ExecColors.espresso
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: active ? ProtoColors.tan : ProtoColors.textSubtle),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: active ? ProtoColors.tan : ProtoColors.textSubtle,
-              ),
-            ),
-            const SizedBox(height: 1),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 3,
-              height: 3,
-              decoration: BoxDecoration(
-                color: active ? ProtoColors.tan : Colors.transparent,
-                borderRadius: FRRadii.pill,
-              ),
-            ),
+            Icon(icon, size: 19, color: (active || primary) ? ExecColors.gold : ExecColors.ink3),
+            if (!primary) ...[
+              const SizedBox(height: 2),
+              Text(label, style: manrope(9, FontWeight.w700, color: active ? ExecColors.gold : ExecColors.ink4)),
+            ]
           ],
         ),
       ),
