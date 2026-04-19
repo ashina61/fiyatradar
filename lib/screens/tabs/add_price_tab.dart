@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
-import '../../widgets/prototype_ui.dart';
+import '../../widgets/executive_ui.dart';
 
 class AddPriceTab extends StatefulWidget {
   const AddPriceTab({super.key});
@@ -11,7 +11,7 @@ class AddPriceTab extends StatefulWidget {
 }
 
 class _AddPriceTabState extends State<AddPriceTab> {
-  String store = 'Trendyol';
+  String store = 'A101';
   final priceCtrl = TextEditingController();
   final noteCtrl = TextEditingController();
 
@@ -22,232 +22,123 @@ class _AddPriceTabState extends State<AddPriceTab> {
     super.dispose();
   }
 
-  Future<void> _pickStore(List<String> stores) async {
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: ProtoColors.bgSecondary,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 38, height: 4, decoration: BoxDecoration(color: ProtoColors.border, borderRadius: FRRadii.pill)),
-              const SizedBox(height: 12),
-              const Text('Fiyat Kaynağı Seç', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 10),
-              ...stores.map(
-                (s) => ListTile(
-                  shape: RoundedRectangleBorder(borderRadius: FRRadii.md),
-                  tileColor: s == store ? ProtoColors.tan.withOpacity(0.12) : ProtoColors.surface,
-                  title: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  trailing: s == store ? const Icon(Icons.check, color: ProtoColors.tan) : null,
-                  onTap: () => Navigator.pop(context, s),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (picked != null) setState(() => store = picked);
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     return SafeArea(
       child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 16, 24, 12),
-            child: Row(children: [
-              Icon(Icons.arrow_back, size: 20),
-              SizedBox(width: 12),
-              Expanded(child: Text('Fiyat Ekle', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
-              SizedBox(width: 36),
-            ]),
-          ),
+          const _PageHeader(),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               children: [
                 Container(
-                  height: 72,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(color: ProtoColors.surface, borderRadius: FRRadii.lg, border: Border.all(color: ProtoColors.border)),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: ProtoColors.surfaceAlt,
-                          borderRadius: FRRadii.md,
-                          border: Border.all(color: ProtoColors.border),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text('⌚', style: TextStyle(fontSize: 20)),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Apple Watch SE 2. Nesil',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        style: TextButton.styleFrom(foregroundColor: ProtoColors.tan, textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        child: const Text('Değiştir'),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: ProtoColors.success.withOpacity(0.1),
-                    borderRadius: FRRadii.lg,
-                    border: Border.all(color: ProtoColors.success.withOpacity(0.2)),
+                    borderRadius: ExecRadii.xl,
+                    gradient: const LinearGradient(colors: [ExecColors.espresso2, ExecColors.espresso]),
                   ),
-                  child: const Text('Bu fiyatı eklersen +24 XP ve +1 Trust kazanırsın.', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                ),
-                _label('Fiyat Kaynağı'),
-                InkWell(
-                  onTap: () => _pickStore(state.stores),
-                  borderRadius: FRRadii.lg,
-                  child: Container(
-                    height: 50,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: ProtoColors.surface,
-                      borderRadius: FRRadii.lg,
-                      border: Border.all(color: ProtoColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(store, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500))),
-                        const Icon(Icons.keyboard_arrow_down, color: ProtoColors.textSubtle),
-                      ],
-                    ),
-                  ),
-                ),
-                _label('Fiyat (TL)'),
-                Container(
-                  height: 50,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(color: ProtoColors.surface, borderRadius: FRRadii.lg, border: Border.all(color: ProtoColors.border)),
-                  child: TextField(
-                    controller: priceCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                    decoration: const InputDecoration(border: InputBorder.none, hintText: '0,00'),
-                  ),
-                ),
-                _label('Not'),
-                Container(
-                  height: 50,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(color: ProtoColors.surface, borderRadius: FRRadii.lg, border: Border.all(color: ProtoColors.border)),
-                  child: TextField(controller: noteCtrl, decoration: const InputDecoration(border: InputBorder.none, hintText: 'Opsiyonel notlar')),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: ProtoColors.success.withOpacity(0.12),
-                    borderRadius: FRRadii.md,
-                    border: Border.all(color: ProtoColors.success.withOpacity(0.3)),
-                  ),
-                  child: const Row(children: [
-                    Icon(Icons.check_circle, color: ProtoColors.success, size: 16),
-                    SizedBox(width: 8),
-                    Text('Fiyat makul aralıkta', style: TextStyle(fontSize: 12, color: ProtoColors.success, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(bottom: 24),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: ProtoColors.surface, borderRadius: FRRadii.lg, border: Border.all(color: ProtoColors.border)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('GÜVEN KATKILARI', style: TextStyle(fontSize: 11, color: ProtoColors.textSubtle, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-                    const SizedBox(height: 10),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 2.4,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: const [_Impact('Kaynak Kalitesi +2'), _Impact('Hız +1'), _Impact('Tutarlılık +3'), _Impact('Topluluk +1')],
+                    Text('RADAR EKOSİSTEMİ', style: manrope(10, FontWeight.w800, color: ExecColors.gold, letterSpacing: 1.9)),
+                    const SizedBox(height: 8),
+                    Text('Her katkın topluluğu güçlendirir', style: fraunces(26, FontWeight.w700, color: ExecColors.onDark)),
+                    const SizedBox(height: 8),
+                    Text('Eklediğin her fiyat onaylandığında puan kazanırsın. Doğrulamalar güven skorunu yükseltir.', style: manrope(13, FontWeight.w600, color: const Color(0xFFC9BCA6))),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: const Color(0x26C9A063), borderRadius: ExecRadii.pill),
+                      child: Text('+25 PT · Eklenen her onaylı fiyat için', style: manrope(11, FontWeight.w800, color: ExecColors.gold)),
                     )
                   ]),
+                ),
+                const SizedBox(height: 16),
+                _label('Ürün'),
+                _inputRow(icon: Icons.search, hint: 'Sadece onaylı ürünlerde ara…', suffix: TextButton(onPressed: () {}, child: Text('Yeni talep', style: manrope(11, FontWeight.w800, color: ExecColors.goldDeep)))),
+                const SizedBox(height: 8),
+                Text('Aradığın ürün listede yok mu? Yeni ürün talep et — admin inceledikten sonra katalogta yerini alır.', style: manrope(11, FontWeight.w600, color: ExecColors.ink3)),
+                const SizedBox(height: 12),
+                _label('Mağaza / Market'),
+                Container(
+                  height: 52,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: execCard(radius: 16),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: store,
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      items: state.stores.map((e) => DropdownMenuItem(value: e, child: Text(e, style: manrope(14, FontWeight.w700)))).toList(),
+                      onChanged: (v) => setState(() => store = v ?? store),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(spacing: 8, runSpacing: 8, children: ['Online', 'Yerel Zincir', 'Büyük Mağaza', 'Mahalle'].map((e) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: ExecColors.surface2, borderRadius: ExecRadii.pill, border: Border.all(color: ExecColors.bgDeep)), child: Text(e, style: manrope(11, FontWeight.w700, color: ExecColors.ink3)))).toList()),
+                const SizedBox(height: 14),
+                _label('Fiyat'),
+                Container(height: 52, padding: const EdgeInsets.symmetric(horizontal: 12), decoration: execCard(radius: 16), child: TextField(controller: priceCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(border: InputBorder.none, hintText: '0,00 ₺', hintStyle: manrope(16, FontWeight.w700, color: ExecColors.ink4)), style: manrope(24, FontWeight.w800, color: ExecColors.ink), textAlign: TextAlign.right)),
+                const SizedBox(height: 12),
+                _label('Not (isteğe bağlı)'),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), decoration: execCard(radius: 16), child: TextField(controller: noteCtrl, maxLines: 3, decoration: InputDecoration(border: InputBorder.none, hintText: 'Fiş no, raf etiketi, kampanya bilgisi…', hintStyle: manrope(13, FontWeight.w600, color: ExecColors.ink4)))),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: ExecColors.successSoft, borderRadius: ExecRadii.md),
+                  child: Row(children: [const Icon(Icons.check_circle, color: ExecColors.success), const SizedBox(width: 8), Expanded(child: Text('Bu fiyat makul aralıkta görünüyor.', style: manrope(12, FontWeight.w700, color: ExecColors.success)))]),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.transparent, ProtoColors.bgPrimary.withOpacity(0.95)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-            child: Column(children: [
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final pid = state.products.isEmpty ? '' : state.products.first.id;
-                    if (pid.isEmpty) return;
-                    final value = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0;
-                    await state.addPrice(productId: pid, store: store, price: value);
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Fiyat başarıyla eklendi!')));
-                  },
-                  icon: const Icon(Icons.send),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ProtoColors.tan,
-                    foregroundColor: ProtoColors.bgPrimary,
-                    shape: RoundedRectangleBorder(borderRadius: FRRadii.lg),
-                  ),
-                  label: const Text('Fiyatı Gönder', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            child: SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final pid = state.products.isEmpty ? '' : state.products.first.id;
+                  if (pid.isEmpty) return;
+                  final value = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0;
+                  await state.addPrice(productId: pid, store: store, price: value);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Fiyat başarıyla eklendi!')));
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: ExecColors.espresso, foregroundColor: ExecColors.gold, shape: RoundedRectangleBorder(borderRadius: ExecRadii.pill)),
+                icon: const Icon(Icons.send_rounded),
+                label: Text('Fiyatı Gönder', style: manrope(15, FontWeight.w800, color: ExecColors.gold)),
               ),
-              const SizedBox(height: 12),
-              const Text('Katkınız topluluk tarafından doğrulanacaktır.', style: TextStyle(fontSize: 10, color: ProtoColors.textSubtle)),
-            ]),
-          ),
+            ),
+          )
         ],
       ),
     );
   }
 
-  Widget _label(String t) => Padding(
+  Widget _label(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(t, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        child: Text(text, style: manrope(13, FontWeight.w800, color: ExecColors.ink2)),
       );
+
+  Widget _inputRow({required IconData icon, required String hint, Widget? suffix}) => Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: execCard(radius: 16),
+      child: Row(children: [Icon(icon, color: ExecColors.ink3, size: 18), const SizedBox(width: 8), Expanded(child: Text(hint, style: manrope(13, FontWeight.w600, color: ExecColors.ink4))), if (suffix != null) suffix]));
 }
 
-class _Impact extends StatelessWidget {
-  const _Impact(this.label);
-  final String label;
+class _PageHeader extends StatelessWidget {
+  const _PageHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: ProtoColors.surfaceAlt,
-        borderRadius: FRRadii.md,
-        border: Border.all(color: ProtoColors.border),
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Topluluğa katkı ver'.toUpperCase(), style: manrope(10, FontWeight.w800, color: ExecColors.goldDeep, letterSpacing: 2.2)),
+        const SizedBox(height: 6),
+        RichText(text: TextSpan(text: 'Fiyat ', style: fraunces(44, FontWeight.w700), children: [TextSpan(text: 'Ekle', style: fraunces(44, FontWeight.w400, color: ExecColors.ink3, style: FontStyle.italic))])),
+      ]),
     );
   }
 }
