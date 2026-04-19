@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../widgets/prototype_ui.dart';
+import '../../state/app_state.dart';
+import '../../widgets/executive_ui.dart';
 import '../admin_screen.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -8,177 +9,87 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 95),
+        padding: const EdgeInsets.only(bottom: 110),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-            child: Row(children: [
-              const Icon(Icons.arrow_back, size: 20),
-              const SizedBox(width: 12),
-              const Expanded(child: Text('Profil', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
-              InkWell(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen())),
-                child: const Icon(Icons.settings, color: ProtoColors.textSecondary),
-              )
-            ]),
-          ),
+          const _Header(),
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [ProtoColors.bgSecondary, ProtoColors.bgPrimary]),
-              borderRadius: FRRadii.xl,
+              borderRadius: ExecRadii.xl,
+              gradient: const LinearGradient(colors: [ExecColors.espresso2, ExecColors.espresso]),
             ),
             child: Column(children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  borderRadius: FRRadii.pill,
-                  gradient: LinearGradient(colors: [ProtoColors.tan.withOpacity(0.2), ProtoColors.tan.withOpacity(0.05)]),
-                  border: Border.all(color: ProtoColors.tan.withOpacity(0.3), width: 2),
-                ),
-                alignment: Alignment.center,
-                child: const Text('FK', style: TextStyle(fontSize: 36, color: ProtoColors.tan, fontWeight: FontWeight.w800)),
-              ),
-              const SizedBox(height: 16),
-              const Text('Adem', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [ProtoColors.tan.withOpacity(0.15), ProtoColors.tan.withOpacity(0.05)]),
-                  border: Border.all(color: ProtoColors.tan.withOpacity(0.2)),
-                  borderRadius: FRRadii.pill,
-                ),
-                child: const Text('👑 Level 18 • Elite', style: TextStyle(fontSize: 12, color: ProtoColors.tan, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(height: 20),
-              Row(children: const [_Stat('482', 'Fiyat'), _Stat('137', 'Doğrulama'), _Stat('96', 'Yorum')]),
+              Container(width: 92, height: 92, decoration: BoxDecoration(color: const Color(0x26C9A063), borderRadius: BorderRadius.circular(30), border: Border.all(color: const Color(0x66C9A063))), alignment: Alignment.center, child: Text((state.displayName.isEmpty ? 'F' : state.displayName[0].toUpperCase()), style: fraunces(40, FontWeight.w700, color: ExecColors.gold))),
+              const SizedBox(height: 10),
+              Text(state.displayName, style: fraunces(30, FontWeight.w600, color: ExecColors.onDark)),
+              Text(state.username, style: manrope(13, FontWeight.w700, color: const Color(0xFFC9BCA6))),
+              const SizedBox(height: 12),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: const Color(0x26C9A063), borderRadius: ExecRadii.pill), child: Text('Elit Radar · ${state.points} PT', style: manrope(11, FontWeight.w800, color: ExecColors.gold))),
             ]),
           ),
           Container(
-            margin: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
             padding: const EdgeInsets.all(16),
-            decoration: protoSurface(),
-            child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Level 19 İlerlemesi', style: TextStyle(fontSize: 13, color: ProtoColors.textSecondary, fontWeight: FontWeight.w600)), Text('750 / 1000 XP', style: TextStyle(fontSize: 12, color: ProtoColors.tan, fontWeight: FontWeight.w700))]),
-              SizedBox(height: 10),
-              ClipRRect(borderRadius: FRRadii.pill, child: LinearProgressIndicator(value: 0.75, minHeight: 8, color: ProtoColors.tan, backgroundColor: ProtoColors.surfaceAlt)),
-              SizedBox(height: 8),
-              Text('3 katkı daha yaparsan Level 19 olacaksın!', style: TextStyle(fontSize: 10, color: ProtoColors.textSubtle), textAlign: TextAlign.center),
+            decoration: execCard(radius: 22),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Rütbe ilerlemesi', style: manrope(12, FontWeight.w700, color: ExecColors.ink3)), Text('${state.points % 1000}/1000', style: manrope(12, FontWeight.w800, color: ExecColors.goldDeep))]),
+              const SizedBox(height: 10),
+              ClipRRect(borderRadius: ExecRadii.pill, child: LinearProgressIndicator(value: (state.points % 1000) / 1000, minHeight: 8, color: ExecColors.gold, backgroundColor: ExecColors.bgDeep)),
             ]),
           ),
-          Container(
-            margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-            decoration: protoSurface(),
-            child: const Column(children: [
-              _ToggleRow(Icons.notifications, 'Bildirimler', true),
-              _ToggleRow(Icons.location_on, 'Konum', false),
-              _ToggleRow(Icons.dark_mode, 'Karanlık Mod', true, last: true),
-            ]),
-          ),
-          Container(
-            margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            decoration: protoSurface(),
-            child: const Column(children: [
-              _Setting(Icons.info, 'Hakkında'),
-              _Setting(Icons.shield, 'Gizlilik'),
-              _Setting(Icons.question_mark, 'FAQ'),
-              _Setting(Icons.history, 'Güncelleme Geçmişi', last: true),
-            ]),
-          ),
+          _group([
+            _row(Icons.favorite_rounded, 'Favorilerim', '12 ürün takipte'),
+            _row(Icons.notifications_active_rounded, 'Bildirim Tercihleri', state.pushNotificationsEnabled ? 'Açık' : 'Kapalı'),
+            _row(Icons.place_rounded, 'Konum Ayarları', 'Kadıköy, İstanbul'),
+          ]),
+          _group([
+            _row(Icons.shield_outlined, 'Güvenlik', state.twoFactorEnabled ? '2FA Açık' : '2FA Kapalı'),
+            _row(Icons.history, 'Katkı Geçmişim', 'Son 30 gün'),
+            _row(Icons.stars_rounded, 'Rozetler', '14 / 42 tamamlandı'),
+          ]),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: SizedBox(
-              height: 52,
-              child: OutlinedButton.icon(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: ProtoColors.danger.withOpacity(0.3)),
-                  backgroundColor: ProtoColors.danger.withOpacity(0.15),
-                  shape: RoundedRectangleBorder(borderRadius: FRRadii.lg),
-                ),
-                icon: const Icon(Icons.logout, color: ProtoColors.danger),
-                label: const Text('Çıkış Yap', style: TextStyle(color: ProtoColors.danger, fontWeight: FontWeight.w700)),
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen())),
+              style: ElevatedButton.styleFrom(backgroundColor: ExecColors.espresso, foregroundColor: ExecColors.gold, shape: RoundedRectangleBorder(borderRadius: ExecRadii.pill), padding: const EdgeInsets.symmetric(vertical: 15)),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text('Admin Konsolu', style: manrope(15, FontWeight.w800, color: ExecColors.gold)),
             ),
-          ),
+          )
         ],
       ),
     );
   }
-}
 
-class _Stat extends StatelessWidget {
-  const _Stat(this.value, this.label);
-  final String value;
-  final String label;
+  Widget _group(List<Widget> children) => Container(margin: const EdgeInsets.fromLTRB(20, 14, 20, 0), decoration: execCard(radius: 20), child: Column(children: children));
 
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 5),
+  Widget _row(IconData icon, String title, String subtitle) => Container(
         padding: const EdgeInsets.all(14),
-        decoration: protoSurface(radius: ProtoRadius.lg),
-        child: Column(children: [
-          Text(value, style: const TextStyle(fontSize: 22, color: ProtoColors.tan, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, color: ProtoColors.textSubtle, letterSpacing: 0.3)),
+        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: ExecColors.bgDeep))),
+        child: Row(children: [
+          Container(width: 36, height: 36, decoration: BoxDecoration(color: ExecColors.bgSoft, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: ExecColors.goldDeep, size: 18)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: manrope(13, FontWeight.w800)), Text(subtitle, style: manrope(11, FontWeight.w600, color: ExecColors.ink3))])),
+          const Icon(Icons.chevron_right, color: ExecColors.ink4)
         ]),
-      ),
-    );
-  }
+      );
 }
 
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow(this.icon, this.label, this.active, {this.last = false});
-  final IconData icon;
-  final String label;
-  final bool active;
-  final bool last;
+class _Header extends StatelessWidget {
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: ProtoColors.borderLight))),
-      child: Row(children: [
-        Container(width: 36, height: 36, decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: FRRadii.md, border: Border.all(color: ProtoColors.border)), child: Icon(icon, color: ProtoColors.tan, size: 16)),
-        const SizedBox(width: 12),
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-        Container(
-          width: 48,
-          height: 26,
-          decoration: BoxDecoration(color: active ? ProtoColors.tan : ProtoColors.surfaceAlt, borderRadius: FRRadii.pill, border: Border.all(color: active ? ProtoColors.tan : ProtoColors.border)),
-          child: Align(
-            alignment: active ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(margin: const EdgeInsets.all(2), width: 20, height: 20, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-          ),
-        )
-      ]),
-    );
-  }
-}
-
-class _Setting extends StatelessWidget {
-  const _Setting(this.icon, this.label, {this.last = false});
-  final IconData icon;
-  final String label;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: ProtoColors.borderLight))),
-      child: Row(children: [
-        Container(width: 36, height: 36, decoration: BoxDecoration(color: ProtoColors.surfaceAlt, borderRadius: FRRadii.md, border: Border.all(color: ProtoColors.border)), child: Icon(icon, color: ProtoColors.tan, size: 16)),
-        const SizedBox(width: 12),
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
-        const Icon(Icons.chevron_right, color: ProtoColors.textSubtle),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('KİMLİK · GÜVEN · KATKI', style: manrope(10, FontWeight.w800, color: ExecColors.goldDeep, letterSpacing: 2.2)),
+        const SizedBox(height: 6),
+        Text('Profil', style: fraunces(44, FontWeight.w700)),
       ]),
     );
   }
