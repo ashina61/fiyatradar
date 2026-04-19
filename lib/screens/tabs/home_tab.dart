@@ -73,8 +73,7 @@ class HomeTab extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('HAFTANIN AVI', style: manrope(10, FontWeight.w800, color: ExecColors.gold, letterSpacing: 2)),
                   const SizedBox(height: 8),
-                  Text('Kahve fiyatları
-bu hafta %14 düştü', style: fraunces(24, FontWeight.w700, color: ExecColors.onDark)),
+                  Text('Kahve fiyatları\nbu hafta %14 düştü', style: fraunces(24, FontWeight.w700, color: ExecColors.onDark)),
                   const Spacer(),
                   Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: ExecColors.gold, borderRadius: ExecRadii.pill), child: Text('İncele', style: manrope(12, FontWeight.w800, color: ExecColors.espresso))),
                 ]),
