@@ -229,3 +229,5 @@ class _FeedRow extends StatelessWidget {
           ]),
         ),
       );
+
+}
