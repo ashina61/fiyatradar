@@ -69,13 +69,30 @@ class FirebaseService {
     final snap = await products.limit(1).get();
     if (snap.docs.isNotEmpty) return;
     final now = DateTime.now();
+    var seq = 0;
     Map<String, dynamic> entry(String store, double price, int daysAgo,
-        {String by = 'Topluluk'}) {
+        {String by = 'Topluluk',
+        int up = 0,
+        int down = 0,
+        String status = 'pending'}) {
+      seq++;
+      final createdAt = now.subtract(Duration(days: daysAgo));
       return {
+        'id': 'seed_${seq}_${createdAt.millisecondsSinceEpoch}',
         'store': store,
         'price': price,
-        'date': Timestamp.fromDate(now.subtract(Duration(days: daysAgo))),
+        'date': Timestamp.fromDate(createdAt),
         'reportedBy': by,
+        'reportedByUid': '',
+        'note': '',
+        'upvotes': up,
+        'downvotes': down,
+        'verifiedByCount': up,
+        'rejectedByCount': down,
+        'trustWeightedScore': (up - down).toDouble(),
+        'status': status,
+        'statusUpdatedAt': Timestamp.fromDate(createdAt),
+        'voters': <String, String>{},
       };
     }
 
@@ -88,9 +105,9 @@ class FirebaseService {
         'emoji': '🥛',
         'unit': '1 L',
         'priceHistory': [
-          entry('BİM', 32.50, 6),
-          entry('A101', 33.90, 3),
-          entry('Migros', 35.50, 1),
+          entry('BİM', 32.50, 6, up: 4, status: 'community_verified'),
+          entry('A101', 33.90, 3, up: 2, down: 1),
+          entry('Migros', 35.50, 1, up: 1),
         ],
       },
       {
@@ -101,8 +118,8 @@ class FirebaseService {
         'emoji': '☕',
         'unit': '250 g',
         'priceHistory': [
-          entry('Migros', 145.00, 5),
-          entry('A101', 139.50, 2),
+          entry('Migros', 145.00, 5, up: 3, status: 'community_verified'),
+          entry('A101', 139.50, 2, up: 2),
         ],
       },
       {
@@ -113,8 +130,8 @@ class FirebaseService {
         'emoji': '🫒',
         'unit': '1 L',
         'priceHistory': [
-          entry('ŞOK', 289.00, 4),
-          entry('CarrefourSA', 305.00, 1),
+          entry('ŞOK', 289.00, 4, up: 3, status: 'community_verified'),
+          entry('CarrefourSA', 305.00, 1, up: 1),
         ],
       },
       {
@@ -124,7 +141,7 @@ class FirebaseService {
         'category': 'Kahvaltılık',
         'emoji': '🥚',
         'unit': '30 adet',
-        'priceHistory': [entry('A101', 159.00, 2)],
+        'priceHistory': [entry('A101', 159.00, 2, up: 2)],
       },
       {
         'id': 'p5',
@@ -134,8 +151,8 @@ class FirebaseService {
         'emoji': '🍅',
         'unit': '1 kg',
         'priceHistory': [
-          entry('Tarım Kredi', 24.90, 1),
-          entry('Migros', 32.50, 0),
+          entry('Tarım Kredi', 24.90, 1, up: 2),
+          entry('Migros', 32.50, 0, up: 1),
         ],
       },
       {
@@ -145,7 +162,7 @@ class FirebaseService {
         'category': 'Atıştırmalık',
         'emoji': '🍫',
         'unit': '80 g',
-        'priceHistory': [entry('BİM', 22.50, 3)],
+        'priceHistory': [entry('BİM', 22.50, 3, up: 1)],
       },
     ];
 

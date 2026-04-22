@@ -16,15 +16,33 @@ class ProductDetailScreen extends StatelessWidget {
     final isFav = state.isFavorite(product.id);
     final alert = state.alertForProduct(product.id);
     final sorted = [...product.priceHistory]..sort((a, b) => b.date.compareTo(a.date));
-    final latest = sorted.isEmpty ? null : sorted.first;
+    final best = product.bestValueEntry;
 
-    // Store aggregates (cheapest entry per store)
+    // Store aggregates: best-value entry per store (not just cheapest).
     final perStore = <String, PriceEntry>{};
-    for (final e in product.priceHistory) {
+    for (final e in product.validEntries) {
       final cur = perStore[e.store];
-      if (cur == null || e.price < cur.price) perStore[e.store] = e;
+      if (cur == null) {
+        perStore[e.store] = e;
+        continue;
+      }
+      // prefer verified, then cheaper
+      final curVerified = cur.status == PriceStatus.communityVerified;
+      final eVerified = e.status == PriceStatus.communityVerified;
+      if (eVerified && !curVerified) {
+        perStore[e.store] = e;
+      } else if (eVerified == curVerified && e.price < cur.price) {
+        perStore[e.store] = e;
+      }
     }
-    final stores = perStore.values.toList()..sort((a, b) => a.price.compareTo(b.price));
+    final stores = perStore.values.toList()
+      ..sort((a, b) {
+        // Verified first, then ascending price.
+        final av = a.status == PriceStatus.communityVerified ? 0 : 1;
+        final bv = b.status == PriceStatus.communityVerified ? 0 : 1;
+        if (av != bv) return av - bv;
+        return a.price.compareTo(b.price);
+      });
 
     return Scaffold(
       backgroundColor: FR.bg,
@@ -52,13 +70,13 @@ class ProductDetailScreen extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
                 children: [
                   // Hero image
                   Container(
                     height: 220,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         colors: [FR.surfaceHi, FR.surfaceLo],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -84,9 +102,9 @@ class ProductDetailScreen extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.verified_rounded, color: FR.gold, size: 13),
+                                Icon(Icons.verified_rounded, color: FR.gold, size: 13),
                                 const SizedBox(width: 5),
-                                Text('Admin onaylı',
+                                Text('Katalog onaylı',
                                     style: frText(10.5, FontWeight.w800, color: FR.gold)),
                               ],
                             ),
@@ -104,15 +122,11 @@ class ProductDetailScreen extends StatelessWidget {
                   Text(product.unit,
                       style: frText(13, FontWeight.w600, color: FR.ink3)),
                   const SizedBox(height: 18),
-                  _BestPriceCard(
-                    price: product.lowestPrice,
-                    store: product.cheapestStore,
-                    pct: product.priceChangePct,
-                    latest: latest,
-                  ),
+                  _BestPriceCard(product: product, best: best),
                   const SizedBox(height: 18),
-                  if (product.priceHistory.length >= 2) _PriceHistoryCard(product: product),
-                  if (product.priceHistory.length >= 2) const SizedBox(height: 18),
+                  if (product.validEntries.length >= 2)
+                    _PriceHistoryCard(product: product),
+                  if (product.validEntries.length >= 2) const SizedBox(height: 18),
                   FRSectionHead(eyebrow: 'MARKETLER', title: 'Mağaza karşılaştırması'),
                   const SizedBox(height: 12),
                   if (stores.isEmpty)
@@ -126,18 +140,35 @@ class ProductDetailScreen extends StatelessWidget {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _StoreRow(
                             store: e.store,
-                            price: e.price,
-                            when: e.date,
-                            isBest: e.store == product.cheapestStore,
+                            entry: e,
+                            isBest: best != null && e.id == best.id,
                           ),
                         )),
                   const SizedBox(height: 20),
-                  FRSectionHead(eyebrow: 'SON KATKILAR', title: 'Topluluk akışı'),
-                  const SizedBox(height: 12),
-                  ...sorted.take(4).map((e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _ContributionRow(entry: e),
-                      )),
+                  FRSectionHead(
+                      eyebrow: 'TOPLULUK DOĞRULAMASI',
+                      title: 'Son katkılar'),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Oy ver, topluluğun güveni şekillendir. Kendi girdiğine ya da aynı girdiye tekrar oy veremezsin.',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.5),
+                  ),
+                  const SizedBox(height: 10),
+                  if (sorted.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Text('Henüz katkı yok — ilk fiyatı sen ekle.',
+                          style: frText(12, FontWeight.w600, color: FR.ink3)),
+                    )
+                  else
+                    ...sorted.take(6).map((e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _ContributionRow(
+                            product: product,
+                            entry: e,
+                            state: state,
+                          ),
+                        )),
                 ],
               ),
             ),
@@ -181,7 +212,7 @@ class ProductDetailScreen extends StatelessWidget {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: frPrice(20),
               cursorColor: FR.gold,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 prefixText: '₺ ',
                 prefixStyle: TextStyle(color: FR.gold, fontWeight: FontWeight.w800),
               ),
@@ -215,23 +246,18 @@ class ProductDetailScreen extends StatelessWidget {
 }
 
 class _BestPriceCard extends StatelessWidget {
-  const _BestPriceCard({
-    required this.price,
-    required this.store,
-    required this.pct,
-    required this.latest,
-  });
-  final double? price;
-  final String? store;
-  final double? pct;
-  final PriceEntry? latest;
+  const _BestPriceCard({required this.product, required this.best});
+  final Product product;
+  final PriceEntry? best;
 
   @override
   Widget build(BuildContext context) {
+    final pct = product.priceChangePct;
+    final trustPct = product.aggregateTrustPercent;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surface],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -243,28 +269,52 @@ class _BestPriceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('BÖLGENDEKİ EN İYİ FİYAT', style: frOverline()),
+          Row(
+            children: [
+              Text('BÖLGENDEKİ EN İYİ FİYAT', style: frOverline()),
+              const Spacer(),
+              if (best != null)
+                FRVerifyBadge.status(
+                  status: statusToString(best!.status),
+                  trustPercent: best!.trustPercent,
+                  dense: true,
+                ),
+            ],
+          ),
           const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              FRPriceText(price, size: 44, color: FR.ink),
+              FRPriceText(best?.price, size: 44, color: FR.ink),
               const SizedBox(width: 12),
               if (pct != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: FRTrendPill(pct: pct!),
+                  child: FRTrendPill(pct: pct),
                 ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              if (store != null) FRStoreBadge(store!, filled: true),
+              if (best != null) FRStoreBadge(best!.store, filled: true),
               const SizedBox(width: 8),
-              if (latest != null) FRFreshChip(date: latest!.date),
+              if (best != null) FRFreshChip(date: best!.date),
             ],
           ),
+          if (trustPct > 0) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Icon(Icons.shield_moon_outlined, size: 14, color: FR.ink3),
+                const SizedBox(width: 6),
+                Text(
+                  'Topluluk güveni · %$trustPct · ${product.verifiedCount} doğrulanmış',
+                  style: frText(11, FontWeight.w700, color: FR.ink3),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -277,7 +327,8 @@ class _PriceHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sorted = [...product.priceHistory]..sort((a, b) => a.date.compareTo(b.date));
+    final sorted = [...product.validEntries]
+      ..sort((a, b) => a.date.compareTo(b.date));
     final values = sorted.map((e) => e.price).toList();
     final high = values.reduce((a, b) => a > b ? a : b);
     final low = values.reduce((a, b) => a < b ? a : b);
@@ -335,17 +386,16 @@ class _PriceHistoryCard extends StatelessWidget {
 class _StoreRow extends StatelessWidget {
   const _StoreRow({
     required this.store,
-    required this.price,
-    required this.when,
+    required this.entry,
     required this.isBest,
   });
   final String store;
-  final double price;
-  final DateTime when;
+  final PriceEntry entry;
   final bool isBest;
 
   @override
   Widget build(BuildContext context) {
+    final verified = entry.status == PriceStatus.communityVerified;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -383,65 +433,188 @@ class _StoreRow extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 2),
-                FRFreshChip(date: when),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    FRFreshChip(date: entry.date),
+                    const SizedBox(width: 6),
+                    FRVerifyBadge.status(
+                      status: statusToString(entry.status),
+                      trustPercent: entry.trustPercent,
+                      dense: true,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
-          FRPriceText(price, size: 18, color: isBest ? FR.gold : FR.ink),
+          FRPriceText(entry.price, size: 18, color: verified || isBest ? FR.gold : FR.ink),
         ],
       ),
     );
   }
 }
 
-class _ContributionRow extends StatelessWidget {
-  const _ContributionRow({required this.entry});
+class _ContributionRow extends StatefulWidget {
+  const _ContributionRow({
+    required this.product,
+    required this.entry,
+    required this.state,
+  });
+  final Product product;
   final PriceEntry entry;
+  final AppState state;
+
+  @override
+  State<_ContributionRow> createState() => _ContributionRowState();
+}
+
+class _ContributionRowState extends State<_ContributionRow> {
+  bool _busy = false;
+
+  Future<void> _cast(VoteKind kind) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.state.voteOnPrice(
+        product: widget.product,
+        entry: widget.entry,
+        kind: kind,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(kind == VoteKind.up
+              ? 'Oyunu kaydettik · +1 PT'
+              : 'Yanlış olarak işaretlendi · +1 PT'),
+        ),
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Oy gönderilemedi, tekrar dene.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final state = widget.state;
     final initial = entry.reportedBy.isEmpty
         ? 'T'
         : entry.reportedBy[0].toUpperCase();
+    final uid = state.user?.uid ?? '';
+    final myVote = entry.voteOf(uid);
+    final disabledReason = state.canVoteOn(widget.product, entry);
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: frSurface(radius: FRRad.l),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: FR.surfaceHi,
-              borderRadius: FRRad.all(12),
-              border: Border.all(color: FR.hairline),
-            ),
-            alignment: Alignment.center,
-            child: Text(initial,
-                style: frText(14, FontWeight.w800, color: FR.gold)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(entry.reportedBy,
-                    style: frText(13, FontWeight.w800)),
-                Row(
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: FR.surfaceHi,
+                  borderRadius: FRRad.all(12),
+                  border: Border.all(color: FR.hairline),
+                ),
+                alignment: Alignment.center,
+                child: Text(initial,
+                    style: frText(14, FontWeight.w800, color: FR.gold)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    FRStoreBadge(entry.store),
-                    const SizedBox(width: 6),
-                    FRFreshChip(date: entry.date),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(entry.reportedBy,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: frText(13, FontWeight.w800)),
+                        ),
+                        const SizedBox(width: 6),
+                        FRVerifyBadge.status(
+                          status: statusToString(entry.status),
+                          trustPercent: entry.trustPercent,
+                          dense: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        FRStoreBadge(entry.store),
+                        const SizedBox(width: 6),
+                        FRFreshChip(date: entry.date),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              FRPriceText(entry.price, size: 15),
+            ],
           ),
-          FRPriceText(entry.price, size: 15),
+          if (entry.note.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              entry.note,
+              style: frText(12, FontWeight.w600, color: FR.ink2, height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 10),
+          FRVoteBar(up: entry.upvotes, down: entry.downvotes),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _subtitle(entry, disabledReason, myVote),
+                  style: frText(10.5, FontWeight.w700, color: FR.ink3, height: 1.4),
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (_busy)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: FR.gold),
+                )
+              else
+                FRVoteButtons(
+                  currentVote: myVote,
+                  disabledReason: disabledReason,
+                  onUp: () => _cast(VoteKind.up),
+                  onDown: () => _cast(VoteKind.down),
+                ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  String _subtitle(PriceEntry e, String? disabledReason, String? myVote) {
+    if (disabledReason != null) return disabledReason;
+    if (myVote != null) {
+      return 'Oyun: ${myVote == 'up' ? 'doğru' : 'yanlış'} · ${e.verifiedByCount} onay · ${e.rejectedByCount} itiraz';
+    }
+    return '${e.verifiedByCount} onay · ${e.rejectedByCount} itiraz';
   }
 }
 
@@ -459,9 +632,10 @@ class _Actions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safe = MediaQuery.of(context).viewPadding.bottom;
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + safe),
+      decoration: BoxDecoration(
         color: FR.bgElev,
         border: Border(top: BorderSide(color: FR.hairline)),
       ),
@@ -493,11 +667,11 @@ class _Actions extends StatelessWidget {
               width: 54,
               height: 54,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
                 shape: BoxShape.circle,
                 boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 18)],
               ),
-              child: const Icon(Icons.add_rounded, color: FR.bg, size: 24),
+              child: Icon(Icons.add_rounded, color: FR.bg, size: 24),
             ),
           ),
         ],

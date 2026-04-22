@@ -3,68 +3,74 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'tokens.dart';
 
-ThemeData buildFRTheme() {
-  const scheme = ColorScheme.dark(
-    primary: FR.gold,
-    onPrimary: FR.bg,
-    secondary: FR.goldDeep,
-    onSecondary: FR.ink,
-    surface: FR.surface,
-    onSurface: FR.ink,
-    error: FR.bad,
+ThemeData buildFRTheme({required FRPalette palette}) {
+  final isDark = palette.brightness == Brightness.dark;
+  final scheme = ColorScheme(
+    brightness: palette.brightness,
+    primary: palette.gold,
+    onPrimary: palette.bg,
+    secondary: palette.goldDeep,
+    onSecondary: palette.ink,
+    surface: palette.surface,
+    onSurface: palette.ink,
+    error: palette.bad,
+    onError: palette.bg,
   );
 
-  final textTheme = GoogleFonts.manropeTextTheme(
-    ThemeData.dark().textTheme.apply(bodyColor: FR.ink, displayColor: FR.ink),
-  );
+  final baseText = (isDark ? ThemeData.dark() : ThemeData.light())
+      .textTheme
+      .apply(bodyColor: palette.ink, displayColor: palette.ink);
+  final textTheme = GoogleFonts.manropeTextTheme(baseText);
 
   return ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
+    brightness: palette.brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor: FR.bg,
+    scaffoldBackgroundColor: palette.bg,
     textTheme: textTheme,
     splashFactory: InkRipple.splashFactory,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: FR.bg,
-      foregroundColor: FR.ink,
+    appBarTheme: AppBarTheme(
+      backgroundColor: palette.bg,
+      foregroundColor: palette.ink,
       elevation: 0,
       scrolledUnderElevation: 0,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: FR.surface,
-      hintStyle: frText(13, FontWeight.w600, color: FR.ink3),
+      fillColor: palette.surface,
+      hintStyle: frText(13, FontWeight.w600, color: palette.ink3),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: FRRad.all(FRRad.m),
-        borderSide: const BorderSide(color: FR.hairline),
+        borderSide: BorderSide(color: palette.hairline),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: FRRad.all(FRRad.m),
-        borderSide: const BorderSide(color: FR.hairline),
+        borderSide: BorderSide(color: palette.hairline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: FRRad.all(FRRad.m),
-        borderSide: const BorderSide(color: FR.gold, width: 1.4),
+        borderSide: BorderSide(color: palette.gold, width: 1.4),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: FRRad.all(FRRad.m),
-        borderSide: const BorderSide(color: FR.bad),
+        borderSide: BorderSide(color: palette.bad),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: FR.surfaceHi,
-      contentTextStyle: frText(13, FontWeight.w700, color: FR.ink),
+      backgroundColor: palette.surfaceHi,
+      contentTextStyle: frText(13, FontWeight.w700, color: palette.ink),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: FRRad.all(FRRad.m)),
     ),
     dialogTheme: DialogTheme(
-      backgroundColor: FR.surface,
+      backgroundColor: palette.surface,
       shape: RoundedRectangleBorder(borderRadius: FRRad.all(FRRad.l)),
-      titleTextStyle: frDisplay(22, FontWeight.w700),
-      contentTextStyle: frText(13.5, FontWeight.w500, color: FR.ink2, height: 1.45),
+      titleTextStyle: frDisplay(22, FontWeight.w700, color: palette.ink),
+      contentTextStyle:
+          frText(13.5, FontWeight.w500, color: palette.ink2, height: 1.45),
     ),
-    dividerColor: FR.hairline,
+    dividerColor: palette.hairline,
+    iconTheme: IconThemeData(color: palette.ink2),
   );
 }

@@ -81,7 +81,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                      gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
                       borderRadius: FRRad.all(11),
                     ),
                     alignment: Alignment.center,
@@ -192,7 +192,7 @@ class _SlideView extends StatelessWidget {
                 width: 160,
                 height: 160,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [FR.surface, FR.surfaceLo],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -234,7 +234,7 @@ class _SlideView extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const FRLiveDot(color: FR.gold),
+                      FRLiveDot(color: FR.gold),
                       const SizedBox(width: 9),
                       Flexible(
                         child: Text(

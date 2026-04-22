@@ -18,7 +18,7 @@ class ProfileTab extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+        padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
         children: [
           FRPageHeader(
             overline: 'KİMLİK · GÜVEN · KATKI',
@@ -31,9 +31,15 @@ class ProfileTab extends StatelessWidget {
           const SizedBox(height: 20),
           _IdentityCard(state: state),
           const SizedBox(height: 14),
+          _TrustCard(state: state),
+          const SizedBox(height: 14),
           _RankProgress(pct: rankPct, earned: rankPoints),
           const SizedBox(height: 20),
           _StatGrid(state: state),
+          const SizedBox(height: 20),
+          FRSectionHead(eyebrow: 'GÖRÜNÜM', title: 'Tema'),
+          const SizedBox(height: 10),
+          const _ThemeToggleCard(),
           const SizedBox(height: 20),
           FRSectionHead(eyebrow: 'TAKİP', title: 'Radar takvimin'),
           const SizedBox(height: 10),
@@ -84,7 +90,9 @@ class ProfileTab extends StatelessWidget {
               _ListItem(
                 icon: Icons.place_outlined,
                 title: 'Konum tercihleri',
-                subtitle: 'Kadıköy, İstanbul',
+                subtitle: state.phoneNumber?.isNotEmpty == true
+                    ? 'Konum açık'
+                    : 'Konum kapalı · tüm Türkiye',
                 onTap: () {},
               ),
               _ListItem(
@@ -135,7 +143,7 @@ class _IdentityCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -149,7 +157,7 @@ class _IdentityCard extends StatelessWidget {
             width: 76,
             height: 76,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+              gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
               borderRadius: FRRad.all(22),
               boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 20)],
             ),
@@ -179,7 +187,7 @@ class _IdentityCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.auto_awesome_rounded,
+                      Icon(Icons.auto_awesome_rounded,
                           color: FR.gold, size: 13),
                       const SizedBox(width: 5),
                       Text('Elit Radar · ${state.points} PT',
@@ -280,7 +288,7 @@ class _ListGroup extends StatelessWidget {
           for (var i = 0; i < items.length; i++) ...[
             items[i],
             if (i < items.length - 1)
-              const Divider(height: 1, color: FR.hairline, indent: 16, endIndent: 16),
+              Divider(height: 1, color: FR.hairline, indent: 16, endIndent: 16),
           ],
         ],
       ),
@@ -330,7 +338,7 @@ class _ListItem extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: FR.ink3),
+            Icon(Icons.chevron_right_rounded, color: FR.ink3),
           ],
         ),
       ),
@@ -356,7 +364,7 @@ class _AdminCta extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.admin_panel_settings_outlined,
+            Icon(Icons.admin_panel_settings_outlined,
                 color: FR.gold, size: 22),
             const SizedBox(width: 12),
             Expanded(
@@ -369,7 +377,189 @@ class _AdminCta extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_rounded, color: FR.gold, size: 18),
+            Icon(Icons.arrow_forward_rounded, color: FR.gold, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrustCard extends StatelessWidget {
+  const _TrustCard({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = state.trustScorePercent;
+    final c = pct >= 70
+        ? FR.good
+        : pct >= 40
+            ? FR.warn
+            : FR.bad;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: frSurface(radius: FRRad.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.shield_moon_outlined, size: 16, color: c),
+              const SizedBox(width: 8),
+              Text('TOPLULUK GÜVENİ',
+                  style: frOverline(color: FR.ink3, size: 9.5)),
+              const Spacer(),
+              Text('%$pct', style: frPrice(18, color: c)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: FRRad.all(999),
+            child: LinearProgressIndicator(
+              value: (pct / 100).clamp(0, 1).toDouble(),
+              minHeight: 6,
+              color: c,
+              backgroundColor: FR.bgElev,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.trustTotalVotes == 0
+                ? 'Henüz oy kullanmadın. Doğrulama oyu kullandıkça güven ağırlığın artar.'
+                : '${state.trustVerifiedTotal} doğru · ${state.trustWrongTotal} hatalı · '
+                    '${state.contributions} fiyat katkın',
+            style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeToggleCard extends StatefulWidget {
+  const _ThemeToggleCard();
+
+  @override
+  State<_ThemeToggleCard> createState() => _ThemeToggleCardState();
+}
+
+class _ThemeToggleCardState extends State<_ThemeToggleCard> {
+  @override
+  void initState() {
+    super.initState();
+    FRThemeController.instance.addListener(_onTheme);
+  }
+
+  @override
+  void dispose() {
+    FRThemeController.instance.removeListener(_onTheme);
+    super.dispose();
+  }
+
+  void _onTheme() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = FRThemeController.instance.isDark;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: frSurface(radius: FRRad.l),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: FR.surfaceHi,
+                  borderRadius: FRRad.all(12),
+                  border: Border.all(color: FR.hairline),
+                ),
+                child: Icon(
+                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                  color: FR.gold,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tema', style: frText(13.5, FontWeight.w800)),
+                    Text(
+                      isDark
+                          ? 'Koyu tema · espresso'
+                          : 'Aydınlık tema · krema',
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: isDark,
+                activeColor: FR.gold,
+                onChanged: (_) => FRThemeController.instance.toggle(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _themeChip(
+                  label: 'Aydınlık',
+                  icon: Icons.light_mode_rounded,
+                  active: !isDark,
+                  onTap: () => FRThemeController.instance
+                      .setMode(FRThemeMode.light),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _themeChip(
+                  label: 'Koyu',
+                  icon: Icons.dark_mode_rounded,
+                  active: isDark,
+                  onTap: () =>
+                      FRThemeController.instance.setMode(FRThemeMode.dark),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _themeChip({
+    required String label,
+    required IconData icon,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.m),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        decoration: BoxDecoration(
+          color: active ? FR.gold.withOpacity(.16) : FR.bgElev,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: active ? FR.gold : FR.hairline),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: active ? FR.gold : FR.ink2),
+            const SizedBox(width: 6),
+            Text(label,
+                style: frText(12, FontWeight.w800,
+                    color: active ? FR.gold : FR.ink2)),
           ],
         ),
       ),

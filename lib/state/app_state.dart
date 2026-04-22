@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,10 +13,45 @@ class PointsRules {
   static const int addPrice = 10;
   static const int addProduct = 25;
   static const int favorite = 2;
+  static const int verifyVote = 1;
   static const int dailyLogin = 5;
 
   /// 100 puan = ₺5 indirim
   static const double pointValueTl = 0.05;
+}
+
+/// Thresholds that drive the community verification state machine.
+class VerificationRules {
+  /// A user below this trust (0..1) gets weight 0.3 on their vote.
+  static const double lowTrustThreshold = 0.2;
+  /// A user above this trust (0..1) gets weight up to 1.5 on their vote.
+  static const double highTrustThreshold = 0.7;
+  /// Minimum total votes before a status may flip out of "pending".
+  static const int minVotesForStatus = 3;
+  /// Trust-weighted score needed to become "community_verified".
+  static const double verifyScore = 1.2;
+  /// Trust-weighted score at/below which an entry is "rejected".
+  static const double rejectScore = -1.2;
+  /// If |score| < this with at least [minVotesForStatus] votes, it's disputed.
+  static const double disputeBand = 0.4;
+}
+
+/// Vote on a single price entry. Returns the updated verification summary
+/// that was committed to Firestore.
+enum VoteKind { up, down }
+
+/// Result of a community verification vote.
+class VoteResult {
+  final PriceStatus newStatus;
+  final int upvotes;
+  final int downvotes;
+  final double trustWeightedScore;
+  const VoteResult({
+    required this.newStatus,
+    required this.upvotes,
+    required this.downvotes,
+    required this.trustWeightedScore,
+  });
 }
 
 class AppState extends ChangeNotifier {
@@ -44,6 +80,36 @@ class AppState extends ChangeNotifier {
   bool weeklySummaryEnabled = true;
   bool twoFactorEnabled = false;
   bool biometricEnabled = true;
+
+  // Trust bookkeeping (0..1 used to weight this user's votes)
+  int trustVerifiedTotal = 0;
+  int trustWrongTotal = 0;
+  int trustTotalVotes = 0;
+  int contributions = 0;
+
+  double get trustScore {
+    if (trustTotalVotes == 0) return 0.5;
+    final good = trustVerifiedTotal.toDouble();
+    return (good / trustTotalVotes).clamp(0.0, 1.0);
+  }
+
+  int get trustScorePercent => (trustScore * 100).round();
+
+  /// Weight applied to this user's verification vote (0.3 .. 1.5).
+  double get voteWeight {
+    final t = trustScore;
+    if (t <= VerificationRules.lowTrustThreshold) return 0.3;
+    if (t >= VerificationRules.highTrustThreshold) {
+      final over = (t - VerificationRules.highTrustThreshold) /
+          (1 - VerificationRules.highTrustThreshold);
+      return 1.0 + 0.5 * over.clamp(0, 1);
+    }
+    // Linear ramp 0.3 → 1.0 between low and high thresholds.
+    final span =
+        VerificationRules.highTrustThreshold - VerificationRules.lowTrustThreshold;
+    final ratio = (t - VerificationRules.lowTrustThreshold) / span;
+    return 0.3 + 0.7 * ratio;
+  }
 
   final List<String> categories = const [
     'Tümü',
@@ -75,6 +141,48 @@ class AppState extends ChangeNotifier {
   final Map<String, ProductAlert> productAlerts = {};
   int get unreadNotificationCount =>
       notifications.where((n) => !n.isRead).length;
+
+  /// Aggregate new price entries reported in the last 24h, across all
+  /// products. Used by the Home hero instead of mock values.
+  int get freshContributionCountLast24h {
+    final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+    var count = 0;
+    for (final p in products) {
+      for (final e in p.priceHistory) {
+        if (e.date.isAfter(cutoff)) count++;
+      }
+    }
+    return count;
+  }
+
+  int get aggregateVerifiedCount {
+    var n = 0;
+    for (final p in products) {
+      n += p.verifiedCount;
+    }
+    return n;
+  }
+
+  /// Average trust percentage across products that have any valid entries.
+  int get catalogTrustPercent {
+    final buckets = products
+        .map((p) => p.aggregateTrustPercent)
+        .where((p) => p > 0)
+        .toList();
+    if (buckets.isEmpty) return 0;
+    final sum = buckets.reduce((a, b) => a + b);
+    return (sum / buckets.length).round();
+  }
+
+  /// Week-over-week max price drop percentage across products.
+  double get weeklyDropPct {
+    double maxDrop = 0;
+    for (final p in products) {
+      final pct = p.priceChangePct;
+      if (pct != null && pct < maxDrop) maxDrop = pct;
+    }
+    return maxDrop;
+  }
 
   Future<void> init() async {
     user = await _svc.ensureSignedIn();
@@ -109,6 +217,10 @@ class AppState extends ChangeNotifier {
         'points': 0,
         'favorites': <String>[],
         'cart': <Map<String, dynamic>>[],
+        'trustVerifiedTotal': 0,
+        'trustWrongTotal': 0,
+        'trustTotalVotes': 0,
+        'contributions': 0,
         'settings': {
           'notifications': {
             'pushEnabled': pushNotificationsEnabled,
@@ -135,6 +247,10 @@ class AppState extends ChangeNotifier {
           ? (m['phoneNumber'] as String)
           : null;
       points = (m['points'] as num?)?.toInt() ?? 0;
+      trustVerifiedTotal = (m['trustVerifiedTotal'] as num?)?.toInt() ?? 0;
+      trustWrongTotal = (m['trustWrongTotal'] as num?)?.toInt() ?? 0;
+      trustTotalVotes = (m['trustTotalVotes'] as num?)?.toInt() ?? 0;
+      contributions = (m['contributions'] as num?)?.toInt() ?? 0;
       favorites = ((m['favorites'] as List?) ?? [])
           .map((e) => e.toString())
           .toSet();
@@ -222,20 +338,38 @@ class AppState extends ChangeNotifier {
     required String productId,
     required String store,
     required double price,
+    String note = '',
+    String? proofImageUrl,
   }) async {
     final p = findById(productId);
     if (p == null) return;
+    final uid = user?.uid ?? '';
+    final entryId = '${productId}_${DateTime.now().millisecondsSinceEpoch}_${_rand4()}';
+    final entry = PriceEntry(
+      id: entryId,
+      store: store,
+      price: price,
+      date: DateTime.now(),
+      reportedBy: user?.displayName?.trim().isNotEmpty == true
+          ? user!.displayName!
+          : displayName,
+      reportedByUid: uid,
+      note: note,
+      proofImageUrl: proofImageUrl,
+      status: PriceStatus.pending,
+      statusUpdatedAt: DateTime.now(),
+    );
     final newHist = [
       ...p.priceHistory.map((e) => e.toMap()),
-      PriceEntry(
-        store: store,
-        price: price,
-        date: DateTime.now(),
-        reportedBy: user?.displayName ?? 'Sen',
-      ).toMap(),
+      entry.toMap(),
     ];
     await _svc.products.doc(productId).update({'priceHistory': newHist});
     await _addPoints(PointsRules.addPrice);
+    if (uid.isNotEmpty) {
+      await _svc.userDoc(uid).set({
+        'contributions': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    }
   }
 
   Future<void> addProduct({
@@ -254,6 +388,126 @@ class AppState extends ChangeNotifier {
       'priceHistory': <Map<String, dynamic>>[],
     });
     await _addPoints(PointsRules.addProduct);
+  }
+
+  // --- Verification --------------------------------------------------------
+
+  /// Reasons a verification vote can be rejected client-side.
+  /// UI should show a user-friendly message for each.
+  String? canVoteOn(Product product, PriceEntry entry) {
+    final uid = user?.uid;
+    if (uid == null || uid.isEmpty) return 'Oy vermek için giriş yap.';
+    if (entry.isOwnedBy(uid)) {
+      return 'Kendi girdiğin fiyata oy veremezsin.';
+    }
+    if (entry.voters.containsKey(uid)) {
+      return 'Bu fiyata zaten oy verdin.';
+    }
+    return null;
+  }
+
+  /// Casts a community verification vote. Transactional so concurrent votes
+  /// don't corrupt the tallies. Also updates the voter's trust totals.
+  Future<VoteResult?> voteOnPrice({
+    required Product product,
+    required PriceEntry entry,
+    required VoteKind kind,
+  }) async {
+    final uid = user?.uid;
+    if (uid == null || uid.isEmpty) return null;
+    final blocked = canVoteOn(product, entry);
+    if (blocked != null) {
+      throw StateError(blocked);
+    }
+
+    final weight = voteWeight;
+    final productRef = _svc.products.doc(product.id);
+    final voterRef = _svc.userDoc(uid);
+
+    VoteResult? result;
+
+    await _svc.db.runTransaction((tx) async {
+      final snap = await tx.get(productRef);
+      if (!snap.exists) return;
+      final raw = (snap.data()?['priceHistory'] as List?) ?? [];
+      final history = raw
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final idx = history.indexWhere((e) => e['id'] == entry.id);
+      if (idx == -1) return;
+      final current = PriceEntry.fromMap(history[idx]);
+      if (current.isOwnedBy(uid) || current.voters.containsKey(uid)) return;
+
+      final up = kind == VoteKind.up;
+      final newUp = current.upvotes + (up ? 1 : 0);
+      final newDown = current.downvotes + (up ? 0 : 1);
+      final delta = up ? weight : -weight;
+      final newScore = current.trustWeightedScore + delta;
+
+      PriceStatus next = current.status;
+      final totalVotes = newUp + newDown;
+      if (totalVotes >= VerificationRules.minVotesForStatus) {
+        if (newScore >= VerificationRules.verifyScore) {
+          next = PriceStatus.communityVerified;
+        } else if (newScore <= VerificationRules.rejectScore) {
+          next = PriceStatus.rejected;
+        } else if (newScore.abs() < VerificationRules.disputeBand) {
+          next = PriceStatus.disputed;
+        } else {
+          next = PriceStatus.pending;
+        }
+      }
+
+      final updated = current.copyWith(
+        upvotes: newUp,
+        downvotes: newDown,
+        verifiedByCount: newUp,
+        rejectedByCount: newDown,
+        trustWeightedScore: newScore,
+        status: next,
+        statusUpdatedAt: DateTime.now(),
+        voters: {
+          ...current.voters,
+          uid: up ? 'up' : 'down',
+        },
+      );
+      history[idx] = updated.toMap();
+      tx.update(productRef, {'priceHistory': history});
+
+      // Reward the voter's trust bucket. Whether this vote is "correct" is
+      // decided by the entry's final status after this vote: community
+      // alignment boosts trust, disagreement dings it.
+      final alignedWithStatus = (next == PriceStatus.communityVerified && up) ||
+          (next == PriceStatus.rejected && !up);
+      final alignedSoft = (next == PriceStatus.pending) &&
+          ((newScore > 0 && up) || (newScore < 0 && !up));
+      final good = alignedWithStatus || alignedSoft;
+      tx.set(
+        voterRef,
+        {
+          'trustTotalVotes': FieldValue.increment(1),
+          if (good) 'trustVerifiedTotal': FieldValue.increment(1),
+          if (!good) 'trustWrongTotal': FieldValue.increment(1),
+          'points': FieldValue.increment(PointsRules.verifyVote),
+        },
+        SetOptions(merge: true),
+      );
+
+      result = VoteResult(
+        newStatus: next,
+        upvotes: newUp,
+        downvotes: newDown,
+        trustWeightedScore: newScore,
+      );
+    });
+
+    return result;
+  }
+
+  String _rand4() {
+    final r = math.Random();
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    return List.generate(4, (_) => chars[r.nextInt(chars.length)]).join();
   }
 
   // --- Favorites ----------------------------------------------------------
@@ -320,7 +574,6 @@ class AppState extends ChangeNotifier {
   }
 
   void _reconcileCartProducts() {
-    // Replace cart items' product references with fresh copies from [products]
     for (var i = 0; i < cart.length; i++) {
       final fresh = findById(cart[i].product.id);
       if (fresh != null) cart[i] = CartItem(product: fresh, quantity: cart[i].quantity);
@@ -510,6 +763,10 @@ class AppState extends ChangeNotifier {
     cart.clear();
     points = 0;
     pointsToRedeem = 0;
+    trustVerifiedTotal = 0;
+    trustWrongTotal = 0;
+    trustTotalVotes = 0;
+    contributions = 0;
     _initialized = false;
     notifyListeners();
     await _svc.auth.signOut();
@@ -535,6 +792,10 @@ class AppState extends ChangeNotifier {
     cart.clear();
     points = 0;
     pointsToRedeem = 0;
+    trustVerifiedTotal = 0;
+    trustWrongTotal = 0;
+    trustTotalVotes = 0;
+    contributions = 0;
     _initialized = false;
     notifyListeners();
     await init();

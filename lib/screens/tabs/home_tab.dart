@@ -15,20 +15,39 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final products = state.products;
-    final topDrops = products.take(3).toList();
-    final feed = products.skip(1).take(4).toList();
+
+    // "Düşenler" = price dropped (pct < 0), sorted by biggest drop.
+    final droppers = [...products]
+      ..sort((a, b) {
+        final ap = a.priceChangePct ?? 0;
+        final bp = b.priceChangePct ?? 0;
+        return ap.compareTo(bp);
+      });
+    final topDrops = droppers.where((p) => (p.priceChangePct ?? 0) < 0).take(3).toList();
+    // Live feed = most recently contributed prices.
+    final feed = [...products]
+      ..sort((a, b) {
+        final ad = a.priceHistory.isEmpty
+            ? DateTime(0)
+            : a.priceHistory.last.date;
+        final bd = b.priceHistory.isEmpty
+            ? DateTime(0)
+            : b.priceHistory.last.date;
+        return bd.compareTo(ad);
+      });
+    final feedItems = feed.take(4).toList();
 
     return SafeArea(
       bottom: false,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, frBottomScrollPadding(context)),
         children: [
           _Greet(state: state),
           const SizedBox(height: 18),
           _LocationStrip(),
           const SizedBox(height: 18),
           _RadarHero(
-            unreadAlerts: state.unreadNotificationCount,
+            state: state,
             onInspect: () => Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
             ),
@@ -53,9 +72,9 @@ class HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 282,
+            height: 302,
             child: topDrops.isEmpty
-                ? _EmptyBlock(height: 282, text: 'Henüz veri yok.')
+                ? _EmptyBlock(height: 302, text: 'Bu hafta fiyat düşüşü henüz yok.')
                 : ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: topDrops.length,
@@ -76,22 +95,22 @@ class HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 26),
           FRSectionHead(
-            eyebrow: 'SON 30 DAKİKA',
+            eyebrow: 'TOPLULUK AKIŞI',
             title: 'Canlı fiyat akışı',
             action: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const FRLiveDot(),
+                FRLiveDot(),
                 const SizedBox(width: 6),
                 Text('canlı', style: frText(11, FontWeight.w800, color: FR.good)),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          if (feed.isEmpty)
+          if (feedItems.isEmpty)
             _EmptyBlock(height: 120, text: 'Topluluktan fiyat gelince burada görünür.')
           else
-            ...feed.map(
+            ...feedItems.map(
               (p) => _FeedRow(
                 product: p,
                 onTap: () => Navigator.push(
@@ -136,7 +155,7 @@ class _Greet extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                    gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
                     borderRadius: FRRad.all(14),
                   ),
                   alignment: Alignment.center,
@@ -195,17 +214,18 @@ class _LocationStrip extends StatelessWidget {
               borderRadius: FRRad.all(12),
               border: Border.all(color: FR.gold.withOpacity(.3)),
             ),
-            child: const Icon(Icons.my_location_rounded, color: FR.gold, size: 19),
+            child: Icon(Icons.my_location_rounded, color: FR.gold, size: 19),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('BÖLGE', style: frOverline(color: FR.ink3, size: 9.5)),
+                Text('BÖLGE (VARSAYILAN)', style: frOverline(color: FR.ink3, size: 9.5)),
                 const SizedBox(height: 2),
-                Text('Kadıköy, İstanbul', style: frText(14, FontWeight.w800)),
-                Text('2.3 km radius · 128 şube', style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                Text('Tüm Türkiye', style: frText(14, FontWeight.w800)),
+                Text('Konum iznini açarsan radar daraltılır',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3)),
               ],
             ),
           ),
@@ -217,16 +237,22 @@ class _LocationStrip extends StatelessWidget {
 }
 
 class _RadarHero extends StatelessWidget {
-  const _RadarHero({required this.unreadAlerts, required this.onInspect});
-  final int unreadAlerts;
+  const _RadarHero({required this.state, required this.onInspect});
+  final AppState state;
   final VoidCallback onInspect;
 
   @override
   Widget build(BuildContext context) {
+    final drop = state.weeklyDropPct;
+    final fresh = state.freshContributionCountLast24h;
+    final trust = state.catalogTrustPercent;
+    final verified = state.aggregateVerifiedCount;
+    final hasSignal = fresh > 0 || verified > 0 || drop < 0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -259,7 +285,7 @@ class _RadarHero extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const FRLiveDot(),
+                        FRLiveDot(),
                         const SizedBox(width: 6),
                         Text('RADAR AKTİF',
                             style: frText(9.5, FontWeight.w800, color: FR.good, letter: 1.3)),
@@ -267,29 +293,39 @@ class _RadarHero extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  if (unreadAlerts > 0)
-                    Text('$unreadAlerts yeni sinyal',
+                  if (state.unreadNotificationCount > 0)
+                    Text('${state.unreadNotificationCount} yeni sinyal',
                         style: frText(11, FontWeight.w800, color: FR.gold)),
                 ],
               ),
               const SizedBox(height: 14),
-              Text('Bu hafta %14\nfiyat düşüşü saptandı',
-                  style: frDisplay(24, FontWeight.w700, height: 1.15)),
+              Text(
+                hasSignal
+                    ? (drop < -0.01
+                        ? 'Bu hafta %${drop.abs().toStringAsFixed(drop.abs() < 10 ? 1 : 0)}\nfiyat düşüşü saptandı'
+                        : 'Radar son 24 saatte\n$fresh yeni veri işledi')
+                    : 'Radar beklemede.\nİlk fiyatı sen ekle.',
+                style: frDisplay(24, FontWeight.w700, height: 1.15),
+              ),
               const SizedBox(height: 8),
-              Text('12 şehirden 347 yeni veri · doğrulama %92',
-                  style: frText(12, FontWeight.w600, color: FR.ink3)),
+              Text(
+                hasSignal
+                    ? '${state.products.length} ürün · $verified topluluk doğrulaması · %$trust güven'
+                    : 'Ürün ekle, topluluk doğrulasın.',
+                style: frText(12, FontWeight.w600, color: FR.ink3),
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  _heroStat('₺2.840', 'TASARRUF'),
+                  _heroStat('$fresh', 'YENİ VERİ · 24s'),
                   const SizedBox(width: 10),
-                  _heroStat('347', 'YENİ VERİ'),
+                  _heroStat('$verified', 'DOĞRULANDI'),
                   const SizedBox(width: 10),
-                  _heroStat('%92', 'GÜVEN'),
+                  _heroStat(trust == 0 ? '—' : '%$trust', 'GÜVEN'),
                 ],
               ),
               const SizedBox(height: 16),
-              FRCta(label: 'Düşüşleri incele', icon: Icons.arrow_forward_rounded, onTap: onInspect),
+              FRCta(label: 'Radarı incele', icon: Icons.arrow_forward_rounded, onTap: onInspect),
             ],
           ),
         ],
@@ -368,6 +404,7 @@ class _TrendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = product.priceChangePct;
+    final trust = product.aggregateTrustPercent;
     return InkWell(
       onTap: onTap,
       borderRadius: FRRad.all(FRRad.xl),
@@ -381,20 +418,20 @@ class _TrendCard extends StatelessWidget {
               children: [
                 Container(
                   height: 136,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [FR.surfaceHi, FR.surfaceLo],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
                   ),
                   child: Center(child: Text(product.emoji, style: const TextStyle(fontSize: 66))),
                 ),
                 Positioned(
                   top: 10,
                   left: 10,
-                  child: FRStoreBadge(product.cheapestStore ?? 'BİM'),
+                  child: FRStoreBadge(product.cheapestStore ?? '—'),
                 ),
                 Positioned(
                   top: 10,
@@ -450,6 +487,21 @@ class _TrendCard extends StatelessWidget {
                           style: frText(11, FontWeight.w700, color: FR.ink3)),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  if (product.verifiedCount > 0)
+                    FRVerifyBadge(
+                      label: '${product.verifiedCount} doğrulandı',
+                      tone: FRVerifyTone.good,
+                      trustPercent: trust,
+                      dense: true,
+                    )
+                  else
+                    FRVerifyBadge(
+                      label: trust >= 50 ? 'İncelemede' : 'Yeni',
+                      tone: FRVerifyTone.neutral,
+                      trustPercent: trust,
+                      dense: true,
+                    ),
                 ],
               ),
             ),
@@ -509,6 +561,14 @@ class _FeedRow extends StatelessWidget {
                       else
                         Text('fiyat yok',
                             style: frText(11, FontWeight.w700, color: FR.ink3)),
+                      if (latest != null) ...[
+                        const SizedBox(width: 6),
+                        FRVerifyBadge.status(
+                          status: statusToString(latest.status),
+                          trustPercent: latest.trustPercent,
+                          dense: true,
+                        ),
+                      ],
                     ],
                   ),
                 ],

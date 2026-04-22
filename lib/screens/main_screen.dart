@@ -49,15 +49,15 @@ class _Dock extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, kFRDockMargin),
         child: Container(
-          height: 72,
+          height: kFRDockHeight,
           decoration: BoxDecoration(
             color: FR.surface,
             borderRadius: FRRad.all(26),
             border: Border.all(color: FR.hairline),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 24, offset: const Offset(0, 12)),
+              BoxShadow(color: FR.shadowTone.withOpacity(.4), blurRadius: 24, offset: const Offset(0, 12)),
               BoxShadow(color: FR.gold.withOpacity(.06), blurRadius: 36, offset: const Offset(0, 0)),
             ],
           ),
