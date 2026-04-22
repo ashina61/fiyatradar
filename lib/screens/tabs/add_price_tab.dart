@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../models/product.dart';
 import '../../state/app_state.dart';
-import '../../widgets/executive_ui.dart';
+import '../../ui/components.dart';
+import '../../ui/tokens.dart';
 
 class AddPriceTab extends StatefulWidget {
   const AddPriceTab({super.key});
@@ -11,77 +13,220 @@ class AddPriceTab extends StatefulWidget {
 }
 
 class _AddPriceTabState extends State<AddPriceTab> {
-  String store = 'A101';
-  final TextEditingController priceCtrl = TextEditingController();
-  final TextEditingController noteCtrl = TextEditingController();
+  Product? _selectedProduct;
+  String? _store;
+  final _priceCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
+  bool _submitting = false;
 
   @override
   void dispose() {
-    priceCtrl.dispose();
-    noteCtrl.dispose();
+    _priceCtrl.dispose();
+    _noteCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit(AppState state) async {
+    final pid = _selectedProduct?.id;
+    final store = _store;
+    final price = double.tryParse(_priceCtrl.text.replaceAll(',', '.'));
+    if (pid == null || store == null || price == null || price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ürün, mağaza ve geçerli bir fiyat gir.')),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await state.addPrice(productId: pid, store: store, price: price);
+      if (!mounted) return;
+      _priceCtrl.clear();
+      _noteCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fiyatı paylaştın · +10 PT')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _pickProduct(AppState state) async {
+    final picked = await showModalBottomSheet<Product>(
+      context: context,
+      backgroundColor: FR.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _ProductPicker(products: state.products),
+    );
+    if (picked != null) setState(() => _selectedProduct = picked);
   }
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final pinned = state.stores;
 
     return SafeArea(
+      bottom: false,
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Topluluğa katkı ver'.toUpperCase(), style: manrope(10, FontWeight.w800, color: ExecColors.goldDeep, letterSpacing: 2.2)), const SizedBox(height: 6), RichText(text: TextSpan(text: 'Fiyat ', style: fraunces(44, FontWeight.w700), children: [TextSpan(text: 'Ekle', style: fraunces(44, FontWeight.w400, color: ExecColors.ink3, style: FontStyle.italic))]))]),
+            child: FRPageHeader(
+              overline: 'TOPLULUĞA KATKI',
+              title: 'Fiyat',
+              italicTail: ' ekle',
+            ),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 120),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
               children: [
+                _IntroBanner(),
+                const SizedBox(height: 18),
+                _label('Ürün'),
+                InkWell(
+                  onTap: () => _pickProduct(state),
+                  borderRadius: FRRad.all(FRRad.m),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: frSurface(radius: FRRad.m),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: FR.bgElev,
+                            borderRadius: FRRad.all(10),
+                            border: Border.all(color: FR.hairline),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            _selectedProduct?.emoji ?? '🔎',
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _selectedProduct == null
+                              ? Text(
+                                  'Onaylı ürünlerde ara…',
+                                  style: frText(13, FontWeight.w600, color: FR.ink3),
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(_selectedProduct!.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: frText(13.5, FontWeight.w800)),
+                                    Text(
+                                      '${_selectedProduct!.brand} · ${_selectedProduct!.unit}',
+                                      style: frText(11.5, FontWeight.w600,
+                                          color: FR.ink3),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: FR.ink3),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _label('Mağaza / Market'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: pinned
+                      .map(
+                        (s) => InkWell(
+                          onTap: () => setState(() => _store = s),
+                          borderRadius: FRRad.all(999),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _store == s ? FR.gold : FR.surface,
+                              borderRadius: FRRad.all(999),
+                              border: Border.all(
+                                color: _store == s ? FR.gold : FR.hairline,
+                              ),
+                            ),
+                            child: Text(
+                              s,
+                              style: frText(12, FontWeight.w800,
+                                  color: _store == s ? FR.bg : FR.ink),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 18),
+                _label('Fiyat'),
                 Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(borderRadius: ExecRadii.xl, gradient: const LinearGradient(colors: [ExecColors.espresso2, ExecColors.espresso])),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('RADAR EKOSİSTEMİ', style: manrope(10, FontWeight.w800, color: ExecColors.gold, letterSpacing: 1.9)), const SizedBox(height: 8), Text('Her katkın topluluğu\ngüçlendirir', style: fraunces(26, FontWeight.w700, color: ExecColors.onDark)), const SizedBox(height: 8), Text('Eklediğin her fiyat onaylandığında puan kazanırsın. Doğrulamalar güven skorunu yükseltir.', style: manrope(12, FontWeight.w600, color: const Color(0xFFC9BCA6))), const SizedBox(height: 10), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0x26C9A063), borderRadius: ExecRadii.pill), child: Text('+25 PT · Eklenen her onaylı fiyat için', style: manrope(11, FontWeight.w800, color: ExecColors.gold)))])
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: frSurface(radius: FRRad.m),
+                  child: Row(
+                    children: [
+                      Text('₺',
+                          style: frDisplay(22, FontWeight.w700, color: FR.gold)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _priceCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          style: frPrice(28),
+                          cursorColor: FR.gold,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: '0,00',
+                            hintStyle: frPrice(28, color: FR.ink3),
+                            isCollapsed: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _selectedProduct?.unit ?? '',
+                        style: frText(12, FontWeight.w700, color: FR.ink3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _label('Not (opsiyonel)'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                  decoration: frSurface(radius: FRRad.m),
+                  child: TextField(
+                    controller: _noteCtrl,
+                    maxLines: 3,
+                    style: frText(13, FontWeight.w600),
+                    cursorColor: FR.gold,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Kampanya detayı, kupon kodu, stok…',
+                      hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 14),
-                _label('Ürün'),
-                _input(icon: Icons.search_rounded, hint: 'Sadece onaylı ürünlerde ara…', tail: TextButton(onPressed: () {}, child: Text('Yeni talep', style: manrope(11, FontWeight.w800, color: ExecColors.goldDeep)))),
-                const SizedBox(height: 12),
-                _label('Mağaza / Market'),
-                Container(
-                  height: 52,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: execCard(radius: 16),
-                  child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: store, isExpanded: true, items: state.stores.map((e) => DropdownMenuItem(value: e, child: Text(e, style: manrope(14, FontWeight.w700)))).toList(), onChanged: (v) => setState(() => store = v ?? store))),
-                ),
-                const SizedBox(height: 10),
-                Wrap(spacing: 8, runSpacing: 8, children: ['MediaMarkt', 'Teknosa', 'Migros', 'BİM', 'A101'].map((e) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: ExecColors.surface2, borderRadius: ExecRadii.pill, border: Border.all(color: ExecColors.bgDeep)), child: Text(e, style: manrope(11, FontWeight.w700, color: ExecColors.ink3)))).toList()),
-                const SizedBox(height: 12),
-                _label('Fiyat'),
-                Container(height: 52, padding: const EdgeInsets.symmetric(horizontal: 12), decoration: execCard(radius: 16), child: Row(children: [const Icon(Icons.sell_outlined, color: ExecColors.ink3, size: 18), const SizedBox(width: 8), Expanded(child: TextField(controller: priceCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(border: InputBorder.none, hintText: '0', hintStyle: manrope(14, FontWeight.w700, color: ExecColors.ink4)), style: manrope(20, FontWeight.w800), textAlign: TextAlign.right)), Text('₺', style: manrope(14, FontWeight.w800, color: ExecColors.ink3))])),
-                const SizedBox(height: 12),
-                _label('Not'),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 12), decoration: execCard(radius: 16), child: TextField(controller: noteCtrl, maxLines: 4, decoration: InputDecoration(border: InputBorder.none, hintText: 'Kampanya detayı, kupon kodu, stok durumu…', hintStyle: manrope(12, FontWeight.w600, color: ExecColors.ink4)))),
+                _GuideStrip(),
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final productId = state.products.isEmpty ? '' : state.products.first.id;
-                  if (productId.isEmpty) return;
-                  final value = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0;
-                  await state.addPrice(productId: productId, store: store, price: value);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Fiyatı Paylaş & +25 PT')));
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: ExecColors.espresso, foregroundColor: ExecColors.gold, shape: RoundedRectangleBorder(borderRadius: ExecRadii.pill)),
-                icon: const Icon(Icons.add_rounded),
-                label: Text('Fiyatı Paylaş & +25 PT Kazan', style: manrope(13, FontWeight.w800, color: ExecColors.gold)),
-              ),
+            child: FRCta(
+              label: _submitting ? 'Gönderiliyor…' : 'Fiyatı paylaş · +10 PT',
+              icon: Icons.radar_rounded,
+              onTap: _submitting ? null : () => _submit(state),
             ),
           ),
         ],
@@ -89,11 +234,236 @@ class _AddPriceTabState extends State<AddPriceTab> {
     );
   }
 
-  Widget _label(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: manrope(13, FontWeight.w800, color: ExecColors.ink2)));
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          children: [
+            Container(width: 3, height: 14, color: FR.gold),
+            const SizedBox(width: 8),
+            Text(text, style: frText(12, FontWeight.w800, color: FR.ink, letter: .4)),
+          ],
+        ),
+      );
+}
 
-  Widget _input({required IconData icon, required String hint, Widget? tail}) => Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: execCard(radius: 16),
-      child: Row(children: [Icon(icon, size: 18, color: ExecColors.ink3), const SizedBox(width: 8), Expanded(child: Text(hint, style: manrope(13, FontWeight.w600, color: ExecColors.ink4))), if (tail != null) tail]));
+class _IntroBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(22),
+        border: Border.all(color: FR.goldDeep.withOpacity(.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: FR.gold.withOpacity(.15),
+              borderRadius: FRRad.all(14),
+              border: Border.all(color: FR.goldDeep),
+            ),
+            child: const Icon(Icons.auto_graph_rounded, color: FR.gold, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('RADAR EKOSİSTEMİ', style: frOverline()),
+                const SizedBox(height: 4),
+                Text('Her paylaşım topluluğu güçlendirir',
+                    style: frText(14, FontWeight.w800, height: 1.3)),
+                const SizedBox(height: 2),
+                Text('Onaylı katkı başına +10 PT',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideStrip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.surfaceLo,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        children: [
+          _row(Icons.photo_camera_outlined, 'Rafta çekilmiş net fotoğraf eklersen onay hızlanır.'),
+          const SizedBox(height: 8),
+          _row(Icons.verified_user_outlined, 'Sahte fiyat tespit edilirse güven skorun düşer.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(IconData icon, String text) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: FR.ink3, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.45)),
+          ),
+        ],
+      );
+}
+
+class _ProductPicker extends StatefulWidget {
+  const _ProductPicker({required this.products});
+  final List<Product> products;
+
+  @override
+  State<_ProductPicker> createState() => _ProductPickerState();
+}
+
+class _ProductPickerState extends State<_ProductPicker> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.products
+        .where((p) =>
+            _q.isEmpty ||
+            p.name.toLowerCase().contains(_q.toLowerCase()) ||
+            p.brand.toLowerCase().contains(_q.toLowerCase()))
+        .toList();
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: .8,
+      maxChildSize: .9,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: const BoxDecoration(
+          color: FR.bg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 46,
+              height: 4,
+              decoration: BoxDecoration(
+                color: FR.hairline,
+                borderRadius: FRRad.all(99),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('Ürün seç',
+                        style: frDisplay(22, FontWeight.w700)),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: FRRad.all(999),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.close_rounded, color: FR.ink2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                height: 48,
+                decoration: frSurface(radius: FRRad.m),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_rounded, color: FR.ink3, size: 19),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        onChanged: (v) => setState(() => _q = v),
+                        style: frText(14, FontWeight.w600),
+                        cursorColor: FR.gold,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                          hintText: 'Ürün ara…',
+                          hintStyle:
+                              frText(13, FontWeight.w600, color: FR.ink3),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) {
+                  final p = items[i];
+                  return InkWell(
+                    onTap: () => Navigator.pop(context, p),
+                    borderRadius: FRRad.all(FRRad.m),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: frSurface(radius: FRRad.m),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: FR.surfaceHi,
+                              borderRadius: FRRad.all(10),
+                              border: Border.all(color: FR.hairline),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(p.emoji, style: const TextStyle(fontSize: 20)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(p.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: frText(13.5, FontWeight.w800)),
+                                Text('${p.brand} · ${p.unit}',
+                                    style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

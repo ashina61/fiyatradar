@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../services/firebase_service.dart';
 import '../state/app_state.dart';
-import '../theme.dart';
+import '../ui/components.dart';
+import '../ui/tokens.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -76,10 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseService.instance.sendPasswordReset(email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Şifre sıfırlama e-postası gönderildi.'),
-          backgroundColor: CoffeeColors.darkRoast,
-        ),
+        const SnackBar(content: Text('Şifre sıfırlama e-postası gönderildi.')),
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -117,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'weak-password':
         return 'Şifre çok zayıf. En az 6 karakter kullan.';
       case 'too-many-requests':
-        return 'Çok fazla deneme yapıldı. Lütfen biraz bekleyin.';
+        return 'Çok fazla deneme yapıldı. Lütfen biraz bekle.';
       default:
         return e.message ?? 'Kimlik doğrulama hatası.';
     }
@@ -125,175 +123,196 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _registerMode ? 'Hesap Oluştur' : 'Giriş Yap';
+    final overline = _registerMode ? 'KAYIT' : 'GİRİŞ';
+    final title = _registerMode ? 'Topluluğa katıl.' : 'Tekrar hoş geldin.';
     final subtitle = _registerMode
-        ? 'Topluluğa katıl, fiyat katkılarına başla.'
-        : 'FiyatRadar hesabınla güvenli şekilde devam et.';
+        ? 'Hesap aç, ilk fiyatını paylaş, +25 PT kazan.'
+        : 'FiyatRadar hesabınla kaldığın yerden devam et.';
 
     return Scaffold(
-      backgroundColor: CoffeeColors.cream,
+      backgroundColor: FR.bg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: CoffeeColors.crema),
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      const Text(
-                        'FiyatRadar',
-                        style: TextStyle(
-                          color: CoffeeColors.espresso,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 26,
-                          letterSpacing: -0.5,
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                          borderRadius: FRRad.all(12),
                         ),
+                        alignment: Alignment.center,
+                        child: Text('FR', style: frDisplay(15, FontWeight.w800, color: FR.bg)),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: CoffeeColors.darkRoast,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(subtitle, style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 13)),
-                      const SizedBox(height: 16),
-                      if (_registerMode) ...[
-                        TextFormField(
-                          controller: _nameCtrl,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            hintText: 'Ad Soyad',
-                            prefixIcon: Icon(Icons.person_outline, size: 20, color: CoffeeColors.cocoa),
+                      const SizedBox(width: 10),
+                      Text('FiyatRadar', style: frText(16, FontWeight.w800)),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  Text(overline, style: frOverline()),
+                  const SizedBox(height: 6),
+                  Text(title, style: frDisplay(36, FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text(subtitle, style: frText(13, FontWeight.w500, color: FR.ink3, height: 1.5)),
+                  const SizedBox(height: 22),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_registerMode) ...[
+                          _field(
+                            controller: _nameCtrl,
+                            hint: 'Ad Soyad',
+                            icon: Icons.person_outline_rounded,
+                            validator: (v) {
+                              if (!_registerMode) return null;
+                              if (v == null || v.trim().length < 2) return 'En az 2 karakter gir.';
+                              return null;
+                            },
                           ),
+                          const SizedBox(height: 10),
+                        ],
+                        _field(
+                          controller: _emailCtrl,
+                          hint: 'E-posta',
+                          icon: Icons.alternate_email_rounded,
+                          keyboardType: TextInputType.emailAddress,
                           validator: (v) {
-                            if (!_registerMode) return null;
-                            if (v == null || v.trim().length < 2) return 'En az 2 karakter gir.';
+                            if (v == null || v.trim().isEmpty) return 'E-posta zorunlu.';
+                            if (!v.contains('@') || !v.contains('.')) return 'Geçerli e-posta gir.';
                             return null;
                           },
                         ),
                         const SizedBox(height: 10),
-                      ],
-                      TextFormField(
-                        controller: _emailCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          hintText: 'E-posta',
-                          prefixIcon: Icon(Icons.mail_outline, size: 20, color: CoffeeColors.cocoa),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'E-posta zorunlu.';
-                          if (!v.contains('@') || !v.contains('.')) return 'Geçerli e-posta gir.';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: _passwordCtrl,
-                        obscureText: _obscure,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _submit(),
-                        decoration: InputDecoration(
-                          hintText: 'Şifre',
-                          prefixIcon: const Icon(Icons.lock_outline, size: 20, color: CoffeeColors.cocoa),
-                          suffixIcon: IconButton(
+                        _field(
+                          controller: _passwordCtrl,
+                          hint: 'Şifre',
+                          icon: Icons.lock_outline_rounded,
+                          obscure: _obscure,
+                          onSubmitted: (_) => _submit(),
+                          trailing: IconButton(
                             onPressed: () => setState(() => _obscure = !_obscure),
                             icon: Icon(
                               _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                               size: 20,
-                              color: CoffeeColors.cocoa,
+                              color: FR.ink3,
                             ),
                           ),
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Şifre zorunlu.';
+                            if (v.length < 6) return 'En az 6 karakter olmalı.';
+                            return null;
+                          },
                         ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Şifre zorunlu.';
-                          if (v.length < 6) return 'En az 6 karakter olmalı.';
-                          return null;
-                        },
+                        if (!_registerMode)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _submitting ? null : _forgotPassword,
+                              child: Text('Şifremi unuttum',
+                                  style: frText(12, FontWeight.w800, color: FR.goldDeep)),
+                            ),
+                          ),
+                        if (_error != null)
+                          Container(
+                            margin: const EdgeInsets.only(top: 10, bottom: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: FR.bad.withOpacity(.10),
+                              borderRadius: FRRad.all(FRRad.m),
+                              border: Border.all(color: FR.bad.withOpacity(.35)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: FR.bad, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(_error!,
+                                      style: frText(12, FontWeight.w700, color: FR.bad)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 14),
+                        FRCta(
+                          label: _submitting
+                              ? 'Bekle…'
+                              : (_registerMode ? 'Hesap Oluştur' : 'Giriş Yap'),
+                          onTap: _submitting ? null : _submit,
+                        ),
+                        const SizedBox(height: 10),
+                        FRCta(
+                          label: 'Misafir olarak devam et',
+                          icon: Icons.visibility_outlined,
+                          filled: false,
+                          onTap: _submitting ? null : _continueAsGuest,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _registerMode ? 'Zaten hesabın var mı?' : 'Hesabın yok mu?',
+                        style: frText(12, FontWeight.w600, color: FR.ink3),
                       ),
-                      if (!_registerMode)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: _submitting ? null : _forgotPassword,
-                            child: const Text('Şifremi unuttum'),
-                          ),
+                      TextButton(
+                        onPressed: _submitting
+                            ? null
+                            : () => setState(() {
+                                  _registerMode = !_registerMode;
+                                  _error = null;
+                                }),
+                        child: Text(
+                          _registerMode ? 'Giriş Yap' : 'Kayıt Ol',
+                          style: frText(12, FontWeight.w800, color: FR.gold),
                         ),
-                      if (_error != null)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: CoffeeColors.danger.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: CoffeeColors.danger.withOpacity(0.25)),
-                          ),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(color: CoffeeColors.danger, fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ElevatedButton(
-                        onPressed: _submitting ? null : _submit,
-                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                        child: _submitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: CoffeeColors.cream),
-                              )
-                            : Text(_registerMode ? 'Hesap Oluştur' : 'Giriş Yap'),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: _submitting ? null : _continueAsGuest,
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                          side: const BorderSide(color: CoffeeColors.crema),
-                          foregroundColor: CoffeeColors.darkRoast,
-                        ),
-                        child: const Text('Misafir olarak devam et'),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _registerMode ? 'Zaten hesabın var mı?' : 'Hesabın yok mu?',
-                            style: const TextStyle(color: CoffeeColors.cocoa, fontSize: 12),
-                          ),
-                          TextButton(
-                            onPressed: _submitting
-                                ? null
-                                : () => setState(() {
-                                      _registerMode = !_registerMode;
-                                      _error = null;
-                                    }),
-                            child: Text(_registerMode ? 'Giriş Yap' : 'Kayıt Ol'),
-                          ),
-                        ],
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _field({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+    bool obscure = false,
+    Widget? trailing,
+    String? Function(String?)? validator,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboardType,
+      textInputAction: onSubmitted == null ? TextInputAction.next : TextInputAction.done,
+      onFieldSubmitted: onSubmitted,
+      validator: validator,
+      style: frText(14, FontWeight.w700),
+      cursorColor: FR.gold,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 19, color: FR.ink3),
+        suffixIcon: trailing,
       ),
     );
   }

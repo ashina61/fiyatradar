@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../models/product.dart';
 import '../../state/app_state.dart';
-import '../../widgets/executive_ui.dart';
+import '../../ui/components.dart';
+import '../../ui/tokens.dart';
+import '../main_screen.dart';
 
 class BasketTab extends StatefulWidget {
   const BasketTab({super.key});
@@ -12,79 +14,512 @@ class BasketTab extends StatefulWidget {
 }
 
 class _BasketTabState extends State<BasketTab> {
-  int tab = 0;
+  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final items = state.cart.isNotEmpty ? state.cart : state.products.take(3).map((p) => CartItem(product: p, quantity: 1)).toList();
+    final cart = state.cart;
 
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+      bottom: false,
+      child: Column(
         children: [
-          Text('Topluca sorgula'.toUpperCase(), style: manrope(10, FontWeight.w800, color: ExecColors.goldDeep, letterSpacing: 2.2)),
-          const SizedBox(height: 6),
-          Text('Sepet', style: fraunces(44, FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text('Ürünleri sepete ekle — hangi mağazada en ucuza alacağını tek tıkla görelim.', style: manrope(13, FontWeight.w600, color: ExecColors.ink3)),
-          const SizedBox(height: 22),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: execCard(radius: 16),
-            child: Row(children: [Expanded(child: _tab('Sepetim', tab == 0, () => setState(() => tab = 0), items.length)), Expanded(child: _tab('Sonuçlar', tab == 1, () => setState(() => tab = 1), items.length + 1))]),
-          ),
-          const SizedBox(height: 14),
-          if (tab == 0) ...[
-            ...items.map((c) => _item(c, state)),
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 46,
-              child: ElevatedButton.icon(onPressed: () => setState(() => tab = 1), style: ElevatedButton.styleFrom(backgroundColor: ExecColors.espresso, foregroundColor: ExecColors.gold, shape: RoundedRectangleBorder(borderRadius: ExecRadii.pill)), icon: const Icon(Icons.bolt_rounded), label: Text('En Ucuz Sepeti Bul', style: manrope(13, FontWeight.w800, color: ExecColors.gold))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: FRPageHeader(
+              overline: 'TOPLUCA SORGULA',
+              title: 'Sepet',
             ),
-          ] else ...[
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Text(
+              'Ürünleri ekle — hangi marketin hangi kombinasyonda en ucuz olduğunu gör.',
+              style: frText(13, FontWeight.w500, color: FR.ink3, height: 1.5),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            child: _Segmented(
+              labels: ['Sepetim', 'Karşılaştır'],
+              counts: [state.cartItemCount, cart.isEmpty ? 0 : state.cart.length],
+              index: _tab,
+              onChange: (i) => setState(() => _tab = i),
+            ),
+          ),
+          Expanded(
+            child: _tab == 0
+                ? _CartPanel(state: state, onCompare: () => setState(() => _tab = 1))
+                : _ComparePanel(state: state),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Segmented extends StatelessWidget {
+  const _Segmented({
+    required this.labels,
+    required this.counts,
+    required this.index,
+    required this.onChange,
+  });
+  final List<String> labels;
+  final List<int> counts;
+  final int index;
+  final ValueChanged<int> onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            Expanded(
+              child: InkWell(
+                onTap: () => onChange(i),
+                borderRadius: FRRad.all(10),
+                child: Container(
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: index == i ? FR.gold : Colors.transparent,
+                    borderRadius: FRRad.all(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        labels[i],
+                        style: frText(12.5, FontWeight.w800,
+                            color: index == i ? FR.bg : FR.ink2),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: index == i
+                              ? FR.bg.withOpacity(.2)
+                              : FR.bgElev,
+                          borderRadius: FRRad.all(8),
+                        ),
+                        child: Text('${counts[i]}',
+                            style: frText(10, FontWeight.w800,
+                                color: index == i ? FR.bg : FR.ink3)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CartPanel extends StatelessWidget {
+  const _CartPanel({required this.state, required this.onCompare});
+  final AppState state;
+  final VoidCallback onCompare;
+
+  @override
+  Widget build(BuildContext context) {
+    final cart = state.cart;
+    if (cart.isEmpty) {
+      return _EmptyCart();
+    }
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            itemCount: cart.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, i) => _CartRow(item: cart[i], state: state),
+          ),
+        ),
+        _CartFooter(state: state, onCompare: onCompare),
+      ],
+    );
+  }
+}
+
+class _EmptyCart extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(borderRadius: ExecRadii.xl, gradient: const LinearGradient(colors: [ExecColors.espresso2, ExecColors.espresso])),
-              child: Column(children: [Text('En Ucuz Sepet', style: manrope(11, FontWeight.w800, color: ExecColors.gold, letterSpacing: 1.8)), const SizedBox(height: 4), Text('Migros Kadıköy', style: fraunces(30, FontWeight.w700, color: ExecColors.onDark)), const SizedBox(height: 6), Text('${state.cartTotal.toStringAsFixed(0)} ₺', style: fraunces(46, FontWeight.w700, color: ExecColors.onDark)), const SizedBox(height: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: const Color(0x2648A05A), borderRadius: ExecRadii.pill), child: Text('${state.cartSavings.toStringAsFixed(0)} ₺ daha uygun · %14 tasarruf', style: manrope(11, FontWeight.w800, color: const Color(0xFFBDE5C8)))), const SizedBox(height: 10), Row(children: [Expanded(child: _resultBtn('Yol Tarifi', true)), const SizedBox(width: 8), Expanded(child: _resultBtn('Paylaş', false))])]),
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [FR.surface, FR.surfaceLo],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: FRRad.all(28),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: const Icon(Icons.shopping_basket_outlined, color: FR.gold, size: 40),
+            ),
+            const SizedBox(height: 16),
+            Text('Sepetin boş', style: frDisplay(22, FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              'Ürün ekle, hangi markette en ucuz olduğunu radar senin için bulsun.',
+              textAlign: TextAlign.center,
+              style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
             ),
             const SizedBox(height: 18),
-            Text('Ürün bazlı dağılım'.toUpperCase(), style: manrope(10, FontWeight.w800, color: ExecColors.goldDeep, letterSpacing: 2)),
-            const SizedBox(height: 4),
-            Text('Sepetinin detayı', style: fraunces(30, FontWeight.w700)),
-            const SizedBox(height: 10),
-            ...items.map((c) => _breakdown(c)),
+            SizedBox(
+              width: 220,
+              child: FRCta(
+                label: 'Ürün keşfet',
+                icon: Icons.radar_rounded,
+                onTap: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CartRow extends StatelessWidget {
+  const _CartRow({required this.item, required this.state});
+  final CartItem item;
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: frSurface(radius: FRRad.l),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: FR.surfaceHi,
+              borderRadius: FRRad.all(12),
+              border: Border.all(color: FR.hairline),
+            ),
+            alignment: Alignment.center,
+            child: Text(item.product.emoji, style: const TextStyle(fontSize: 22)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: frText(13.5, FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                  '${item.product.priceHistory.length} mağaza · ${item.product.brand}',
+                  style: frText(11.5, FontWeight.w600, color: FR.ink3),
+                ),
+                const SizedBox(height: 4),
+                FRPriceText(item.product.lowestPrice, size: 15, color: FR.gold),
+              ],
+            ),
+          ),
+          _QtyStepper(
+            qty: item.quantity,
+            onDec: () => state.changeQty(item.product.id, -1),
+            onInc: () => state.changeQty(item.product.id, 1),
+            onRemove: () => state.removeFromCart(item.product.id),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QtyStepper extends StatelessWidget {
+  const _QtyStepper({
+    required this.qty,
+    required this.onDec,
+    required this.onInc,
+    required this.onRemove,
+  });
+  final int qty;
+  final VoidCallback onDec;
+  final VoidCallback onInc;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: FR.bgElev,
+        borderRadius: FRRad.all(10),
+        border: Border.all(color: FR.hairline),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        children: [
+          _btn(Icons.remove_rounded, qty <= 1 ? onRemove : onDec),
+          SizedBox(
+            width: 26,
+            child: Text('$qty',
+                textAlign: TextAlign.center,
+                style: frText(13.5, FontWeight.w800)),
+          ),
+          _btn(Icons.add_rounded, onInc),
         ],
       ),
     );
   }
 
-  Widget _tab(String title, bool active, VoidCallback onTap, int n) => InkWell(
+  Widget _btn(IconData icon, VoidCallback? onTap) => InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: FRRad.all(8),
         child: Container(
-          height: 40,
-          decoration: BoxDecoration(color: active ? ExecColors.espresso : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(title, style: manrope(12, FontWeight.w800, color: active ? ExecColors.gold : ExecColors.ink3)), const SizedBox(width: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: active ? const Color(0x26C9A063) : ExecColors.bgSoft, borderRadius: BorderRadius.circular(8)), child: Text('$n', style: manrope(10, FontWeight.w800, color: active ? ExecColors.gold : ExecColors.ink3)))]),
+          width: 26,
+          height: 26,
+          alignment: Alignment.center,
+          child: Icon(icon, color: FR.ink2, size: 16),
         ),
       );
+}
 
-  Widget _item(CartItem c, AppState state) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: execCard(radius: 18),
-        child: Row(children: [Container(width: 42, height: 42, decoration: BoxDecoration(color: ExecColors.bgSoft, borderRadius: BorderRadius.circular(12)), alignment: Alignment.center, child: Text(c.product.emoji, style: const TextStyle(fontSize: 20))), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(c.product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: manrope(13, FontWeight.w800)), Text('${c.product.category} · ${c.product.priceHistory.length} mağaza karşılaştır', style: manrope(11, FontWeight.w600, color: ExecColors.ink3))])), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), decoration: BoxDecoration(color: ExecColors.bgSoft, borderRadius: BorderRadius.circular(10)), child: Row(children: [_q('−', c.quantity > 1 ? () => state.changeQty(c.product.id, -1) : null), const SizedBox(width: 8), Text('${c.quantity}', style: manrope(13, FontWeight.w800)), const SizedBox(width: 8), _q('+', state.cart.isNotEmpty ? () => state.changeQty(c.product.id, 1) : null)]))]),
+class _CartFooter extends StatelessWidget {
+  const _CartFooter({required this.state, required this.onCompare});
+  final AppState state;
+  final VoidCallback onCompare;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+      decoration: const BoxDecoration(
+        color: FR.bgElev,
+        border: Border(top: BorderSide(color: FR.hairline)),
+      ),
+      child: Column(
+        children: [
+          _line('Alt toplam', '₺${state.cartSubtotal.toStringAsFixed(2)}'),
+          const SizedBox(height: 4),
+          _line('Tahmini tasarruf', '₺${state.cartSavings.toStringAsFixed(2)}',
+              hl: FR.good),
+          const SizedBox(height: 12),
+          FRCta(
+            label: 'En ucuz sepeti bul',
+            icon: Icons.bolt_rounded,
+            onTap: onCompare,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _line(String l, String v, {Color? hl}) => Row(
+        children: [
+          Expanded(
+            child: Text(l, style: frText(12.5, FontWeight.w700, color: FR.ink3)),
+          ),
+          Text(v, style: frPrice(14, color: hl ?? FR.ink)),
+        ],
       );
+}
 
-  Widget _q(String t, VoidCallback? onTap) => InkWell(onTap: onTap, child: Text(t, style: manrope(16, FontWeight.w800, color: onTap == null ? ExecColors.ink4 : ExecColors.ink2)));
+class _ComparePanel extends StatelessWidget {
+  const _ComparePanel({required this.state});
+  final AppState state;
 
-  Widget _resultBtn(String t, bool p) => Container(height: 38, decoration: BoxDecoration(color: p ? ExecColors.gold : Colors.white, borderRadius: BorderRadius.circular(12)), child: Center(child: Text(t, style: manrope(12, FontWeight.w800, color: p ? ExecColors.espresso : ExecColors.ink2))));
+  @override
+  Widget build(BuildContext context) {
+    final cart = state.cart;
+    if (cart.isEmpty) {
+      return _EmptyCart();
+    }
+    final groups = _computeStoreGroups(state);
+    final best = groups.isEmpty ? null : groups.first;
 
-  Widget _breakdown(CartItem c) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: execCard(radius: 18),
-        child: Row(children: [Expanded(child: Text('${c.product.name} × ${c.quantity}', maxLines: 1, overflow: TextOverflow.ellipsis, style: manrope(12, FontWeight.w800))), Text('${((c.product.lowestPrice ?? 0) * c.quantity).toStringAsFixed(0)} ₺', style: manrope(14, FontWeight.w800))]),
-      );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+      children: [
+        if (best != null)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [FR.surfaceHi, FR.surfaceLo],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: FRRad.all(24),
+              border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+              boxShadow: [BoxShadow(color: FR.gold.withOpacity(.12), blurRadius: 32)],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('EN UCUZ KOMBİNASYON', style: frOverline()),
+                const SizedBox(height: 10),
+                Text(best.store, style: frDisplay(28, FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text('${best.items} ürün · ${best.covered}/${cart.length} eşleşti',
+                    style: frText(12, FontWeight.w600, color: FR.ink3)),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FRPriceText(best.total, size: 38, color: FR.gold),
+                    const SizedBox(width: 12),
+                    if (state.cartSavings > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: FR.good.withOpacity(.14),
+                            borderRadius: FRRad.all(999),
+                            border: Border.all(color: FR.good.withOpacity(.35)),
+                          ),
+                          child: Text(
+                              '-₺${state.cartSavings.toStringAsFixed(0)}',
+                              style: frText(12, FontWeight.w800, color: FR.good)),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 20),
+        FRSectionHead(eyebrow: 'DİĞER MARKETLER', title: 'Zincir karşılaştırması'),
+        const SizedBox(height: 12),
+        for (final g in groups.skip(1).take(4))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: frSurface(radius: FRRad.l),
+              child: Row(
+                children: [
+                  FRStoreBadge(g.store),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${g.covered}/${cart.length} ürün eşleşti',
+                            style: frText(12.5, FontWeight.w800)),
+                        Text('${g.items} fiyat noktası',
+                            style: frText(11, FontWeight.w600, color: FR.ink3)),
+                      ],
+                    ),
+                  ),
+                  FRPriceText(g.total, size: 16, color: FR.ink),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 20),
+        FRSectionHead(eyebrow: 'ÜRÜN BAZLI', title: 'Sepet dağılımı'),
+        const SizedBox(height: 12),
+        for (final c in cart)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: frSurface(radius: FRRad.l),
+              child: Row(
+                children: [
+                  Text(c.product.emoji, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${c.product.name} × ${c.quantity}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: frText(13, FontWeight.w800)),
+                        Text(c.product.cheapestStore ?? '—',
+                            style: frText(11.5, FontWeight.w700, color: FR.ink3)),
+                      ],
+                    ),
+                  ),
+                  FRPriceText(
+                    (c.product.lowestPrice ?? 0) * c.quantity,
+                    size: 15,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static List<_StoreGroup> _computeStoreGroups(AppState state) {
+    final storeCount = <String, int>{};
+    final storeTotal = <String, double>{};
+    final storeItems = <String, int>{};
+    for (final c in state.cart) {
+      for (final e in c.product.priceHistory) {
+        storeItems[e.store] = (storeItems[e.store] ?? 0) + 1;
+      }
+      // For each store with a price for this product, add its cheapest entry
+      final byStore = <String, double>{};
+      for (final e in c.product.priceHistory) {
+        final cur = byStore[e.store];
+        if (cur == null || e.price < cur) byStore[e.store] = e.price;
+      }
+      byStore.forEach((store, price) {
+        storeTotal[store] = (storeTotal[store] ?? 0) + price * c.quantity;
+        storeCount[store] = (storeCount[store] ?? 0) + 1;
+      });
+    }
+    final groups = storeTotal.entries
+        .map((e) => _StoreGroup(
+              store: e.key,
+              total: e.value,
+              covered: storeCount[e.key] ?? 0,
+              items: storeItems[e.key] ?? 0,
+            ))
+        .toList();
+    groups.sort((a, b) {
+      final covCmp = b.covered.compareTo(a.covered);
+      if (covCmp != 0) return covCmp;
+      return a.total.compareTo(b.total);
+    });
+    return groups;
+  }
+}
+
+class _StoreGroup {
+  final String store;
+  final double total;
+  final int covered;
+  final int items;
+  _StoreGroup({
+    required this.store,
+    required this.total,
+    required this.covered,
+    required this.items,
+  });
 }

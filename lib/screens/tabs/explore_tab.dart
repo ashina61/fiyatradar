@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../models/product.dart';
 import '../../state/app_state.dart';
-import '../../widgets/executive_ui.dart';
+import '../../ui/components.dart';
+import '../../ui/tokens.dart';
 import '../product_detail_screen.dart';
 
 class ExploreTab extends StatefulWidget {
@@ -14,6 +16,10 @@ class ExploreTab extends StatefulWidget {
 class _ExploreTabState extends State<ExploreTab> {
   final TextEditingController _controller = TextEditingController();
   String _query = '';
+  String _category = 'Tümü';
+  int _filter = 0;
+
+  static const _filters = ['Hepsi', 'Ucuzlayanlar', 'Yeni', 'Favoriler', 'Yakınımda'];
 
   @override
   void dispose() {
@@ -21,60 +27,190 @@ class _ExploreTabState extends State<ExploreTab> {
     super.dispose();
   }
 
+  List<Product> _filtered(AppState state) {
+    Iterable<Product> list = state.products;
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      list = list.where(
+        (p) => p.name.toLowerCase().contains(q) || p.brand.toLowerCase().contains(q),
+      );
+    }
+    if (_category != 'Tümü') {
+      list = list.where((p) => p.category == _category);
+    }
+    if (_filter == 1) {
+      list = list.where((p) => (p.priceChangePct ?? 0) < 0);
+    } else if (_filter == 2) {
+      list = list.toList()
+        ..sort((a, b) {
+          final ad = a.priceHistory.isEmpty
+              ? DateTime(0)
+              : a.priceHistory.last.date;
+          final bd = b.priceHistory.isEmpty
+              ? DateTime(0)
+              : b.priceHistory.last.date;
+          return bd.compareTo(ad);
+        });
+    } else if (_filter == 3) {
+      list = list.where((p) => state.isFavorite(p.id));
+    }
+    return list.toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final products = state.products.where((p) => p.name.toLowerCase().contains(_query.toLowerCase())).toList();
+    final products = _filtered(state);
 
     return SafeArea(
+      bottom: false,
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Radardaki ürünler'.toUpperCase(), style: manrope(10, FontWeight.w800, color: ExecColors.goldDeep, letterSpacing: 2.2)), const SizedBox(height: 6), Text('Keşfet', style: fraunces(44, FontWeight.w700)), const SizedBox(height: 4), Text('Binlerce ürün, gerçek kullanıcıların eklediği güncel fiyatlarla.', style: manrope(13, FontWeight.w600, color: ExecColors.ink3))]),
-          ),
-          Container(
-            margin: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            height: 54,
-            decoration: execCard(radius: 20),
-            child: Row(children: [const Icon(Icons.search_rounded, color: ExecColors.ink3), const SizedBox(width: 10), Expanded(child: TextField(controller: _controller, onChanged: (v) => setState(() => _query = v), decoration: InputDecoration(border: InputBorder.none, hintText: 'Ürün, marka veya mağaza ara…', hintStyle: manrope(13, FontWeight.w600, color: ExecColors.ink4)))), Container(width: 34, height: 34, decoration: BoxDecoration(color: ExecColors.bgSoft, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.tune_rounded, size: 18, color: ExecColors.ink3))]),
-          ),
-          SizedBox(
-            height: 46,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              scrollDirection: Axis.horizontal,
-              children: const [_FilterChip('Hepsi', true), _FilterChip('Popüler', false), _FilterChip('Ucuzlayanlar', false), _FilterChip('Yeni', false), _FilterChip('Yakınımda', false)],
+            child: FRPageHeader(
+              overline: 'RADARDAKİ ÜRÜNLER',
+              title: 'Keşfet',
             ),
           ),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
-              itemCount: products.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: .68),
-              itemBuilder: (_, i) {
-                final p = products[i];
-                final fav = state.isFavorite(p.id);
-                return InkWell(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p))),
-                  child: Container(
-                    decoration: execCard(radius: 22),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Container(
-                        height: 118,
-                        decoration: const BoxDecoration(color: Color(0xFFF0EBE1), borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-                        child: Stack(children: [Center(child: Text(p.emoji, style: const TextStyle(fontSize: 44))), Positioned(right: 8, top: 8, child: InkWell(onTap: () => state.toggleFavorite(p.id), child: Icon(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: fav ? ExecColors.danger : ExecColors.ink3))), Positioned(left: 8, bottom: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: ExecColors.successSoft, borderRadius: BorderRadius.circular(99)), child: Text('↓ %8', style: manrope(10, FontWeight.w800, color: ExecColors.success))))]),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Text(
+              'Binlerce market ürünü · topluluktan gerçek fiyatlar.',
+              style: frText(13, FontWeight.w500, color: FR.ink3, height: 1.5),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            child: Container(
+              height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: frSurface(radius: FRRad.l),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, color: FR.gold, size: 19),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      onChanged: (v) => setState(() => _query = v),
+                      style: frText(14, FontWeight.w600),
+                      cursorColor: FR.gold,
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        isCollapsed: true,
+                        hintText: 'Ürün, marka veya mağaza…',
+                        hintStyle: frText(13, FontWeight.w600, color: FR.ink3),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p.category.toUpperCase(), style: manrope(10, FontWeight.w800, color: ExecColors.ink3, letterSpacing: 1.2)), const SizedBox(height: 4), Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: manrope(12, FontWeight.w800)), const SizedBox(height: 6), Text('${(p.lowestPrice ?? 0).toStringAsFixed(0)} ₺', style: fraunces(22, FontWeight.w700)), Text('${p.brand} · 2s', style: manrope(11, FontWeight.w600, color: ExecColors.ink3))]),
-                      )
-                    ]),
+                    ),
+                  ),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: FR.surfaceHi,
+                      borderRadius: FRRad.all(10),
+                      border: Border.all(color: FR.hairline),
+                    ),
+                    child: const Icon(Icons.qr_code_scanner_rounded,
+                        color: FR.ink2, size: 17),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: _filters.length,
+              itemBuilder: (_, i) => FRFilterChip(
+                _filters[i],
+                active: i == _filter,
+                onTap: () => setState(() => _filter = i),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 38,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: state.categories.length,
+              itemBuilder: (_, i) {
+                final c = state.categories[i];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: InkWell(
+                    onTap: () => setState(() => _category = c),
+                    borderRadius: FRRad.all(10),
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _category == c ? FR.gold.withOpacity(.14) : Colors.transparent,
+                        borderRadius: FRRad.all(10),
+                        border: Border.all(
+                          color: _category == c ? FR.goldDeep : FR.hairline,
+                        ),
+                      ),
+                      child: Text(
+                        c,
+                        style: frText(11.5, FontWeight.w700,
+                            color: _category == c ? FR.gold : FR.ink2),
+                      ),
+                    ),
                   ),
                 );
               },
             ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: products.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(30),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.radar_rounded, color: FR.ink3, size: 36),
+                          const SizedBox(height: 10),
+                          Text('Radar bu filtrede ürün bulamadı.',
+                              textAlign: TextAlign.center,
+                              style: frText(13, FontWeight.w700, color: FR.ink3)),
+                        ],
+                      ),
+                    ),
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
+                    itemCount: products.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: .66,
+                    ),
+                    itemBuilder: (_, i) {
+                      final p = products[i];
+                      return _ExploreCard(
+                        product: p,
+                        isFavorite: state.isFavorite(p.id),
+                        onFavorite: () => state.toggleFavorite(p.id),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProductDetailScreen(product: p),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -82,16 +218,104 @@ class _ExploreTabState extends State<ExploreTab> {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip(this.label, this.active);
-  final String label;
-  final bool active;
+class _ExploreCard extends StatelessWidget {
+  const _ExploreCard({
+    required this.product,
+    required this.isFavorite,
+    required this.onFavorite,
+    required this.onTap,
+  });
+  final Product product;
+  final bool isFavorite;
+  final VoidCallback onFavorite;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: active ? ExecColors.espresso : ExecColors.surface, borderRadius: ExecRadii.pill, border: Border.all(color: active ? ExecColors.gold : ExecColors.bgDeep)),
-        child: Text(label, style: manrope(12, FontWeight.w700, color: active ? ExecColors.gold : ExecColors.ink2)),
-      );
+  Widget build(BuildContext context) {
+    final pct = product.priceChangePct;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.xl),
+      child: Container(
+        decoration: frSurface(radius: FRRad.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                Container(
+                  height: 120,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [FR.surfaceHi, FR.surfaceLo],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+                  ),
+                  child: Center(
+                    child: Text(product.emoji, style: const TextStyle(fontSize: 54)),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: InkWell(
+                    onTap: onFavorite,
+                    borderRadius: FRRad.all(999),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: FR.bg.withOpacity(.7),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: FR.hairline),
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        size: 14,
+                        color: isFavorite ? FR.bad : FR.ink2,
+                      ),
+                    ),
+                  ),
+                ),
+                if (pct != null)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: FRTrendPill(pct: pct, dense: true),
+                  ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(product.category.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frOverline(color: FR.ink3, size: 9)),
+                  const SizedBox(height: 4),
+                  Text(product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: frText(12.5, FontWeight.w800, height: 1.25)),
+                  const SizedBox(height: 6),
+                  FRPriceText(product.lowestPrice, size: 21, color: FR.gold),
+                  Text(
+                    '${product.brand} · ${product.unit}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: frText(11, FontWeight.w600, color: FR.ink3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
