@@ -262,7 +262,7 @@ class FRFilterChip extends StatelessWidget {
 
 // ─── CTA ─────────────────────────────────────────────────────────────────────
 
-class FRCta extends StatelessWidget {
+class FRCta extends StatefulWidget {
   const FRCta({
     super.key,
     required this.label,
@@ -278,31 +278,56 @@ class FRCta extends StatelessWidget {
   final double height;
 
   @override
+  State<FRCta> createState() => _FRCtaState();
+}
+
+class _FRCtaState extends State<FRCta> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    final filled = widget.filled;
+    final enabled = widget.onTap != null;
     final bg = filled ? FR.gold : Colors.transparent;
     final fg = filled ? FR.bg : FR.ink;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: FRRad.all(999),
-      child: Container(
-        height: height,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: FRRad.all(999),
-          border: Border.all(color: filled ? FR.gold : FR.hairline),
-          boxShadow: filled ? frGoldGlow() : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 18, color: fg),
-              const SizedBox(width: 8),
-            ],
-            Text(label, style: frText(14, FontWeight.w800, color: fg)),
-          ],
+    return AnimatedScale(
+      scale: _pressed && enabled ? 0.97 : 1.0,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      child: AnimatedOpacity(
+        opacity: enabled ? 1 : 0.55,
+        duration: const Duration(milliseconds: 180),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            onHighlightChanged: (v) {
+              if (mounted) setState(() => _pressed = v);
+            },
+            borderRadius: FRRad.all(999),
+            child: Container(
+              height: widget.height,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: FRRad.all(999),
+                border: Border.all(color: filled ? FR.gold : FR.hairline),
+                boxShadow: filled ? frGoldGlow() : null,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.icon != null) ...[
+                    Icon(widget.icon, size: 18, color: fg),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(widget.label,
+                      style: frText(14, FontWeight.w800, color: fg)),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -382,19 +407,49 @@ class FRDockItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? FR.gold : FR.ink3;
     return InkWell(
       onTap: onTap,
       borderRadius: FRRad.all(16),
       child: SizedBox(
         width: 58,
         height: 52,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 3),
-            Text(label, style: frText(9.5, FontWeight.w800, color: color, letter: .1)),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: active ? 46 : 0,
+              height: active ? 32 : 0,
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.14),
+                borderRadius: FRRad.all(14),
+              ),
+            ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: active ? 1 : 0),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, t, __) {
+                    final color = Color.lerp(FR.ink3, FR.gold, t)!;
+                    return Transform.scale(
+                      scale: 1 + t * 0.08,
+                      child: Icon(icon, color: color, size: 20),
+                    );
+                  },
+                ),
+                const SizedBox(height: 3),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  style: frText(9.5, FontWeight.w800,
+                      color: active ? FR.gold : FR.ink3, letter: .1),
+                  child: Text(label),
+                ),
+              ],
+            ),
           ],
         ),
       ),

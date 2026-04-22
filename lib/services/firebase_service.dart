@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 /// Central Firebase access and one-time bootstrap of required collections.
 class FirebaseService {
@@ -8,13 +11,52 @@ class FirebaseService {
 
   final FirebaseFirestore db = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
+  final FirebaseStorage storage = FirebaseStorage.instance;
+
+  /// Upload a product image to Storage under `product_images/{productId}/…`.
+  /// Returns `(downloadUrl, storagePath)` so the product doc can store both
+  /// (URL for display, path for future replacement / cleanup).
+  Future<({String url, String path})> uploadProductImage({
+    required String productId,
+    required Uint8List bytes,
+    String contentType = 'image/jpeg',
+  }) async {
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path = 'product_images/$productId/$ts.jpg';
+    final ref = storage.ref(path);
+    final snap = await ref.putData(
+      bytes,
+      SettableMetadata(contentType: contentType),
+    );
+    final url = await snap.ref.getDownloadURL();
+    return (url: url, path: path);
+  }
+
+  Future<void> deleteProductImage(String path) async {
+    if (path.isEmpty) return;
+    try {
+      await storage.ref(path).delete();
+    } catch (_) {
+      // Swallow — image may already be gone or unreadable; not critical.
+    }
+  }
 
   CollectionReference<Map<String, dynamic>> get products =>
       db.collection('products');
   CollectionReference<Map<String, dynamic>> get banners =>
       db.collection('banners');
+
+  CollectionReference<Map<String, dynamic>> get stores =>
+      db.collection('stores');
+
+  CollectionReference<Map<String, dynamic>> get categories =>
+      db.collection('categories');
   CollectionReference<Map<String, dynamic>> get users =>
       db.collection('users');
+
+  /// Community-sourced product additions awaiting admin approval.
+  CollectionReference<Map<String, dynamic>> get productRequests =>
+      db.collection('product_requests');
 
   DocumentReference<Map<String, dynamic>> userDoc(String uid) =>
       users.doc(uid);
@@ -63,6 +105,55 @@ class FirebaseService {
   Future<void> bootstrap() async {
     await _seedProducts();
     await _seedBanners();
+    await _seedStores();
+    await _seedCategories();
+  }
+
+  Future<void> _seedStores() async {
+    final coll = db.collection('stores');
+    final snap = await coll.limit(1).get();
+    if (snap.docs.isNotEmpty) return;
+    final batch = db.batch();
+    const items = [
+      {'name': 'A101', 'order': 1},
+      {'name': 'BİM', 'order': 2},
+      {'name': 'ŞOK', 'order': 3},
+      {'name': 'Migros', 'order': 4},
+      {'name': 'CarrefourSA', 'order': 5},
+      {'name': 'Tarım Kredi', 'order': 6},
+    ];
+    for (final it in items) {
+      batch.set(coll.doc(), {
+        'name': it['name'],
+        'order': it['order'],
+        'isActive': true,
+      });
+    }
+    await batch.commit();
+  }
+
+  Future<void> _seedCategories() async {
+    final coll = db.collection('categories');
+    final snap = await coll.limit(1).get();
+    if (snap.docs.isNotEmpty) return;
+    final batch = db.batch();
+    const items = [
+      {'name': 'Tümü', 'order': 0},
+      {'name': 'Kahvaltılık', 'order': 1},
+      {'name': 'Meyve & Sebze', 'order': 2},
+      {'name': 'İçecek', 'order': 3},
+      {'name': 'Atıştırmalık', 'order': 4},
+      {'name': 'Süt Ürünleri', 'order': 5},
+      {'name': 'Temizlik', 'order': 6},
+    ];
+    for (final it in items) {
+      batch.set(coll.doc(), {
+        'name': it['name'],
+        'order': it['order'],
+        'isActive': true,
+      });
+    }
+    await batch.commit();
   }
 
   Future<void> _seedProducts() async {

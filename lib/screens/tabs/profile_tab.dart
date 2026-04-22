@@ -5,6 +5,8 @@ import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../admin_screen.dart';
 import '../notifications_screen.dart';
+import '../profile_screens.dart';
+import '../product_request_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -25,7 +27,10 @@ class ProfileTab extends StatelessWidget {
             title: 'Profil',
             trailing: FRIconChip(
               icon: Icons.settings_outlined,
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsHubScreen()),
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -49,13 +54,29 @@ class ProfileTab extends StatelessWidget {
                 icon: Icons.favorite_rounded,
                 title: 'Favoriler',
                 subtitle: '${state.favorites.length} ürün takipte',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                ),
               ),
               _ListItem(
                 icon: Icons.notifications_active_rounded,
                 title: 'Alarmlarım',
                 subtitle: '${state.productAlerts.length} aktif fiyat alarmı',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AlertsScreen()),
+                ),
+              ),
+              _ListItem(
+                icon: Icons.local_offer_outlined,
+                title: 'Katkılarım',
+                subtitle: '${state.contributions} fiyat paylaştın',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ContributionsScreen()),
+                ),
               ),
               _ListItem(
                 icon: Icons.inbox_rounded,
@@ -79,36 +100,51 @@ class ProfileTab extends StatelessWidget {
                 icon: Icons.person_outline_rounded,
                 title: 'Profil bilgileri',
                 subtitle: state.username,
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ProfileInfoScreen()),
+                ),
               ),
               _ListItem(
                 icon: Icons.shield_outlined,
                 title: 'Güvenlik',
                 subtitle: state.twoFactorEnabled ? '2FA açık' : '2FA kapalı',
-                onTap: () {},
-              ),
-              _ListItem(
-                icon: Icons.place_outlined,
-                title: 'Konum tercihleri',
-                subtitle: state.phoneNumber?.isNotEmpty == true
-                    ? 'Konum açık'
-                    : 'Konum kapalı · tüm Türkiye',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SecurityPrefsScreen()),
+                ),
               ),
               _ListItem(
                 icon: Icons.notifications_none_rounded,
                 title: 'Bildirim tercihleri',
                 subtitle: state.pushNotificationsEnabled ? 'Açık' : 'Kapalı',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationPrefsScreen()),
+                ),
+              ),
+              _ListItem(
+                icon: Icons.assignment_add,
+                title: 'Ürün talebi oluştur',
+                subtitle: 'Kataloğa olmayan bir ürünü öner',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ProductRequestScreen()),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 18),
-          _AdminCta(onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AdminScreen()),
-              )),
-          const SizedBox(height: 14),
+          if (state.isAdmin)
+            _AdminCta(onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminScreen()),
+                )),
+          if (!state.isAdmin) const SizedBox(height: 14),
           InkWell(
             onTap: () => state.logout(),
             borderRadius: FRRad.all(FRRad.m),

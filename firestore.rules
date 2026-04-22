@@ -26,19 +26,35 @@ service cloud.firestore {
         'firstName',
         'lastName',
         'photoUrl',
+        'displayName',
+        'username',
+        'phoneNumber',
         'cityCode',
         'cityName',
         'city',
         'district',
         'neighborhood',
         'savedProducts',
+        'favorites',
+        'cart',
         'notificationPrefs',
+        'settings',
         'alarmNotifications',
         'campaignNotifications',
         'badgeNotifications',
         'fcmToken',
         'lastLoginAt',
-        'updatedAt'
+        'lastCheckoutAt',
+        'updatedAt',
+        // Points / trust / contributions counters — managed client-side via
+        // transactions. Rules cannot peek into an array-transaction safely;
+        // the client is the authority and the transaction guards against
+        // self-votes and duplicate votes.
+        'points',
+        'trustTotalVotes',
+        'trustVerifiedTotal',
+        'trustWrongTotal',
+        'contributions'
       ]);
     }
 
@@ -112,7 +128,6 @@ service cloud.firestore {
           immutable('banReason') &&
           immutable('role') &&
           immutable('email') &&
-          immutable('points') &&
           immutable('priceEntries') &&
           immutable('validations') &&
           immutable('inviteCount') &&
@@ -121,9 +136,6 @@ service cloud.firestore {
           immutable('reliabilityVotesUp') &&
           immutable('reliabilityVotesDown') &&
           immutable('trustScorePercent') &&
-          immutable('trustTotalVotes') &&
-          immutable('trustVerifiedTotal') &&
-          immutable('trustWrongTotal') &&
           immutable('inviteCode') &&
           immutable('invitedBy') &&
           immutable('createdAt')
@@ -176,7 +188,28 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if true;
       allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      // Admins can update anything. Signed-in community users can only touch
+      // the `priceHistory` field (via addPrice / voteOnPrice transactions).
+      // The client transaction enforces self-vote / duplicate-vote blocks.
+      allow update: if isAdmin() || (
+        signedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['priceHistory'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Community product suggestions. Users create their own pending requests;
+    // only admins can approve / reject / hard-delete them.
+    match /product_requests/{requestId} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.requestedByUid == request.auth.uid &&
+        (!('status' in request.resource.data) || request.resource.data.status == 'pending') &&
+        (!('approvedProductId' in request.resource.data)) &&
+        (!('rejectionReason' in request.resource.data)) &&
+        (!('decidedAt' in request.resource.data));
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /stores/{storeId} {

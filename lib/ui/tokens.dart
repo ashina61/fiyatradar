@@ -211,10 +211,30 @@ double frBottomScrollPadding(BuildContext context, {double extra = 16}) {
 }
 
 /// Bottom padding for a sticky footer (e.g. Add Price CTA, Cart footer) so
-/// that it sits just above the dock regardless of safe area.
+/// that it sits just above the dock regardless of safe area. When the soft
+/// keyboard is visible it overrides the dock reservation — the footer should
+/// then sit just above the keyboard, not above a hidden dock.
 double frStickyFooterBottomPadding(BuildContext context, {double extra = 8}) {
-  final safe = MediaQuery.of(context).viewPadding.bottom;
+  final mq = MediaQuery.of(context);
+  final safe = mq.viewPadding.bottom;
+  final kb = mq.viewInsets.bottom;
+  if (kb > 0) return extra; // scaffold already lifts body above keyboard
   return kFRDockInset + safe + extra;
+}
+
+/// Reserved height a scrollable should add to its bottom padding when it sits
+/// above a sticky footer — so the last content row isn't hidden behind the
+/// footer or the dock.
+double frScrollPaddingWithFooter(
+  BuildContext context, {
+  double footerHeight = 82,
+  double extra = 12,
+}) {
+  final mq = MediaQuery.of(context);
+  final safe = mq.viewPadding.bottom;
+  final kb = mq.viewInsets.bottom;
+  if (kb > 0) return footerHeight + extra + kb;
+  return footerHeight + kFRDockInset + safe + extra;
 }
 
 List<BoxShadow> frShadow({double blur = 20, double y = 10, double opacity = .35}) =>

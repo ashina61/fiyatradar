@@ -194,6 +194,10 @@ class Product {
   final String category;
   final String emoji;
   final String unit;
+  final String? imageUrl;
+  final String? imagePath;
+  final String? barcode;
+  final bool isActive;
   final List<PriceEntry> priceHistory;
 
   Product({
@@ -203,6 +207,10 @@ class Product {
     required this.category,
     required this.emoji,
     required this.unit,
+    this.imageUrl,
+    this.imagePath,
+    this.barcode,
+    this.isActive = true,
     List<PriceEntry>? priceHistory,
   }) : priceHistory = priceHistory ?? [];
 
@@ -338,6 +346,10 @@ class Product {
       category: (m['category'] ?? 'Tümü') as String,
       emoji: (m['emoji'] ?? '🛒') as String,
       unit: (m['unit'] ?? '') as String,
+      imageUrl: m['imageUrl'] as String?,
+      imagePath: m['imagePath'] as String?,
+      barcode: m['barcode'] as String?,
+      isActive: (m['isActive'] as bool?) ?? true,
       priceHistory: entries,
     );
   }
@@ -401,6 +413,71 @@ class AppNotification {
       body: (m['body'] ?? '') as String,
       createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
       readAt: read is Timestamp ? read.toDate() : null,
+    );
+  }
+}
+
+/// Community-sourced product suggestion awaiting admin approval.
+/// Stored in the `product_requests` collection.
+class ProductRequest {
+  final String id;
+  final String name;
+  final String brand;
+  final String category;
+  final String unit;
+  final String emoji;
+  final String barcode;
+  final String note;
+  final String requestedByUid;
+  final String requestedByName;
+  final String status; // 'pending' | 'approved' | 'rejected'
+  final String? rejectionReason;
+  final String? approvedProductId;
+  final DateTime createdAt;
+  final DateTime? decidedAt;
+
+  const ProductRequest({
+    required this.id,
+    required this.name,
+    required this.brand,
+    required this.category,
+    required this.unit,
+    required this.emoji,
+    required this.barcode,
+    required this.note,
+    required this.requestedByUid,
+    required this.requestedByName,
+    required this.status,
+    required this.createdAt,
+    this.rejectionReason,
+    this.approvedProductId,
+    this.decidedAt,
+  });
+
+  bool get isPending => status == 'pending';
+  bool get isApproved => status == 'approved';
+  bool get isRejected => status == 'rejected';
+
+  factory ProductRequest.fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data() ?? <String, dynamic>{};
+    final created = m['createdAt'];
+    final decided = m['decidedAt'];
+    return ProductRequest(
+      id: d.id,
+      name: (m['name'] ?? '') as String,
+      brand: (m['brand'] ?? '') as String,
+      category: (m['category'] ?? 'Tümü') as String,
+      unit: (m['unit'] ?? '') as String,
+      emoji: (m['emoji'] ?? '🛒') as String,
+      barcode: (m['barcode'] ?? '') as String,
+      note: (m['note'] ?? '') as String,
+      requestedByUid: (m['requestedByUid'] ?? '') as String,
+      requestedByName: (m['requestedByName'] ?? 'Topluluk') as String,
+      status: (m['status'] ?? 'pending') as String,
+      rejectionReason: m['rejectionReason'] as String?,
+      approvedProductId: m['approvedProductId'] as String?,
+      createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
+      decidedAt: decided is Timestamp ? decided.toDate() : null,
     );
   }
 }
