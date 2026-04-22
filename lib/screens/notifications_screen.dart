@@ -30,7 +30,7 @@ class NotificationsScreen extends StatelessWidget {
                   if (state.unreadNotificationCount > 0)
                     TextButton.icon(
                       onPressed: () => state.markAllNotificationsRead(),
-                      icon: const Icon(Icons.done_all_rounded,
+                      icon: Icon(Icons.done_all_rounded,
                           color: FR.gold, size: 18),
                       label: Text('Tümünü okundu işaretle',
                           style: frText(12, FontWeight.w800, color: FR.gold)),
@@ -220,7 +220,7 @@ class _EmptyState extends StatelessWidget {
                 borderRadius: FRRad.all(28),
                 border: Border.all(color: FR.hairline),
               ),
-              child: const Icon(Icons.notifications_off_outlined,
+              child: Icon(Icons.notifications_off_outlined,
                   color: FR.ink3, size: 38),
             ),
             const SizedBox(height: 14),
