@@ -86,9 +86,26 @@ class ProductDetailScreen extends StatelessWidget {
                     ),
                     child: Stack(
                       children: [
-                        Center(
-                          child: Text(product.emoji, style: const TextStyle(fontSize: 108)),
-                        ),
+                        if (product.imageUrl != null &&
+                            product.imageUrl!.isNotEmpty)
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: FRRad.all(24),
+                              child: Image.network(
+                                product.imageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                  child: Text(product.emoji,
+                                      style: const TextStyle(fontSize: 108)),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Center(
+                            child: Text(product.emoji,
+                                style: const TextStyle(fontSize: 108)),
+                          ),
                         Positioned(
                           top: 14,
                           left: 14,

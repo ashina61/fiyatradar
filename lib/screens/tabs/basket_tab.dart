@@ -137,17 +137,25 @@ class _CartPanel extends StatelessWidget {
     if (cart.isEmpty) {
       return _EmptyCart();
     }
-    return Column(
+    return Stack(
       children: [
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
-            itemCount: cart.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => _CartRow(item: cart[i], state: state),
+        ListView.separated(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            14,
+            20,
+            frScrollPaddingWithFooter(context, footerHeight: 132),
           ),
+          itemCount: cart.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) => _CartRow(item: cart[i], state: state),
         ),
-        _CartFooter(state: state, onCompare: onCompare),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _CartFooter(state: state, onCompare: onCompare),
+        ),
       ],
     );
   }

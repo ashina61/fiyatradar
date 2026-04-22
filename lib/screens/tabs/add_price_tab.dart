@@ -75,20 +75,27 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     return SafeArea(
       bottom: false,
-      child: Column(
+      child: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-            child: FRPageHeader(
-              overline: 'TOPLULUĞA KATKI',
-              title: 'Fiyat',
-              italicTail: ' ekle',
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-              children: [
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: FRPageHeader(
+                  overline: 'TOPLULUĞA KATKI',
+                  title: 'Fiyat',
+                  italicTail: ' ekle',
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    18,
+                    20,
+                    frScrollPaddingWithFooter(context, footerHeight: 96),
+                  ),
+                  children: [
                 _IntroBanner(),
                 const SizedBox(height: 18),
                 _label('Ürün'),
@@ -225,19 +232,26 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 const SizedBox(height: 14),
                 _GuideStrip(),
               ],
-            ),
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: EdgeInsets.fromLTRB(
-                20, 12, 20, frStickyFooterBottomPadding(context)),
-            decoration: BoxDecoration(
-              color: FR.bgElev,
-              border: Border(top: BorderSide(color: FR.hairline)),
-            ),
-            child: FRCta(
-              label: _submitting ? 'Gönderiliyor…' : 'Fiyatı paylaş · +10 PT',
-              icon: Icons.radar_rounded,
-              onTap: _submitting ? null : () => _submit(state),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                  20, 12, 20, frStickyFooterBottomPadding(context)),
+              decoration: BoxDecoration(
+                color: FR.bgElev,
+                border: Border(top: BorderSide(color: FR.hairline)),
+              ),
+              child: FRCta(
+                label: _submitting ? 'Gönderiliyor…' : 'Fiyatı paylaş · +10 PT',
+                icon: Icons.radar_rounded,
+                onTap: _submitting ? null : () => _submit(state),
+              ),
             ),
           ),
         ],

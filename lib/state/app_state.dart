@@ -62,6 +62,21 @@ class AppState extends ChangeNotifier {
   // Auth
   User? user;
 
+  /// Set after the user explicitly picks "continue as guest" on the login
+  /// screen. The auth gate treats an anonymous user with this flag off as
+  /// logged-out so the login screen is still shown on cold start.
+  bool guestAcknowledged = false;
+
+  void setGuestAcknowledged(bool v) {
+    guestAcknowledged = v;
+    notifyListeners();
+  }
+
+  /// True when the current user is a fully registered (non-anonymous) user
+  /// whose uid matches an admin record or whose profile has the admin flag.
+  bool _isAdmin = false;
+  bool get isAdmin => _isAdmin;
+
   // Catalog
   final List<Product> products = [];
   final List<AppBanner> banners = [];
@@ -111,7 +126,9 @@ class AppState extends ChangeNotifier {
     return 0.3 + 0.7 * ratio;
   }
 
-  final List<String> categories = const [
+  /// Categories streamed from Firestore. Falls back to a static list until
+  /// the first snapshot arrives so filters never render empty.
+  List<String> categories = const [
     'Tümü',
     'Kahvaltılık',
     'Meyve & Sebze',
@@ -121,7 +138,8 @@ class AppState extends ChangeNotifier {
     'Temizlik',
   ];
 
-  final List<String> stores = const [
+  /// Stores streamed from Firestore. Same fallback strategy as categories.
+  List<String> stores = const [
     'A101',
     'BİM',
     'ŞOK',
@@ -130,11 +148,17 @@ class AppState extends ChangeNotifier {
     'Tarım Kredi',
   ];
 
+  /// Pending product requests (admin side).
+  List<ProductRequest> productRequests = <ProductRequest>[];
+
   StreamSubscription? _productsSub;
   StreamSubscription? _bannersSub;
+  StreamSubscription? _storesSub;
+  StreamSubscription? _categoriesSub;
   StreamSubscription? _userSub;
   StreamSubscription? _notificationsSub;
   StreamSubscription? _productAlertsSub;
+  StreamSubscription? _productRequestsSub;
   bool _initialized = false;
   bool get initialized => _initialized;
   final List<AppNotification> notifications = [];
@@ -191,7 +215,7 @@ class AppState extends ChangeNotifier {
     _productsSub = _svc.products.snapshots().listen((snap) {
       products
         ..clear()
-        ..addAll(snap.docs.map(Product.fromDoc));
+        ..addAll(snap.docs.map(Product.fromDoc).where((p) => p.isActive));
       _reconcileCartProducts();
       notifyListeners();
     });
@@ -204,6 +228,52 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(snap.docs.map(AppBanner.fromDoc));
       banners.sort((a, b) => a.order.compareTo(b.order));
+      notifyListeners();
+    });
+
+    _storesSub = _svc.stores.snapshots().listen((snap) {
+      final docs = snap.docs
+          .map((d) => d.data())
+          .where((m) => m['isActive'] != false)
+          .toList();
+      docs.sort((a, b) {
+        final ao = (a['order'] as num?)?.toInt() ?? 999;
+        final bo = (b['order'] as num?)?.toInt() ?? 999;
+        return ao.compareTo(bo);
+      });
+      final names =
+          docs.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
+      if (names.isNotEmpty) {
+        stores = names;
+        notifyListeners();
+      }
+    });
+
+    _categoriesSub = _svc.categories.snapshots().listen((snap) {
+      final docs = snap.docs
+          .map((d) => d.data())
+          .where((m) => m['isActive'] != false)
+          .toList();
+      docs.sort((a, b) {
+        final ao = (a['order'] as num?)?.toInt() ?? 999;
+        final bo = (b['order'] as num?)?.toInt() ?? 999;
+        return ao.compareTo(bo);
+      });
+      final names = docs
+          .map((m) => (m['name'] ?? '').toString())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (names.isNotEmpty) {
+        categories = names;
+        notifyListeners();
+      }
+    });
+
+    _productRequestsSub = _svc.productRequests
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen((snap) {
+      productRequests = snap.docs.map(ProductRequest.fromDoc).toList();
       notifyListeners();
     });
 
@@ -271,6 +341,8 @@ class AppState extends ChangeNotifier {
           notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
       twoFactorEnabled = securitySettings['twoFactorEnabled'] as bool? ?? false;
       biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? true;
+      _isAdmin = (m['isAdmin'] as bool?) == true ||
+          (m['role'] as String?) == 'admin';
       final cartRaw = (m['cart'] as List?) ?? [];
       cart
         ..clear()
@@ -319,9 +391,12 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _productsSub?.cancel();
     _bannersSub?.cancel();
+    _storesSub?.cancel();
+    _categoriesSub?.cancel();
     _userSub?.cancel();
     _notificationsSub?.cancel();
     _productAlertsSub?.cancel();
+    _productRequestsSub?.cancel();
     super.dispose();
   }
 
@@ -388,6 +463,126 @@ class AppState extends ChangeNotifier {
       'priceHistory': <Map<String, dynamic>>[],
     });
     await _addPoints(PointsRules.addProduct);
+  }
+
+  // --- Admin: product management -----------------------------------------
+
+  Future<String> adminCreateProduct({
+    required String name,
+    required String brand,
+    required String category,
+    required String emoji,
+    required String unit,
+    String? imageUrl,
+    String? imagePath,
+    String? barcode,
+    bool isActive = true,
+  }) async {
+    final doc = await _svc.products.add({
+      'name': name.trim(),
+      'brand': brand.trim(),
+      'category': category,
+      'emoji': emoji,
+      'unit': unit.trim(),
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (imagePath != null) 'imagePath': imagePath,
+      if (barcode != null && barcode.isNotEmpty) 'barcode': barcode,
+      'isActive': isActive,
+      'priceHistory': <Map<String, dynamic>>[],
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdByUid': user?.uid ?? '',
+    });
+    return doc.id;
+  }
+
+  Future<void> adminUpdateProduct({
+    required String productId,
+    String? name,
+    String? brand,
+    String? category,
+    String? emoji,
+    String? unit,
+    String? imageUrl,
+    String? imagePath,
+    String? barcode,
+    bool? isActive,
+  }) async {
+    await _svc.products.doc(productId).update({
+      if (name != null) 'name': name.trim(),
+      if (brand != null) 'brand': brand.trim(),
+      if (category != null) 'category': category,
+      if (emoji != null) 'emoji': emoji,
+      if (unit != null) 'unit': unit.trim(),
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (imagePath != null) 'imagePath': imagePath,
+      if (barcode != null) 'barcode': barcode,
+      if (isActive != null) 'isActive': isActive,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> adminDeleteProduct(String productId) async {
+    await _svc.products.doc(productId).delete();
+  }
+
+  Future<void> adminApproveRequest({
+    required ProductRequest req,
+    String? emojiOverride,
+    String? unitOverride,
+    String? imageUrl,
+    String? imagePath,
+  }) async {
+    final productId = await adminCreateProduct(
+      name: req.name,
+      brand: req.brand,
+      category: req.category,
+      emoji: emojiOverride ?? req.emoji,
+      unit: unitOverride ?? req.unit,
+      imageUrl: imageUrl,
+      imagePath: imagePath,
+      barcode: req.barcode,
+    );
+    await _svc.productRequests.doc(req.id).update({
+      'status': 'approved',
+      'approvedProductId': productId,
+      'decidedAt': FieldValue.serverTimestamp(),
+      'decidedByUid': user?.uid ?? '',
+    });
+    if (req.requestedByUid.isNotEmpty) {
+      await _svc
+          .userNotifications(req.requestedByUid)
+          .add({
+        'title': 'Ürün talebin onaylandı',
+        'body': '${req.name} artık katalogta. Fiyat paylaşıp puan kazan.',
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'product_request_approved',
+        'productId': productId,
+      });
+    }
+  }
+
+  Future<void> adminRejectRequest({
+    required ProductRequest req,
+    String reason = '',
+  }) async {
+    await _svc.productRequests.doc(req.id).update({
+      'status': 'rejected',
+      'rejectionReason': reason,
+      'decidedAt': FieldValue.serverTimestamp(),
+      'decidedByUid': user?.uid ?? '',
+    });
+    if (req.requestedByUid.isNotEmpty) {
+      await _svc
+          .userNotifications(req.requestedByUid)
+          .add({
+        'title': 'Ürün talebin reddedildi',
+        'body': reason.isEmpty
+            ? '${req.name} kataloğa uygun değil.'
+            : '${req.name}: $reason',
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'product_request_rejected',
+      });
+    }
   }
 
   // --- Verification --------------------------------------------------------
@@ -747,14 +942,20 @@ class AppState extends ChangeNotifier {
   Future<void> logout() async {
     await _productsSub?.cancel();
     await _bannersSub?.cancel();
+    await _storesSub?.cancel();
+    await _categoriesSub?.cancel();
     await _userSub?.cancel();
     await _notificationsSub?.cancel();
     await _productAlertsSub?.cancel();
+    await _productRequestsSub?.cancel();
     _productsSub = null;
     _bannersSub = null;
+    _storesSub = null;
+    _categoriesSub = null;
     _userSub = null;
     _notificationsSub = null;
     _productAlertsSub = null;
+    _productRequestsSub = null;
     products.clear();
     banners.clear();
     favorites.clear();
@@ -767,6 +968,8 @@ class AppState extends ChangeNotifier {
     trustWrongTotal = 0;
     trustTotalVotes = 0;
     contributions = 0;
+    guestAcknowledged = false;
+    _isAdmin = false;
     _initialized = false;
     notifyListeners();
     await _svc.auth.signOut();
@@ -776,14 +979,20 @@ class AppState extends ChangeNotifier {
   Future<void> refreshFromAuthSession() async {
     await _productsSub?.cancel();
     await _bannersSub?.cancel();
+    await _storesSub?.cancel();
+    await _categoriesSub?.cancel();
     await _userSub?.cancel();
     await _notificationsSub?.cancel();
     await _productAlertsSub?.cancel();
+    await _productRequestsSub?.cancel();
     _productsSub = null;
     _bannersSub = null;
+    _storesSub = null;
+    _categoriesSub = null;
     _userSub = null;
     _notificationsSub = null;
     _productAlertsSub = null;
+    _productRequestsSub = null;
     products.clear();
     banners.clear();
     favorites.clear();
@@ -796,6 +1005,8 @@ class AppState extends ChangeNotifier {
     trustWrongTotal = 0;
     trustTotalVotes = 0;
     contributions = 0;
+    guestAcknowledged = false;
+    _isAdmin = false;
     _initialized = false;
     notifyListeners();
     await init();

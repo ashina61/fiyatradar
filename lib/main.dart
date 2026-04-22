@@ -44,7 +44,6 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
     return AnimatedBuilder(
       animation: FRThemeController.instance,
       builder: (context, _) {
-        final palette = FRThemeController.instance.palette;
         return AppStateScope(
           state: _state,
           child: MaterialApp(
@@ -55,22 +54,47 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
             themeMode: FRThemeController.instance.isDark
                 ? ThemeMode.dark
                 : ThemeMode.light,
-            home: FutureBuilder<_Init>(
-              future: _initFuture,
-              builder: (context, snap) {
-                if (snap.connectionState != ConnectionState.done) {
-                  return const _SplashScreen();
-                }
-                if (snap.hasError) {
-                  return _ErrorScreen(error: '${snap.error}');
-                }
-                if (snap.data!.showOnboarding) return const OnboardingScreen();
-                final user = _state.user;
-                if (user == null || user.isAnonymous) return const LoginScreen();
-                return const MainScreen();
-              },
+            home: _AuthGate(
+              state: _state,
+              initFuture: _initFuture,
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+/// Reactive auth gate: rebuilds whenever [AppState] changes (e.g. after a
+/// successful login call refreshes the auth session), so the tree swaps from
+/// [LoginScreen] to [MainScreen] without requiring an app restart.
+class _AuthGate extends StatelessWidget {
+  const _AuthGate({required this.state, required this.initFuture});
+  final AppState state;
+  final Future<_Init> initFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_Init>(
+      future: initFuture,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const _SplashScreen();
+        }
+        if (snap.hasError) {
+          return _ErrorScreen(error: '${snap.error}');
+        }
+        if (snap.data!.showOnboarding) return const OnboardingScreen();
+        return AnimatedBuilder(
+          animation: state,
+          builder: (_, __) {
+            final user = state.user;
+            if (user == null) return const LoginScreen();
+            if (user.isAnonymous && !state.guestAcknowledged) {
+              return const LoginScreen();
+            }
+            return const MainScreen();
+          },
         );
       },
     );

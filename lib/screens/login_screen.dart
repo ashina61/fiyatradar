@@ -54,8 +54,9 @@ class _LoginScreenState extends State<LoginScreen> {
         await svc.signInWithEmail(email: email, password: password);
       }
       await state.refreshFromAuthSession();
-      if (!mounted) return;
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      state.setGuestAcknowledged(false);
+      // No Navigator.pop needed: the root _AuthGate listens to AppState and
+      // swaps LoginScreen → MainScreen as soon as `user` becomes non-anon.
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
@@ -92,8 +93,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await FirebaseService.instance.ensureSignedIn();
       await state.refreshFromAuthSession();
-      if (!mounted) return;
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      state.setGuestAcknowledged(true);
+      // Auth gate handles the route swap.
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Misafir oturumu başlatılamadı.');
