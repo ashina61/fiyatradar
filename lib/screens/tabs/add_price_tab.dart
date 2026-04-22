@@ -38,12 +38,17 @@ class _AddPriceTabState extends State<AddPriceTab> {
     }
     setState(() => _submitting = true);
     try {
-      await state.addPrice(productId: pid, store: store, price: price);
+      await state.addPrice(
+        productId: pid,
+        store: store,
+        price: price,
+        note: _noteCtrl.text.trim(),
+      );
       if (!mounted) return;
       _priceCtrl.clear();
       _noteCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fiyatı paylaştın · +10 PT')),
+        const SnackBar(content: Text('Fiyatı paylaştın · +10 PT · Topluluk doğrulayacak')),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -57,6 +62,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      isScrollControlled: true,
       builder: (_) => _ProductPicker(products: state.products),
     );
     if (picked != null) setState(() => _selectedProduct = picked);
@@ -81,7 +87,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
               children: [
                 _IntroBanner(),
                 const SizedBox(height: 18),
@@ -130,7 +136,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                                   ],
                                 ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: FR.ink3),
+                        Icon(Icons.chevron_right_rounded, color: FR.ink3),
                       ],
                     ),
                   ),
@@ -221,8 +227,13 @@ class _AddPriceTabState extends State<AddPriceTab> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          Container(
+            padding: EdgeInsets.fromLTRB(
+                20, 12, 20, frStickyFooterBottomPadding(context)),
+            decoration: BoxDecoration(
+              color: FR.bgElev,
+              border: Border(top: BorderSide(color: FR.hairline)),
+            ),
             child: FRCta(
               label: _submitting ? 'Gönderiliyor…' : 'Fiyatı paylaş · +10 PT',
               icon: Icons.radar_rounded,
@@ -252,7 +263,7 @@ class _IntroBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -270,7 +281,7 @@ class _IntroBanner extends StatelessWidget {
               borderRadius: FRRad.all(14),
               border: Border.all(color: FR.goldDeep),
             ),
-            child: const Icon(Icons.auto_graph_rounded, color: FR.gold, size: 24),
+            child: Icon(Icons.auto_graph_rounded, color: FR.gold, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -351,9 +362,9 @@ class _ProductPickerState extends State<_ProductPicker> {
       initialChildSize: .8,
       maxChildSize: .9,
       builder: (ctx, scrollCtrl) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: FR.bg,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           children: [
@@ -377,8 +388,8 @@ class _ProductPickerState extends State<_ProductPicker> {
                   InkWell(
                     onTap: () => Navigator.pop(context),
                     borderRadius: FRRad.all(999),
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
                       child: Icon(Icons.close_rounded, color: FR.ink2),
                     ),
                   ),
@@ -393,7 +404,7 @@ class _ProductPickerState extends State<_ProductPicker> {
                 decoration: frSurface(radius: FRRad.m),
                 child: Row(
                   children: [
-                    const Icon(Icons.search_rounded, color: FR.ink3, size: 19),
+                    Icon(Icons.search_rounded, color: FR.ink3, size: 19),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(

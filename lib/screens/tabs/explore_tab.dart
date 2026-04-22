@@ -88,7 +88,7 @@ class _ExploreTabState extends State<ExploreTab> {
               decoration: frSurface(radius: FRRad.l),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, color: FR.gold, size: 19),
+                  Icon(Icons.search_rounded, color: FR.gold, size: 19),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
@@ -112,7 +112,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       borderRadius: FRRad.all(10),
                       border: Border.all(color: FR.hairline),
                     ),
-                    child: const Icon(Icons.qr_code_scanner_rounded,
+                    child: Icon(Icons.qr_code_scanner_rounded,
                         color: FR.ink2, size: 17),
                   ),
                 ],
@@ -187,7 +187,8 @@ class _ExploreTabState extends State<ExploreTab> {
                     ),
                   )
                 : GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
+                    padding: EdgeInsets.fromLTRB(
+                        20, 10, 20, frBottomScrollPadding(context)),
                     itemCount: products.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
@@ -245,14 +246,14 @@ class _ExploreCard extends StatelessWidget {
               children: [
                 Container(
                   height: 120,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [FR.surfaceHi, FR.surfaceLo],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+                        const BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
                   ),
                   child: Center(
                     child: Text(product.emoji, style: const TextStyle(fontSize: 54)),

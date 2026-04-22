@@ -146,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                          gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
                           borderRadius: FRRad.all(12),
                         ),
                         alignment: Alignment.center,
@@ -233,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline_rounded, color: FR.bad, size: 18),
+                                Icon(Icons.error_outline_rounded, color: FR.bad, size: 18),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(_error!,

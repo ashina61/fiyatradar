@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/product.dart';
+import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 
@@ -15,17 +17,15 @@ class _AdminScreenState extends State<AdminScreen> {
   static const tabs = [
     'Panel',
     'Ürünler',
-    'Talepler',
     'Fiyatlar',
-    'Raporlar',
-    'Banner',
-    'Kullanıcılar',
+    'Doğrulama',
     'Moderasyon',
     'Ayarlar',
   ];
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
     return Scaffold(
       backgroundColor: FR.bg,
       body: SafeArea(
@@ -52,7 +52,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const FRLiveDot(),
+                        FRLiveDot(),
                         const SizedBox(width: 6),
                         Text('KONTROL CANLI',
                             style: frOverline(color: FR.gold, size: 9.5)),
@@ -89,7 +89,7 @@ class _AdminScreenState extends State<AdminScreen> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-                children: [_buildTab()],
+                children: [_buildTab(state)],
               ),
             ),
           ],
@@ -98,200 +98,21 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  Widget _buildTab() {
+  Widget _buildTab(AppState state) {
     switch (tab) {
       case 0:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _StatGrid(),
-            const SizedBox(height: 18),
-            const FRSectionHead(eyebrow: 'CANLI', title: 'Son aktivite'),
-            const SizedBox(height: 10),
-            _rowList(const [
-              _Row(
-                title: 'iPhone 15 Pro Max · MediaMarkt',
-                subtitle: 'merve_k · 72.999 ₺ · 2 saat önce',
-                icon: Icons.price_change_rounded,
-                withActions: true,
-              ),
-              _Row(
-                title: 'Yeni kullanıcı kaydı',
-                subtitle: 'ayse_b · Kadıköy · 18 dakika önce',
-                icon: Icons.person_add_alt_1_rounded,
-                withActions: false,
-              ),
-              _Row(
-                title: 'Kurukahveci M.E. 250g · CarrefourSA',
-                subtitle: 'can_t · 189 ₺ · 36 dakika önce',
-                icon: Icons.local_offer_rounded,
-                withActions: true,
-              ),
-            ]),
-          ],
-        );
+        return _Panel(state: state);
       case 1:
-        return _rowList(const [
-          _Row(
-            title: 'iPhone 15 Pro Max 256GB',
-            subtitle: '3 fiyat · 12 doğrulama',
-            icon: Icons.smartphone_rounded,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Samsung QLED 55" Q80C',
-            subtitle: '2 fiyat · 8 doğrulama',
-            icon: Icons.tv_rounded,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Kurukahveci M.E. 250g',
-            subtitle: '8 fiyat · 34 doğrulama',
-            icon: Icons.coffee_rounded,
-            withActions: true,
-          ),
-        ]);
+        return _ProductsTab(state: state);
       case 2:
-        return _rowList(const [
-          _Row(
-            title: 'Samsung Galaxy S24 Ultra 512GB',
-            subtitle: 'Bekleyen ürün talebi',
-            icon: Icons.pending_actions_rounded,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Dyson V15 Detect Absolute',
-            subtitle: 'Bekleyen ürün talebi',
-            icon: Icons.pending_actions_rounded,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Lavazza Qualità Rossa 1kg',
-            subtitle: 'Bekleyen ürün talebi',
-            icon: Icons.pending_actions_rounded,
-            withActions: true,
-          ),
-        ]);
+        return _PricesTab(state: state);
       case 3:
-        return _rowList(const [
-          _Row(
-            title: 'iPhone 15 Pro Max · MediaMarkt',
-            subtitle: 'merve_k · 72.999 ₺',
-            icon: Icons.receipt_long_rounded,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Nike Air Force 1 · Sport Point',
-            subtitle: 'emre_s · 3.499 ₺',
-            icon: Icons.receipt_long_rounded,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Bosch Serie 6 Bulaşık · Teknosa',
-            subtitle: 'ece_a · 18.499 ₺',
-            icon: Icons.receipt_long_rounded,
-            withActions: true,
-          ),
-        ]);
+        return _VerificationTab(state: state);
       case 4:
-        return _rowList(const [
-          _Row(
-            title: 'Şüpheli fiyat bildirimi',
-            subtitle: '3 kullanıcı bildirdi · Samsung QLED',
-            icon: Icons.report_gmailerrorred_rounded,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Spam kullanıcı şüphesi',
-            subtitle: 'kullanıcı_x · 48 saatte 156 fiyat',
-            icon: Icons.report_gmailerrorred_rounded,
-            withActions: true,
-          ),
-        ]);
-      case 5:
-        return _rowList(const [
-          _Row(
-            title: 'Ana banner aktif',
-            subtitle: 'Haftanın fırsatları · 14 gün',
-            icon: Icons.view_carousel_rounded,
-            withActions: false,
-          ),
-          _Row(
-            title: 'Kampanya kartı',
-            subtitle: 'Doğrulanmış düşüşler · canlı',
-            icon: Icons.campaign_rounded,
-            withActions: false,
-          ),
-        ]);
-      case 6:
-        return _rowList(const [
-          _Row(
-            title: 'merve_k',
-            subtitle: '2.450 PT · Güven %96 · 84 katkı',
-            icon: Icons.person_rounded,
-            withActions: false,
-          ),
-          _Row(
-            title: 'emre_s',
-            subtitle: '3.840 PT · Güven %94 · 127 katkı',
-            icon: Icons.person_rounded,
-            withActions: false,
-          ),
-          _Row(
-            title: 'ece_a',
-            subtitle: '1.620 PT · Güven %91 · 58 katkı',
-            icon: Icons.person_rounded,
-            withActions: false,
-          ),
-        ]);
-      case 7:
-        return _rowList(const [
-          _Row(
-            title: 'Şüpheli fiyat bildirimi',
-            subtitle: '3 kullanıcı raporladı',
-            icon: Icons.shield_outlined,
-            withActions: true,
-          ),
-          _Row(
-            title: 'Spam kullanıcı',
-            subtitle: 'İnceleme bekliyor',
-            icon: Icons.gpp_maybe_outlined,
-            withActions: true,
-          ),
-        ]);
+        return _ModerationTab(state: state);
       default:
-        return _rowList(const [
-          _Row(
-            title: 'Günlük onay limiti',
-            subtitle: '500 fiyat / gün',
-            icon: Icons.tune_rounded,
-            withActions: false,
-          ),
-          _Row(
-            title: 'Toplu bildirim saati',
-            subtitle: '19:00 · Türkiye saati',
-            icon: Icons.schedule_rounded,
-            withActions: false,
-          ),
-          _Row(
-            title: 'Doğrulama eşiği',
-            subtitle: '3 kullanıcı onayı',
-            icon: Icons.verified_rounded,
-            withActions: false,
-          ),
-        ]);
+        return _SettingsTab(state: state);
     }
-  }
-
-  Widget _rowList(List<_Row> rows) {
-    return Column(
-      children: [
-        for (var i = 0; i < rows.length; i++) ...[
-          rows[i],
-          if (i < rows.length - 1) const SizedBox(height: 10),
-        ],
-      ],
-    );
   }
 }
 
@@ -327,51 +148,241 @@ class _TabChip extends StatelessWidget {
   }
 }
 
-class _StatGrid extends StatelessWidget {
-  const _StatGrid();
+// ─── Panel (runtime aggregates) ─────────────────────────────────────────────
+
+class _Panel extends StatelessWidget {
+  const _Panel({required this.state});
+  final AppState state;
 
   @override
   Widget build(BuildContext context) {
+    final products = state.products;
+    final fresh = state.freshContributionCountLast24h;
+    final pending = _collectEntries(products, status: PriceStatus.pending).length;
+    final disputed =
+        _collectEntries(products, status: PriceStatus.disputed).length;
+    final verified = state.aggregateVerifiedCount;
+    final trust = state.catalogTrustPercent;
+
+    final recent = _recentEntries(products).take(4).toList();
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          children: const [
+          children: [
             Expanded(
                 child: _StatCard(
-                    value: '247',
-                    label: 'BUGÜN ONAY',
-                    delta: '+18%',
-                    deltaGood: true)),
-            SizedBox(width: 10),
+                    value: '$fresh',
+                    label: 'SON 24S KATKI',
+                    delta: fresh > 0 ? 'canlı' : 'beklemede',
+                    deltaGood: fresh > 0)),
+            const SizedBox(width: 10),
             Expanded(
                 child: _StatCard(
-                    value: '12',
-                    label: 'BEKLEYEN',
-                    delta: 'acil',
-                    deltaGood: false)),
+                    value: '$pending',
+                    label: 'İNCELEMEDE',
+                    delta: pending > 0 ? 'topluluğa açık' : 'temiz',
+                    deltaGood: pending == 0)),
           ],
         ),
         const SizedBox(height: 10),
         Row(
-          children: const [
+          children: [
             Expanded(
                 child: _StatCard(
-                    value: '3.8K',
-                    label: 'AKTİF KULLANICI',
-                    delta: '+4%',
+                    value: '$verified',
+                    label: 'DOĞRULANMIŞ FİYAT',
+                    delta: '${products.length} ürün',
                     deltaGood: true)),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
                 child: _StatCard(
-                    value: '%94',
-                    label: 'GÜVEN SKORU',
-                    delta: '+2',
-                    deltaGood: true)),
+                    value: trust == 0 ? '—' : '%$trust',
+                    label: 'KATALOG GÜVENİ',
+                    delta: disputed > 0 ? '$disputed ihtilaf' : 'stabil',
+                    deltaGood: disputed == 0)),
           ],
         ),
+        const SizedBox(height: 18),
+        FRSectionHead(eyebrow: 'CANLI', title: 'Son katkılar'),
+        const SizedBox(height: 10),
+        if (recent.isEmpty)
+          _empty('Topluluktan henüz katkı gelmedi.')
+        else
+          _rowList([
+            for (final r in recent)
+              _EntryRow(product: r.$1, entry: r.$2),
+          ]),
       ],
     );
   }
+}
+
+class _ProductsTab extends StatelessWidget {
+  const _ProductsTab({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final products = state.products;
+    if (products.isEmpty) return _empty('Henüz ürün yok.');
+    return _rowList([
+      for (final p in products)
+        _GenericRow(
+          title: p.name,
+          subtitle:
+              '${p.validEntries.length} fiyat · ${p.verifiedCount} doğrulama · %${p.aggregateTrustPercent} güven',
+          icon: Icons.inventory_2_rounded,
+          withActions: false,
+        ),
+    ]);
+  }
+}
+
+class _PricesTab extends StatelessWidget {
+  const _PricesTab({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = _recentEntries(state.products).take(20).toList();
+    if (recent.isEmpty) return _empty('Fiyat akışı boş.');
+    return _rowList([
+      for (final r in recent) _EntryRow(product: r.$1, entry: r.$2),
+    ]);
+  }
+}
+
+class _VerificationTab extends StatelessWidget {
+  const _VerificationTab({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final pending =
+        _collectEntries(state.products, status: PriceStatus.pending).take(20).toList();
+    final disputed =
+        _collectEntries(state.products, status: PriceStatus.disputed).take(20).toList();
+    if (pending.isEmpty && disputed.isEmpty) {
+      return _empty('Tüm fiyatlar doğrulanmış.');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (disputed.isNotEmpty) ...[
+          FRSectionHead(eyebrow: 'DİKKAT', title: 'İhtilaflı fiyatlar'),
+          const SizedBox(height: 10),
+          _rowList([
+            for (final r in disputed) _EntryRow(product: r.$1, entry: r.$2),
+          ]),
+          const SizedBox(height: 18),
+        ],
+        if (pending.isNotEmpty) ...[
+          FRSectionHead(eyebrow: 'BEKLEYEN', title: 'Topluluk oyuna açık'),
+          const SizedBox(height: 10),
+          _rowList([
+            for (final r in pending) _EntryRow(product: r.$1, entry: r.$2),
+          ]),
+        ],
+      ],
+    );
+  }
+}
+
+class _ModerationTab extends StatelessWidget {
+  const _ModerationTab({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final rejected =
+        _collectEntries(state.products, status: PriceStatus.rejected)
+            .take(20)
+            .toList();
+    if (rejected.isEmpty) return _empty('Reddedilmiş fiyat yok.');
+    return _rowList([
+      for (final r in rejected) _EntryRow(product: r.$1, entry: r.$2),
+    ]);
+  }
+}
+
+class _SettingsTab extends StatelessWidget {
+  const _SettingsTab({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return _rowList([
+      _GenericRow(
+        title: 'Minimum oy sayısı',
+        subtitle:
+            '${VerificationRules.minVotesForStatus} oy sonrası durum değişir',
+        icon: Icons.verified_rounded,
+        withActions: false,
+      ),
+      _GenericRow(
+        title: 'Doğrulama eşiği',
+        subtitle:
+            'Güven ağırlıklı skor ≥ ${VerificationRules.verifyScore} → doğrulandı',
+        icon: Icons.tune_rounded,
+        withActions: false,
+      ),
+      _GenericRow(
+        title: 'Red eşiği',
+        subtitle:
+            'Güven ağırlıklı skor ≤ ${VerificationRules.rejectScore} → reddedildi',
+        icon: Icons.block_rounded,
+        withActions: false,
+      ),
+      _GenericRow(
+        title: 'Senin trust ağırlığın',
+        subtitle:
+            '%${state.trustScorePercent} güven · oyun ${state.voteWeight.toStringAsFixed(2)}x ağırlıkta',
+        icon: Icons.shield_moon_outlined,
+        withActions: false,
+      ),
+    ]);
+  }
+}
+
+Widget _empty(String label) {
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: frSurface(radius: FRRad.l),
+    alignment: Alignment.center,
+    child: Text(label, style: frText(12.5, FontWeight.w600, color: FR.ink3)),
+  );
+}
+
+Widget _rowList(List<Widget> rows) {
+  return Column(
+    children: [
+      for (var i = 0; i < rows.length; i++) ...[
+        rows[i],
+        if (i < rows.length - 1) const SizedBox(height: 10),
+      ],
+    ],
+  );
+}
+
+/// Flatten products into (product, entry) pairs filtered by status.
+List<(Product, PriceEntry)> _collectEntries(
+  List<Product> products, {
+  PriceStatus? status,
+}) {
+  final out = <(Product, PriceEntry)>[];
+  for (final p in products) {
+    for (final e in p.priceHistory) {
+      if (status == null || e.status == status) out.add((p, e));
+    }
+  }
+  out.sort((a, b) => b.$2.date.compareTo(a.$2.date));
+  return out;
+}
+
+List<(Product, PriceEntry)> _recentEntries(List<Product> products) {
+  return _collectEntries(products);
 }
 
 class _StatCard extends StatelessWidget {
@@ -392,7 +403,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -423,8 +434,67 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row({
+class _EntryRow extends StatelessWidget {
+  const _EntryRow({required this.product, required this.entry});
+  final Product product;
+  final PriceEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: FR.surfaceHi,
+              borderRadius: FRRad.all(12),
+              border: Border.all(color: FR.hairline),
+            ),
+            alignment: Alignment.center,
+            child: Text(product.emoji, style: const TextStyle(fontSize: 19)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${product.name} · ${entry.store}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: frText(13, FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                  '${entry.reportedBy} · ${entry.price.toStringAsFixed(2)} ₺ · '
+                  '↑${entry.upvotes} ↓${entry.downvotes}',
+                  style: frText(11, FontWeight.w600, color: FR.ink3),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FRVerifyBadge.status(
+            status: statusToString(entry.status),
+            trustPercent: entry.trustPercent,
+            dense: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GenericRow extends StatelessWidget {
+  const _GenericRow({
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -468,40 +538,15 @@ class _Row extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: frText(11, FontWeight.w600, color: FR.ink3),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
-          if (withActions) ...[
-            const SizedBox(width: 8),
-            _ActBtn(icon: Icons.check_rounded, color: FR.good),
-            const SizedBox(width: 6),
-            _ActBtn(icon: Icons.close_rounded, color: FR.bad),
-          ] else
-            const Icon(Icons.chevron_right_rounded, color: FR.ink3),
+          if (withActions)
+            Icon(Icons.chevron_right_rounded, color: FR.ink3),
         ],
       ),
-    );
-  }
-}
-
-class _ActBtn extends StatelessWidget {
-  const _ActBtn({required this.icon, required this.color});
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: color.withOpacity(.14),
-        borderRadius: FRRad.all(10),
-        border: Border.all(color: color.withOpacity(.4)),
-      ),
-      child: Icon(icon, size: 16, color: color),
     );
   }
 }

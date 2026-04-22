@@ -212,7 +212,7 @@ class _EmptyState extends StatelessWidget {
               width: 92,
               height: 92,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [FR.surface, FR.surfaceLo],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,

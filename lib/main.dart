@@ -12,6 +12,7 @@ import 'ui/tokens.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await FRThemeController.instance.load();
   runApp(const FiyatRadarApp());
 }
 
@@ -40,28 +41,38 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AppStateScope(
-      state: _state,
-      child: MaterialApp(
-        title: 'FiyatRadar',
-        debugShowCheckedModeBanner: false,
-        theme: buildFRTheme(),
-        home: FutureBuilder<_Init>(
-          future: _initFuture,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const _SplashScreen();
-            }
-            if (snap.hasError) {
-              return _ErrorScreen(error: '${snap.error}');
-            }
-            if (snap.data!.showOnboarding) return const OnboardingScreen();
-            final user = _state.user;
-            if (user == null || user.isAnonymous) return const LoginScreen();
-            return const MainScreen();
-          },
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: FRThemeController.instance,
+      builder: (context, _) {
+        final palette = FRThemeController.instance.palette;
+        return AppStateScope(
+          state: _state,
+          child: MaterialApp(
+            title: 'FiyatRadar',
+            debugShowCheckedModeBanner: false,
+            theme: buildFRTheme(palette: FRPalette.light),
+            darkTheme: buildFRTheme(palette: FRPalette.dark),
+            themeMode: FRThemeController.instance.isDark
+                ? ThemeMode.dark
+                : ThemeMode.light,
+            home: FutureBuilder<_Init>(
+              future: _initFuture,
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) {
+                  return const _SplashScreen();
+                }
+                if (snap.hasError) {
+                  return _ErrorScreen(error: '${snap.error}');
+                }
+                if (snap.data!.showOnboarding) return const OnboardingScreen();
+                final user = _state.user;
+                if (user == null || user.isAnonymous) return const LoginScreen();
+                return const MainScreen();
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -86,7 +97,7 @@ class _SplashScreen extends StatelessWidget {
               width: 78,
               height: 78,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [FR.goldHi, FR.goldDeep],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -107,7 +118,7 @@ class _SplashScreen extends StatelessWidget {
               style: frText(12.5, FontWeight.w600, color: FR.ink3, letter: .4),
             ),
             const SizedBox(height: 36),
-            const SizedBox(
+            SizedBox(
               width: 22,
               height: 22,
               child: CircularProgressIndicator(strokeWidth: 2.2, color: FR.gold),
@@ -133,7 +144,7 @@ class _ErrorScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.wifi_off_rounded, color: FR.bad, size: 46),
+              Icon(Icons.wifi_off_rounded, color: FR.bad, size: 46),
               const SizedBox(height: 14),
               Text('Bağlantı hatası', style: frDisplay(20, FontWeight.w700)),
               const SizedBox(height: 6),

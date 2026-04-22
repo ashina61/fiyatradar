@@ -141,10 +141,10 @@ class FRIconChip extends StatelessWidget {
 // ─── Price ───────────────────────────────────────────────────────────────────
 
 class FRPriceText extends StatelessWidget {
-  const FRPriceText(this.value, {super.key, this.size = 22, this.color = FR.ink});
+  const FRPriceText(this.value, {super.key, this.size = 22, this.color});
   final double? value;
   final double size;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +156,7 @@ class FRPriceText extends StatelessWidget {
             : v >= 100
                 ? '${v.toStringAsFixed(0)} ₺'
                 : '${v.toStringAsFixed(2)} ₺';
-    return Text(text, style: frPrice(size, color: color));
+    return Text(text, style: frPrice(size, color: color ?? FR.ink));
   }
 }
 
@@ -346,19 +346,20 @@ class FRCard extends StatelessWidget {
 // ─── Live dot ────────────────────────────────────────────────────────────────
 
 class FRLiveDot extends StatelessWidget {
-  const FRLiveDot({super.key, this.color = FR.good, this.size = 7});
-  final Color color;
+  const FRLiveDot({super.key, this.color, this.size = 7});
+  final Color? color;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final c = color ?? FR.good;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color,
+        color: c,
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color.withOpacity(.55), blurRadius: 6)],
+        boxShadow: [BoxShadow(color: c.withOpacity(.55), blurRadius: 6)],
       ),
     );
   }
@@ -417,8 +418,8 @@ class FRDockFab extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: active
-                ? const [FR.goldHi, FR.gold]
-                : const [FR.gold, FR.goldDeep],
+                ? [FR.goldHi, FR.gold]
+                : [FR.gold, FR.goldDeep],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -426,7 +427,7 @@ class FRDockFab extends StatelessWidget {
           border: Border.all(color: FR.goldHi.withOpacity(.3), width: 2),
           boxShadow: [BoxShadow(color: FR.gold.withOpacity(.4), blurRadius: 16, offset: const Offset(0, 6))],
         ),
-        child: const Icon(Icons.add_rounded, size: 26, color: FR.bg),
+        child: Icon(Icons.add_rounded, size: 26, color: FR.bg),
       ),
     );
   }
@@ -502,7 +503,7 @@ class FRProductThumb extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -519,17 +520,17 @@ class FRProductThumb extends StatelessWidget {
 // ─── Sparkline ───────────────────────────────────────────────────────────────
 
 class FRSparkline extends StatelessWidget {
-  const FRSparkline({super.key, required this.values, this.height = 48, this.color = FR.gold});
+  const FRSparkline({super.key, required this.values, this.height = 48, this.color});
   final List<double> values;
   final double height;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: height,
       width: double.infinity,
-      child: CustomPaint(painter: _SparkPainter(values, color)),
+      child: CustomPaint(painter: _SparkPainter(values, color ?? FR.gold)),
     );
   }
 }
@@ -587,4 +588,230 @@ class _SparkPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SparkPainter old) =>
       old.values != values || old.color != color;
+}
+
+// ─── Verification badge ─────────────────────────────────────────────────────
+
+/// Compact status chip derived from a [PriceStatus]-equivalent state.
+/// Kept UI-only so the widget layer doesn't depend on the model enum name.
+class FRVerifyBadge extends StatelessWidget {
+  const FRVerifyBadge({
+    super.key,
+    required this.label,
+    required this.tone,
+    this.trustPercent,
+    this.dense = false,
+  });
+
+  /// Build from semantics — prefer this over picking a tone manually.
+  factory FRVerifyBadge.status({
+    Key? key,
+    required String status, // 'community_verified' | 'disputed' | 'rejected' | 'pending'
+    required int trustPercent,
+    bool dense = false,
+  }) {
+    String label;
+    FRVerifyTone tone;
+    switch (status) {
+      case 'community_verified':
+        label = 'Doğrulandı';
+        tone = FRVerifyTone.good;
+        break;
+      case 'disputed':
+        label = 'İhtilaflı';
+        tone = FRVerifyTone.warn;
+        break;
+      case 'rejected':
+        label = 'Reddedildi';
+        tone = FRVerifyTone.bad;
+        break;
+      default:
+        label = trustPercent >= 60 ? 'İncelemede' : 'Yeni';
+        tone = FRVerifyTone.neutral;
+    }
+    return FRVerifyBadge(
+      key: key,
+      label: label,
+      tone: tone,
+      trustPercent: trustPercent,
+      dense: dense,
+    );
+  }
+
+  final String label;
+  final FRVerifyTone tone;
+  final int? trustPercent;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = switch (tone) {
+      FRVerifyTone.good => FR.good,
+      FRVerifyTone.warn => FR.warn,
+      FRVerifyTone.bad => FR.bad,
+      FRVerifyTone.neutral => FR.ink3,
+    };
+    final icon = switch (tone) {
+      FRVerifyTone.good => Icons.verified_rounded,
+      FRVerifyTone.warn => Icons.help_outline_rounded,
+      FRVerifyTone.bad => Icons.block_rounded,
+      FRVerifyTone.neutral => Icons.schedule_rounded,
+    };
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? 7 : 9,
+        vertical: dense ? 3 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: c.withOpacity(.14),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: c.withOpacity(.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: dense ? 11 : 13, color: c),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: frText(dense ? 9.5 : 10.5, FontWeight.w800, color: c),
+          ),
+          if (trustPercent != null) ...[
+            const SizedBox(width: 6),
+            Container(width: 1, height: dense ? 8 : 10, color: c.withOpacity(.3)),
+            const SizedBox(width: 6),
+            Text('%$trustPercent',
+                style: frText(dense ? 9.5 : 10.5, FontWeight.w800, color: c)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+enum FRVerifyTone { good, warn, bad, neutral }
+
+/// Horizontal bar summarising up/down votes for a price entry.
+class FRVoteBar extends StatelessWidget {
+  const FRVoteBar({
+    super.key,
+    required this.up,
+    required this.down,
+  });
+  final int up;
+  final int down;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = up + down;
+    final upPct = total == 0 ? 0.5 : up / total;
+    return Row(
+      children: [
+        Icon(Icons.thumb_up_alt_rounded, size: 12, color: FR.good),
+        const SizedBox(width: 4),
+        Text('$up', style: frText(11, FontWeight.w800, color: FR.good)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: FRRad.all(999),
+            child: Stack(
+              children: [
+                Container(height: 6, color: FR.bad.withOpacity(.2)),
+                FractionallySizedBox(
+                  widthFactor: upPct.clamp(0.0, 1.0).toDouble(),
+                  child: Container(height: 6, color: FR.good.withOpacity(.75)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text('$down', style: frText(11, FontWeight.w800, color: FR.bad)),
+        const SizedBox(width: 4),
+        Icon(Icons.thumb_down_alt_rounded, size: 12, color: FR.bad),
+      ],
+    );
+  }
+}
+
+/// Twin vote buttons (up / down). Disabled states and tones reflect the
+/// user's current vote or whether they're allowed to vote at all.
+class FRVoteButtons extends StatelessWidget {
+  const FRVoteButtons({
+    super.key,
+    required this.currentVote, // 'up' | 'down' | null
+    required this.disabledReason, // null when allowed
+    required this.onUp,
+    required this.onDown,
+  });
+  final String? currentVote;
+  final String? disabledReason;
+  final VoidCallback onUp;
+  final VoidCallback onDown;
+
+  @override
+  Widget build(BuildContext context) {
+    final locked = disabledReason != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _btn(
+          icon: Icons.thumb_up_rounded,
+          label: 'Doğru',
+          tone: FR.good,
+          active: currentVote == 'up',
+          disabled: locked,
+          onTap: locked ? null : onUp,
+        ),
+        const SizedBox(width: 8),
+        _btn(
+          icon: Icons.thumb_down_rounded,
+          label: 'Yanlış',
+          tone: FR.bad,
+          active: currentVote == 'down',
+          disabled: locked,
+          onTap: locked ? null : onDown,
+        ),
+      ],
+    );
+  }
+
+  Widget _btn({
+    required IconData icon,
+    required String label,
+    required Color tone,
+    required bool active,
+    required bool disabled,
+    required VoidCallback? onTap,
+  }) {
+    final bg = active
+        ? tone.withOpacity(.18)
+        : (disabled ? FR.surfaceLo : FR.surface);
+    final fg = active
+        ? tone
+        : (disabled ? FR.ink4 : FR.ink2);
+    final border = active
+        ? tone.withOpacity(.55)
+        : (disabled ? FR.hairlineSoft : FR.hairline);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: fg),
+            const SizedBox(width: 5),
+            Text(label, style: frText(11, FontWeight.w800, color: fg)),
+          ],
+        ),
+      ),
+    );
+  }
 }

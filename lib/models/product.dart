@@ -1,36 +1,190 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+/// Status lifecycle for a community-reported price.
+enum PriceStatus { pending, communityVerified, disputed, rejected }
+
+PriceStatus _statusFromString(String? v) {
+  switch (v) {
+    case 'community_verified':
+      return PriceStatus.communityVerified;
+    case 'disputed':
+      return PriceStatus.disputed;
+    case 'rejected':
+      return PriceStatus.rejected;
+    case 'pending':
+    default:
+      return PriceStatus.pending;
+  }
+}
+
+String statusToString(PriceStatus s) {
+  switch (s) {
+    case PriceStatus.communityVerified:
+      return 'community_verified';
+    case PriceStatus.disputed:
+      return 'disputed';
+    case PriceStatus.rejected:
+      return 'rejected';
+    case PriceStatus.pending:
+      return 'pending';
+  }
+}
+
+/// A user-reported price entry with community verification.
+///
+/// Verification signals:
+/// - [upvotes] / [downvotes]: raw vote counts
+/// - [verifiedByCount] / [rejectedByCount]: unique-user counts (same as votes)
+/// - [verificationScore]: `upvotes - downvotes` (raw)
+/// - [trustWeightedScore]: trust-weighted confidence score (-1..1)
+/// - [status]: derived status from trust-weighted signals
+/// - [voters]: map of `userId -> 'up' | 'down'` to prevent duplicate votes
 @immutable
 class PriceEntry {
+  final String id;
   final String store;
   final double price;
   final DateTime date;
   final String reportedBy;
+  final String reportedByUid;
+  final String note;
+  final String? proofImageUrl;
+
+  final int upvotes;
+  final int downvotes;
+  final int verifiedByCount;
+  final int rejectedByCount;
+  final double trustWeightedScore;
+  final PriceStatus status;
+  final DateTime? statusUpdatedAt;
+  final Map<String, String> voters; // uid -> 'up' | 'down'
 
   const PriceEntry({
+    required this.id,
     required this.store,
     required this.price,
     required this.date,
-    this.reportedBy = 'Sen',
+    this.reportedBy = 'Topluluk',
+    this.reportedByUid = '',
+    this.note = '',
+    this.proofImageUrl,
+    this.upvotes = 0,
+    this.downvotes = 0,
+    this.verifiedByCount = 0,
+    this.rejectedByCount = 0,
+    this.trustWeightedScore = 0.0,
+    this.status = PriceStatus.pending,
+    this.statusUpdatedAt,
+    this.voters = const {},
   });
 
+  int get verificationScore => upvotes - downvotes;
+  int get totalVotes => upvotes + downvotes;
+
+  /// Trust percentage 0..100 for UI display.
+  int get trustPercent {
+    if (totalVotes == 0) return 50;
+    final norm = ((trustWeightedScore + 1) / 2) * 100;
+    return norm.clamp(0, 100).round();
+  }
+
+  /// Confidence label derived from status + vote count.
+  String get trustLabel {
+    switch (status) {
+      case PriceStatus.communityVerified:
+        return 'Doğrulandı';
+      case PriceStatus.disputed:
+        return 'İhtilaflı';
+      case PriceStatus.rejected:
+        return 'Reddedildi';
+      case PriceStatus.pending:
+        return totalVotes == 0 ? 'Yeni' : 'İncelemede';
+    }
+  }
+
+  String? voteOf(String uid) => voters[uid];
+  bool isOwnedBy(String uid) => reportedByUid.isNotEmpty && reportedByUid == uid;
+
   Map<String, dynamic> toMap() => {
+        'id': id,
         'store': store,
         'price': price,
         'date': Timestamp.fromDate(date),
         'reportedBy': reportedBy,
+        'reportedByUid': reportedByUid,
+        'note': note,
+        if (proofImageUrl != null) 'proofImageUrl': proofImageUrl,
+        'upvotes': upvotes,
+        'downvotes': downvotes,
+        'verifiedByCount': verifiedByCount,
+        'rejectedByCount': rejectedByCount,
+        'trustWeightedScore': trustWeightedScore,
+        'status': statusToString(status),
+        if (statusUpdatedAt != null)
+          'statusUpdatedAt': Timestamp.fromDate(statusUpdatedAt!),
+        'voters': voters,
       };
 
   factory PriceEntry.fromMap(Map<String, dynamic> m) {
     final d = m['date'];
+    final su = m['statusUpdatedAt'];
+    final voters = <String, String>{};
+    final rawVoters = m['voters'];
+    if (rawVoters is Map) {
+      rawVoters.forEach((k, v) {
+        voters[k.toString()] = v.toString();
+      });
+    }
     return PriceEntry(
+      id: (m['id'] ?? '') as String,
       store: (m['store'] ?? '') as String,
       price: (m['price'] as num?)?.toDouble() ?? 0,
       date: d is Timestamp ? d.toDate() : DateTime.now(),
-      reportedBy: (m['reportedBy'] ?? 'Sen') as String,
+      reportedBy: (m['reportedBy'] ?? 'Topluluk') as String,
+      reportedByUid: (m['reportedByUid'] ?? '') as String,
+      note: (m['note'] ?? '') as String,
+      proofImageUrl: m['proofImageUrl'] as String?,
+      upvotes: (m['upvotes'] as num?)?.toInt() ?? 0,
+      downvotes: (m['downvotes'] as num?)?.toInt() ?? 0,
+      verifiedByCount: (m['verifiedByCount'] as num?)?.toInt() ?? 0,
+      rejectedByCount: (m['rejectedByCount'] as num?)?.toInt() ?? 0,
+      trustWeightedScore:
+          (m['trustWeightedScore'] as num?)?.toDouble() ?? 0.0,
+      status: _statusFromString(m['status'] as String?),
+      statusUpdatedAt: su is Timestamp ? su.toDate() : null,
+      voters: voters,
     );
   }
+
+  PriceEntry copyWith({
+    int? upvotes,
+    int? downvotes,
+    int? verifiedByCount,
+    int? rejectedByCount,
+    double? trustWeightedScore,
+    PriceStatus? status,
+    DateTime? statusUpdatedAt,
+    Map<String, String>? voters,
+  }) =>
+      PriceEntry(
+        id: id,
+        store: store,
+        price: price,
+        date: date,
+        reportedBy: reportedBy,
+        reportedByUid: reportedByUid,
+        note: note,
+        proofImageUrl: proofImageUrl,
+        upvotes: upvotes ?? this.upvotes,
+        downvotes: downvotes ?? this.downvotes,
+        verifiedByCount: verifiedByCount ?? this.verifiedByCount,
+        rejectedByCount: rejectedByCount ?? this.rejectedByCount,
+        trustWeightedScore: trustWeightedScore ?? this.trustWeightedScore,
+        status: status ?? this.status,
+        statusUpdatedAt: statusUpdatedAt ?? this.statusUpdatedAt,
+        voters: voters ?? this.voters,
+      );
 }
 
 class Product {
@@ -52,13 +206,28 @@ class Product {
     List<PriceEntry>? priceHistory,
   }) : priceHistory = priceHistory ?? [];
 
-  double? get latestPrice =>
-      priceHistory.isEmpty ? null : _sorted().last.price;
+  List<PriceEntry> _sorted() {
+    final s = [...priceHistory];
+    s.sort((a, b) => a.date.compareTo(b.date));
+    return s;
+  }
+
+  /// Entries deemed trustworthy enough to surface (not rejected).
+  List<PriceEntry> get validEntries =>
+      priceHistory.where((e) => e.status != PriceStatus.rejected).toList();
+
+  double? get latestPrice {
+    final valid = validEntries;
+    if (valid.isEmpty) return null;
+    valid.sort((a, b) => a.date.compareTo(b.date));
+    return valid.last.price;
+  }
 
   double? get previousPrice {
-    final s = _sorted();
-    if (s.length < 2) return null;
-    return s[s.length - 2].price;
+    final valid = validEntries;
+    if (valid.length < 2) return null;
+    valid.sort((a, b) => a.date.compareTo(b.date));
+    return valid[valid.length - 2].price;
   }
 
   double? get priceChangePct {
@@ -68,21 +237,77 @@ class Product {
     return ((l - p) / p) * 100.0;
   }
 
-  List<PriceEntry> _sorted() {
-    final s = [...priceHistory];
-    s.sort((a, b) => a.date.compareTo(b.date));
-    return s;
+  double? get lowestPrice {
+    final valid = validEntries;
+    if (valid.isEmpty) return null;
+    return valid.map((e) => e.price).reduce((a, b) => a < b ? a : b);
   }
-
-  double? get lowestPrice => priceHistory.isEmpty
-      ? null
-      : priceHistory.map((e) => e.price).reduce((a, b) => a < b ? a : b);
 
   String? get cheapestStore {
-    if (priceHistory.isEmpty) return null;
-    final p = priceHistory.reduce((a, b) => a.price < b.price ? a : b);
+    final valid = validEntries;
+    if (valid.isEmpty) return null;
+    final p = valid.reduce((a, b) => a.price < b.price ? a : b);
     return p.store;
   }
+
+  /// Best-value entry: balances price, freshness, and verification trust so
+  /// a cheap-but-unverified entry doesn't beat a verified one with a
+  /// slightly higher price.
+  ///
+  /// Score = normalisedPrice * 0.55 + freshness * 0.2 + trust * 0.25
+  /// (lower is better; normalisedPrice uses min-max across valid entries)
+  PriceEntry? get bestValueEntry {
+    final valid = validEntries;
+    if (valid.isEmpty) return null;
+    if (valid.length == 1) return valid.first;
+    final prices = valid.map((e) => e.price).toList();
+    final minP = prices.reduce((a, b) => a < b ? a : b);
+    final maxP = prices.reduce((a, b) => a > b ? a : b);
+    final span = (maxP - minP).abs() < 1e-6 ? 1.0 : (maxP - minP);
+    final now = DateTime.now();
+
+    PriceEntry? best;
+    double bestScore = double.infinity;
+    for (final e in valid) {
+      final priceNorm = (e.price - minP) / span; // 0 best, 1 worst
+      final ageDays = now.difference(e.date).inHours / 24.0;
+      final freshness = (ageDays / 14.0).clamp(0.0, 1.0); // 0 fresh, 1 stale
+      // Trust: communityVerified best, pending neutral, disputed penalty
+      final trust = switch (e.status) {
+        PriceStatus.communityVerified => 0.0,
+        PriceStatus.pending => 0.5,
+        PriceStatus.disputed => 0.85,
+        PriceStatus.rejected => 1.0,
+      };
+      final score =
+          priceNorm * 0.55 + freshness * 0.2 + trust * 0.25;
+      if (score < bestScore) {
+        bestScore = score;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /// Aggregate trust percentage across all valid entries, weighted by
+  /// vote count so popular verified entries dominate.
+  int get aggregateTrustPercent {
+    final valid = validEntries;
+    if (valid.isEmpty) return 0;
+    double sum = 0;
+    int weightSum = 0;
+    for (final e in valid) {
+      final w = 1 + e.totalVotes;
+      sum += e.trustPercent * w;
+      weightSum += w;
+    }
+    if (weightSum == 0) return 0;
+    return (sum / weightSum).round().clamp(0, 100);
+  }
+
+  int get verifiedCount => priceHistory
+      .where((e) => e.status == PriceStatus.communityVerified)
+      .length;
 
   Map<String, dynamic> toMap() => {
         'name': name,
@@ -95,6 +320,17 @@ class Product {
 
   factory Product.fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data() ?? <String, dynamic>{};
+    final list = (m['priceHistory'] as List?) ?? const [];
+    final entries = <PriceEntry>[];
+    for (var i = 0; i < list.length; i++) {
+      final raw = Map<String, dynamic>.from(list[i] as Map);
+      // Entries may have been seeded without an id; synthesise one so that
+      // voting can reference them stably.
+      if ((raw['id'] as String?)?.isNotEmpty != true) {
+        raw['id'] = '${d.id}_$i';
+      }
+      entries.add(PriceEntry.fromMap(raw));
+    }
     return Product(
       id: d.id,
       name: (m['name'] ?? '') as String,
@@ -102,9 +338,7 @@ class Product {
       category: (m['category'] ?? 'Tümü') as String,
       emoji: (m['emoji'] ?? '🛒') as String,
       unit: (m['unit'] ?? '') as String,
-      priceHistory: ((m['priceHistory'] as List?) ?? [])
-          .map((e) => PriceEntry.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList(),
+      priceHistory: entries,
     );
   }
 }

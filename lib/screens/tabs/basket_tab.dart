@@ -141,7 +141,7 @@ class _CartPanel extends StatelessWidget {
       children: [
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
             itemCount: cart.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, i) => _CartRow(item: cart[i], state: state),
@@ -157,7 +157,7 @@ class _EmptyCart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+      padding: EdgeInsets.fromLTRB(20, 24, 20, frBottomScrollPadding(context)),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -166,7 +166,7 @@ class _EmptyCart extends StatelessWidget {
               width: 96,
               height: 96,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [FR.surface, FR.surfaceLo],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -174,7 +174,7 @@ class _EmptyCart extends StatelessWidget {
                 borderRadius: FRRad.all(28),
                 border: Border.all(color: FR.hairline),
               ),
-              child: const Icon(Icons.shopping_basket_outlined, color: FR.gold, size: 40),
+              child: Icon(Icons.shopping_basket_outlined, color: FR.gold, size: 40),
             ),
             const SizedBox(height: 16),
             Text('Sepetin boş', style: frDisplay(22, FontWeight.w700)),
@@ -312,8 +312,9 @@ class _CartFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(
+          20, 14, 20, frStickyFooterBottomPadding(context)),
+      decoration: BoxDecoration(
         color: FR.bgElev,
         border: Border(top: BorderSide(color: FR.hairline)),
       ),
@@ -358,13 +359,13 @@ class _ComparePanel extends StatelessWidget {
     final best = groups.isEmpty ? null : groups.first;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+      padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
       children: [
         if (best != null)
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [FR.surfaceHi, FR.surfaceLo],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
