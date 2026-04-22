@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/executive_ui.dart';
+import '../ui/components.dart';
+import '../ui/tokens.dart';
 import 'tabs/add_price_tab.dart';
 import 'tabs/basket_tab.dart';
 import 'tabs/explore_tab.dart';
@@ -25,61 +26,71 @@ class _MainScreenState extends State<MainScreen> {
     _index = widget.initialIndex;
   }
 
+  void _go(int i) => setState(() => _index = i);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ExecColors.bg,
+      backgroundColor: FR.bg,
+      extendBody: true,
       body: IndexedStack(index: _index, children: _tabs),
-      bottomNavigationBar: SafeArea(
-        top: false,
+      bottomNavigationBar: _Dock(index: _index, onChange: _go),
+    );
+  }
+}
+
+class _Dock extends StatelessWidget {
+  const _Dock({required this.index, required this.onChange});
+  final int index;
+  final ValueChanged<int> onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         child: Container(
-          margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          height: 72,
           decoration: BoxDecoration(
-            color: ExecColors.surface.withOpacity(.97),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: ExecColors.bgDeep),
-            boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 18, offset: Offset(0, 6))],
+            color: FR.surface,
+            borderRadius: FRRad.all(26),
+            border: Border.all(color: FR.hairline),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 24, offset: const Offset(0, 12)),
+              BoxShadow(color: FR.gold.withOpacity(.06), blurRadius: 36, offset: const Offset(0, 0)),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _item(0, Icons.home_rounded, 'Home'),
-              _item(1, Icons.search_rounded, 'Keşfet'),
-              _item(2, Icons.add_rounded, 'Ekle', primary: true),
-              _item(3, Icons.shopping_basket_rounded, 'Sepet'),
-              _item(4, Icons.person_rounded, 'Profil'),
+              FRDockItem(
+                icon: Icons.home_rounded,
+                label: 'Anasayfa',
+                active: index == 0,
+                onTap: () => onChange(0),
+              ),
+              FRDockItem(
+                icon: Icons.radar_rounded,
+                label: 'Keşfet',
+                active: index == 1,
+                onTap: () => onChange(1),
+              ),
+              FRDockFab(active: index == 2, onTap: () => onChange(2)),
+              FRDockItem(
+                icon: Icons.shopping_basket_rounded,
+                label: 'Sepet',
+                active: index == 3,
+                onTap: () => onChange(3),
+              ),
+              FRDockItem(
+                icon: Icons.person_rounded,
+                label: 'Profil',
+                active: index == 4,
+                onTap: () => onChange(4),
+              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _item(int i, IconData icon, String label, {bool primary = false}) {
-    final active = _index == i;
-    return GestureDetector(
-      onTap: () => setState(() => _index = i),
-      child: Container(
-        width: primary ? 58 : 64,
-        height: 50,
-        decoration: BoxDecoration(
-          color: primary
-              ? ExecColors.espresso
-              : active
-                  ? ExecColors.espresso
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 19, color: (active || primary) ? ExecColors.gold : ExecColors.ink3),
-            if (!primary) ...[
-              const SizedBox(height: 2),
-              Text(label, style: manrope(9, FontWeight.w700, color: active ? ExecColors.gold : ExecColors.ink4)),
-            ]
-          ],
         ),
       ),
     );

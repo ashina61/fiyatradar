@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
-import '../../widgets/executive_ui.dart';
+import '../../ui/components.dart';
+import '../../ui/tokens.dart';
 import '../admin_screen.dart';
+import '../notifications_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -10,42 +12,367 @@ class ProfileTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final rankPoints = state.points % 1000;
+    final rankPct = rankPoints / 1000.0;
 
     return SafeArea(
+      bottom: false,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: [
-          Text('KİMLİK · GÜVEN · KATKI', style: manrope(10, FontWeight.w800, color: ExecColors.goldDeep, letterSpacing: 2.2)),
-          const SizedBox(height: 6),
-          Text('Profil', style: fraunces(44, FontWeight.w700)),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(borderRadius: ExecRadii.xl, gradient: const LinearGradient(colors: [ExecColors.espresso2, ExecColors.espresso])),
-            child: Column(children: [Container(width: 92, height: 92, decoration: BoxDecoration(color: const Color(0x26C9A063), borderRadius: BorderRadius.circular(30), border: Border.all(color: const Color(0x66C9A063))), alignment: Alignment.center, child: Text((state.displayName.isEmpty ? 'F' : state.displayName[0].toUpperCase()), style: fraunces(40, FontWeight.w700, color: ExecColors.gold))), const SizedBox(height: 10), Text(state.displayName, style: fraunces(30, FontWeight.w600, color: ExecColors.onDark)), Text(state.username, style: manrope(13, FontWeight.w700, color: const Color(0xFFC9BCA6))), const SizedBox(height: 12), Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: const Color(0x26C9A063), borderRadius: ExecRadii.pill), child: Text('Elit Radar · ${state.points} PT', style: manrope(11, FontWeight.w800, color: ExecColors.gold)))]),
+          FRPageHeader(
+            overline: 'KİMLİK · GÜVEN · KATKI',
+            title: 'Profil',
+            trailing: FRIconChip(
+              icon: Icons.settings_outlined,
+              onTap: () {},
+            ),
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: execCard(radius: 22),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Rütbe ilerlemesi', style: manrope(12, FontWeight.w700, color: ExecColors.ink3)), Text('${state.points % 1000}/1000', style: manrope(12, FontWeight.w800, color: ExecColors.goldDeep))]), const SizedBox(height: 10), ClipRRect(borderRadius: ExecRadii.pill, child: LinearProgressIndicator(value: (state.points % 1000) / 1000, minHeight: 8, color: ExecColors.gold, backgroundColor: ExecColors.bgDeep))]),
+          const SizedBox(height: 20),
+          _IdentityCard(state: state),
+          const SizedBox(height: 14),
+          _RankProgress(pct: rankPct, earned: rankPoints),
+          const SizedBox(height: 20),
+          _StatGrid(state: state),
+          const SizedBox(height: 20),
+          FRSectionHead(eyebrow: 'TAKİP', title: 'Radar takvimin'),
+          const SizedBox(height: 10),
+          _ListGroup(
+            items: [
+              _ListItem(
+                icon: Icons.favorite_rounded,
+                title: 'Favoriler',
+                subtitle: '${state.favorites.length} ürün takipte',
+                onTap: () {},
+              ),
+              _ListItem(
+                icon: Icons.notifications_active_rounded,
+                title: 'Alarmlarım',
+                subtitle: '${state.productAlerts.length} aktif fiyat alarmı',
+                onTap: () {},
+              ),
+              _ListItem(
+                icon: Icons.inbox_rounded,
+                title: 'Bildirim merkezi',
+                subtitle: state.unreadNotificationCount > 0
+                    ? '${state.unreadNotificationCount} okunmamış'
+                    : 'Hepsi okunmuş',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          _group([_row(Icons.favorite_rounded, 'Favorilerim', '12 ürün takipte'), _row(Icons.notifications_active_rounded, 'Bildirim Tercihleri', state.pushNotificationsEnabled ? 'Açık' : 'Kapalı'), _row(Icons.place_rounded, 'Konum Ayarları', 'Kadıköy, İstanbul')]),
-          const SizedBox(height: 12),
-          _group([_row(Icons.shield_outlined, 'Güvenlik', state.twoFactorEnabled ? '2FA Açık' : '2FA Kapalı'), _row(Icons.history, 'Katkı Geçmişim', 'Son 30 gün'), _row(Icons.stars_rounded, 'Rozetler', '14 / 42 tamamlandı')]),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen())), style: OutlinedButton.styleFrom(side: const BorderSide(color: ExecColors.bgDeep), shape: RoundedRectangleBorder(borderRadius: ExecRadii.pill), padding: const EdgeInsets.symmetric(vertical: 14)), icon: const Icon(Icons.admin_panel_settings_outlined, color: ExecColors.ink2), label: Text('Admin Konsolu', style: manrope(14, FontWeight.w800, color: ExecColors.ink2))),
+          const SizedBox(height: 18),
+          FRSectionHead(eyebrow: 'HESAP', title: 'Ayarlar'),
+          const SizedBox(height: 10),
+          _ListGroup(
+            items: [
+              _ListItem(
+                icon: Icons.person_outline_rounded,
+                title: 'Profil bilgileri',
+                subtitle: state.username,
+                onTap: () {},
+              ),
+              _ListItem(
+                icon: Icons.shield_outlined,
+                title: 'Güvenlik',
+                subtitle: state.twoFactorEnabled ? '2FA açık' : '2FA kapalı',
+                onTap: () {},
+              ),
+              _ListItem(
+                icon: Icons.place_outlined,
+                title: 'Konum tercihleri',
+                subtitle: 'Kadıköy, İstanbul',
+                onTap: () {},
+              ),
+              _ListItem(
+                icon: Icons.notifications_none_rounded,
+                title: 'Bildirim tercihleri',
+                subtitle: state.pushNotificationsEnabled ? 'Açık' : 'Kapalı',
+                onTap: () {},
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _AdminCta(onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminScreen()),
+              )),
+          const SizedBox(height: 14),
+          InkWell(
+            onTap: () => state.logout(),
+            borderRadius: FRRad.all(FRRad.m),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FR.bad.withOpacity(.08),
+                borderRadius: FRRad.all(FRRad.m),
+                border: Border.all(color: FR.bad.withOpacity(.3)),
+              ),
+              child: Text(
+                'Çıkış yap',
+                style: frText(13, FontWeight.w800, color: FR.bad),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _group(List<Widget> children) => Container(decoration: execCard(radius: 20), child: Column(children: children));
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({required this.state});
+  final AppState state;
 
-  Widget _row(IconData icon, String title, String subtitle) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: ExecColors.bgDeep))),
-        child: Row(children: [Container(width: 36, height: 36, decoration: BoxDecoration(color: ExecColors.bgSoft, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: ExecColors.goldDeep, size: 18)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: manrope(13, FontWeight.w800)), Text(subtitle, style: manrope(11, FontWeight.w600, color: ExecColors.ink3))])), const Icon(Icons.chevron_right, color: ExecColors.ink4)]),
+  @override
+  Widget build(BuildContext context) {
+    final initial =
+        state.displayName.isEmpty ? 'F' : state.displayName[0].toUpperCase();
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(24),
+        border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+              borderRadius: FRRad.all(22),
+              boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 20)],
+            ),
+            alignment: Alignment.center,
+            child: Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.bg)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(state.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: frDisplay(22, FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(state.username,
+                    style: frText(12, FontWeight.w700, color: FR.ink3)),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: FR.gold.withOpacity(.16),
+                    borderRadius: FRRad.all(999),
+                    border: Border.all(color: FR.gold.withOpacity(.35)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded,
+                          color: FR.gold, size: 13),
+                      const SizedBox(width: 5),
+                      Text('Elit Radar · ${state.points} PT',
+                          style: frText(11, FontWeight.w800, color: FR.gold)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RankProgress extends StatelessWidget {
+  const _RankProgress({required this.pct, required this.earned});
+  final double pct;
+  final int earned;
+
+  @override
+  Widget build(BuildContext context) {
+    return FRCard(
+      radius: FRRad.l,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text('SONRAKİ RÜTBEYE',
+                  style: frOverline(color: FR.ink3, size: 9.5)),
+              const Spacer(),
+              Text('$earned / 1000 PT',
+                  style: frText(11.5, FontWeight.w800, color: FR.gold)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: FRRad.all(999),
+            child: LinearProgressIndicator(
+              value: pct.clamp(0, 1).toDouble(),
+              minHeight: 8,
+              color: FR.gold,
+              backgroundColor: FR.bgElev,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatGrid extends StatelessWidget {
+  const _StatGrid({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _stat('${state.favorites.length}', 'FAVORİ'),
+        const SizedBox(width: 10),
+        _stat('${state.productAlerts.length}', 'ALARM'),
+        const SizedBox(width: 10),
+        _stat('${state.cartItemCount}', 'SEPET'),
+        const SizedBox(width: 10),
+        _stat('${state.points}', 'PUAN'),
+      ],
+    );
+  }
+
+  Widget _stat(String v, String l) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: frSurface(radius: FRRad.m),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(v, style: frPrice(22, color: FR.ink)),
+              const SizedBox(height: 2),
+              Text(l, style: frOverline(color: FR.ink3, size: 9)),
+            ],
+          ),
+        ),
       );
+}
+
+class _ListGroup extends StatelessWidget {
+  const _ListGroup({required this.items});
+  final List<_ListItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: frSurface(radius: FRRad.l),
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            items[i],
+            if (i < items.length - 1)
+              const Divider(height: 1, color: FR.hairline, indent: 16, endIndent: 16),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ListItem extends StatelessWidget {
+  const _ListItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
+                borderRadius: FRRad.all(12),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Icon(icon, color: FR.gold, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: frText(13.5, FontWeight.w800)),
+                  Text(subtitle,
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: FR.ink3),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminCta extends StatelessWidget {
+  const _AdminCta({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: FR.surfaceHi,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.admin_panel_settings_outlined,
+                color: FR.gold, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Admin konsolu', style: frText(13.5, FontWeight.w800)),
+                  Text('Ürün, fiyat, moderasyon yönetimi',
+                      style: frText(11, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_rounded, color: FR.gold, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
 }

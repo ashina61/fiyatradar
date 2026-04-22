@@ -1,0 +1,590 @@
+import 'package:flutter/material.dart';
+
+import 'tokens.dart';
+
+// ─── Page header ─────────────────────────────────────────────────────────────
+
+class FRPageHeader extends StatelessWidget {
+  const FRPageHeader({
+    super.key,
+    required this.overline,
+    required this.title,
+    this.italicTail,
+    this.trailing,
+  });
+  final String overline;
+  final String title;
+  final String? italicTail;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget titleW;
+    if (italicTail != null) {
+      titleW = RichText(
+        text: TextSpan(
+          text: title,
+          style: frDisplay(40, FontWeight.w700),
+          children: [
+            TextSpan(text: italicTail, style: frSerifItalic(40, FontWeight.w400, color: FR.ink3)),
+          ],
+        ),
+      );
+    } else {
+      titleW = Text(title, style: frDisplay(40, FontWeight.w700));
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(overline, style: frOverline()),
+              const SizedBox(height: 6),
+              titleW,
+            ],
+          ),
+        ),
+        if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+class FRSectionHead extends StatelessWidget {
+  const FRSectionHead({super.key, required this.title, this.eyebrow, this.action});
+  final String? eyebrow;
+  final String title;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (eyebrow != null) Text(eyebrow!, style: frOverline()),
+              const SizedBox(height: 2),
+              Text(title, style: frDisplay(22, FontWeight.w700)),
+            ],
+          ),
+        ),
+        if (action != null) action!,
+      ],
+    );
+  }
+}
+
+// ─── Icon chip (top bar icon buttons) ────────────────────────────────────────
+
+class FRIconChip extends StatelessWidget {
+  const FRIconChip({
+    super.key,
+    required this.icon,
+    this.onTap,
+    this.active = false,
+    this.badge = 0,
+    this.size = 42,
+  });
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool active;
+  final int badge;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(14),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: active ? FR.gold.withOpacity(.15) : FR.surface,
+              borderRadius: FRRad.all(14),
+              border: Border.all(color: active ? FR.gold : FR.hairline),
+            ),
+            child: Icon(icon, size: 19, color: active ? FR.gold : FR.ink2),
+          ),
+          if (badge > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: FR.bad,
+                  borderRadius: FRRad.all(999),
+                  border: Border.all(color: FR.bg, width: 1.5),
+                ),
+                child: Text(
+                  badge > 9 ? '9+' : '$badge',
+                  style: frText(9, FontWeight.w800, color: Colors.white),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Price ───────────────────────────────────────────────────────────────────
+
+class FRPriceText extends StatelessWidget {
+  const FRPriceText(this.value, {super.key, this.size = 22, this.color = FR.ink});
+  final double? value;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = value;
+    final text = v == null
+        ? '—'
+        : v >= 1000
+            ? '${v.toStringAsFixed(0)} ₺'
+            : v >= 100
+                ? '${v.toStringAsFixed(0)} ₺'
+                : '${v.toStringAsFixed(2)} ₺';
+    return Text(text, style: frPrice(size, color: color));
+  }
+}
+
+// ─── Trend pill (-%12 / +%4) ────────────────────────────────────────────────
+
+class FRTrendPill extends StatelessWidget {
+  const FRTrendPill({super.key, required this.pct, this.dense = false});
+  final double pct;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final down = pct < 0;
+    final color = down ? FR.good : FR.bad;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10, vertical: dense ? 3 : 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.14),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: color.withOpacity(.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(down ? Icons.trending_down_rounded : Icons.trending_up_rounded,
+              size: dense ? 12 : 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            '%${pct.abs().toStringAsFixed(pct.abs() < 10 ? 1 : 0)}',
+            style: frText(dense ? 10 : 11, FontWeight.w800, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Store badge ─────────────────────────────────────────────────────────────
+
+class FRStoreBadge extends StatelessWidget {
+  const FRStoreBadge(this.store, {super.key, this.filled = false});
+  final String store;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: filled ? FR.gold : FR.bgElev,
+        borderRadius: FRRad.all(6),
+        border: Border.all(color: filled ? FR.gold : FR.hairline),
+      ),
+      child: Text(
+        store,
+        style: frText(10.5, FontWeight.w800,
+            color: filled ? FR.bg : FR.ink, letter: .3),
+      ),
+    );
+  }
+}
+
+// ─── Category / filter chip ──────────────────────────────────────────────────
+
+class FRFilterChip extends StatelessWidget {
+  const FRFilterChip(this.label,
+      {super.key, this.active = false, this.onTap, this.leading});
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? FR.gold : FR.surface,
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: active ? FR.gold : FR.hairline),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: frText(12.5, FontWeight.w700, color: active ? FR.bg : FR.ink2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── CTA ─────────────────────────────────────────────────────────────────────
+
+class FRCta extends StatelessWidget {
+  const FRCta({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.filled = true,
+    this.height = 54,
+  });
+  final String label;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final bool filled;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = filled ? FR.gold : Colors.transparent;
+    final fg = filled ? FR.bg : FR.ink;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: Container(
+        height: height,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: filled ? FR.gold : FR.hairline),
+          boxShadow: filled ? frGoldGlow() : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 18, color: fg),
+              const SizedBox(width: 8),
+            ],
+            Text(label, style: frText(14, FontWeight.w800, color: fg)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Surface card ────────────────────────────────────────────────────────────
+
+class FRCard extends StatelessWidget {
+  const FRCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+    this.radius = FRRad.l,
+    this.onTap,
+    this.highlight = false,
+  });
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+  final VoidCallback? onTap;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final deco = BoxDecoration(
+      color: FR.surface,
+      borderRadius: FRRad.all(radius),
+      border: Border.all(color: highlight ? FR.gold.withOpacity(.5) : FR.hairline),
+    );
+    final body = Container(padding: padding, decoration: deco, child: child);
+    if (onTap == null) return body;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(radius),
+      child: body,
+    );
+  }
+}
+
+// ─── Live dot ────────────────────────────────────────────────────────────────
+
+class FRLiveDot extends StatelessWidget {
+  const FRLiveDot({super.key, this.color = FR.good, this.size = 7});
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: color.withOpacity(.55), blurRadius: 6)],
+      ),
+    );
+  }
+}
+
+// ─── Dock nav button ─────────────────────────────────────────────────────────
+
+class FRDockItem extends StatelessWidget {
+  const FRDockItem({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? FR.gold : FR.ink3;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(16),
+      child: SizedBox(
+        width: 58,
+        height: 52,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 3),
+            Text(label, style: frText(9.5, FontWeight.w800, color: color, letter: .1)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FRDockFab extends StatelessWidget {
+  const FRDockFab({super.key, required this.active, required this.onTap});
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: Container(
+        width: 54,
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: active
+                ? const [FR.goldHi, FR.gold]
+                : const [FR.gold, FR.goldDeep],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          border: Border.all(color: FR.goldHi.withOpacity(.3), width: 2),
+          boxShadow: [BoxShadow(color: FR.gold.withOpacity(.4), blurRadius: 16, offset: const Offset(0, 6))],
+        ),
+        child: const Icon(Icons.add_rounded, size: 26, color: FR.bg),
+      ),
+    );
+  }
+}
+
+// ─── Freshness chip ─────────────────────────────────────────────────────────
+
+class FRFreshChip extends StatelessWidget {
+  const FRFreshChip({super.key, required this.date});
+  final DateTime? date;
+
+  String _ago(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inDays > 7) return '${(diff.inDays / 7).floor()}h';
+    if (diff.inDays > 0) return '${diff.inDays}g';
+    if (diff.inHours > 0) return '${diff.inHours}sa';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}dk';
+    return 'az önce';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (date == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: FR.bgElev,
+          borderRadius: FRRad.all(8),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Text('fiyat yok', style: frText(10, FontWeight.w700, color: FR.ink3)),
+      );
+    }
+    final fresh = DateTime.now().difference(date!).inHours < 48;
+    final color = fresh ? FR.good : FR.ink3;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.12),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: color.withOpacity(.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (fresh) ...[
+            FRLiveDot(color: color, size: 6),
+            const SizedBox(width: 5),
+          ],
+          Text(_ago(date!), style: frText(10, FontWeight.w800, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Product thumb ───────────────────────────────────────────────────────────
+
+class FRProductThumb extends StatelessWidget {
+  const FRProductThumb({
+    super.key,
+    required this.emoji,
+    this.size = 120,
+    this.radius = FRRad.l,
+  });
+  final String emoji;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(radius),
+        border: Border.all(color: FR.hairline),
+      ),
+      alignment: Alignment.center,
+      child: Text(emoji, style: TextStyle(fontSize: size * 0.5)),
+    );
+  }
+}
+
+// ─── Sparkline ───────────────────────────────────────────────────────────────
+
+class FRSparkline extends StatelessWidget {
+  const FRSparkline({super.key, required this.values, this.height = 48, this.color = FR.gold});
+  final List<double> values;
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: CustomPaint(painter: _SparkPainter(values, color)),
+    );
+  }
+}
+
+class _SparkPainter extends CustomPainter {
+  _SparkPainter(this.values, this.color);
+  final List<double> values;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final range = (maxV - minV) == 0 ? 1.0 : (maxV - minV);
+
+    final path = Path();
+    for (var i = 0; i < values.length; i++) {
+      final x = (i / (values.length - 1)) * size.width;
+      final y = size.height - ((values[i] - minV) / range) * (size.height - 8) - 4;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    final fill = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(fill, Paint()..color = color.withOpacity(.14));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    final lastY =
+        size.height - ((values.last - minV) / range) * (size.height - 8) - 4;
+    canvas.drawCircle(
+      Offset(size.width - 1, lastY),
+      3.4,
+      Paint()..color = color,
+    );
+    canvas.drawCircle(
+      Offset(size.width - 1, lastY),
+      6,
+      Paint()..color = color.withOpacity(.22),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparkPainter old) =>
+      old.values != values || old.color != color;
+}

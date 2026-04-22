@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/firebase_service.dart';
-import '../theme.dart';
-import '../widgets/design.dart';
+import '../ui/components.dart';
+import '../ui/tokens.dart';
 import 'login_screen.dart';
 import 'main_screen.dart';
 
@@ -18,27 +18,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
-  static const _slides = [
+  static const _slides = <_Slide>[
     _Slide(
-      emoji: '🔎',
-      title: 'Ürün Ara, Net Gör',
-      body: 'Keşfet’te ürünü bul, marketlerdeki güncel fiyatı tek bakışta gör.',
-      tag: 'HIZLI KEŞİF',
-      highlight: 'Arama + filtre ile hızlı karar.',
+      icon: Icons.radar_rounded,
+      overline: 'RADAR',
+      title: 'Markette gördüğünü\nradarına al.',
+      body:
+          'FiyatRadar topluluğuyla zincir ve yerel marketlerin gerçek fiyatlarını anbean takip et.',
+      stat: 'Kadıköy · son 24 saatte 3.4K yeni fiyat',
     ),
     _Slide(
-      emoji: '⚖️',
-      title: 'Karşılaştır ve Karar Ver',
-      body: 'Sepetine ekle, en iyi marketi veya karma kombinasyonu anında karşılaştır.',
-      tag: 'KARAR DESTEĞİ',
-      highlight: 'Daha iyi fiyatı kaçırma.',
+      icon: Icons.compare_arrows_rounded,
+      overline: 'KARŞILAŞTIR',
+      title: 'Aynı ürün,\n5 farklı fiyat.',
+      body:
+          'Sepetini oluştur, hangi marketin hangi kombinasyonda daha ucuz olduğunu anında gör.',
+      stat: 'Ortalama %14 tasarruf tespit edildi',
     ),
     _Slide(
-      emoji: '📈',
-      title: 'Katkı Yap, Alarm Kur',
-      body: 'Fiyat ekleyip topluluğu güçlendir, alarm kurup hedef fiyatı takip et.',
-      tag: 'AKILLI TAKİP',
-      highlight: 'Daha iyi alışveriş kararı ver.',
+      icon: Icons.notifications_active_rounded,
+      overline: 'ALARM',
+      title: 'Fiyat düşünce\nhaber al.',
+      body:
+          'Hedef fiyatı belirle. Ürün o fiyata indiğinde FiyatRadar seni uyansın.',
+      stat: 'Her onaylı fiyat katkısı +10 puan',
     ),
   ];
 
@@ -64,137 +67,88 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final isLast = _page == _slides.length - 1;
-
     return Scaffold(
-      backgroundColor: CoffeeColors.espresso,
+      backgroundColor: FR.bg,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Top bar ───────────────────────────────────────────
+            // Top bar
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+              padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Logo
-                  Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: CoffeeColors.caramel,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text('☕',
-                            style: TextStyle(fontSize: 16)),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'FiyatRadar',
-                        style: TextStyle(
-                          color: CoffeeColors.cream,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ],
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                      borderRadius: FRRad.all(11),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text('FR', style: frDisplay(13, FontWeight.w800, color: FR.bg)),
                   ),
-                  // Skip button
-                  GestureDetector(
+                  const SizedBox(width: 10),
+                  Text('FiyatRadar', style: frText(15, FontWeight.w800)),
+                  const Spacer(),
+                  InkWell(
                     onTap: _finish,
+                    borderRadius: FRRad.all(999),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: Colors.white.withOpacity(0.12)),
+                        color: FR.surface,
+                        borderRadius: FRRad.all(999),
+                        border: Border.all(color: FR.hairline),
                       ),
-                      child: const Text(
-                        'Geç',
-                        style: TextStyle(
-                          color: CoffeeColors.latte,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
+                      child: Text('Geç', style: frText(12, FontWeight.w800, color: FR.ink2)),
                     ),
                   ),
                 ],
               ),
             ),
-
-            // ── Slide counter ─────────────────────────────────────
+            // Progress
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+              padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
               child: Row(
                 children: List.generate(_slides.length, (i) {
-                  final isActive = i == _page;
+                  final active = i == _page;
                   return Expanded(
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
+                      duration: const Duration(milliseconds: 240),
                       height: 3,
                       margin: EdgeInsets.only(right: i < _slides.length - 1 ? 6 : 0),
                       decoration: BoxDecoration(
-                        color: isActive
-                            ? CoffeeColors.caramel
-                            : Colors.white.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(2),
+                        color: active ? FR.gold : FR.hairline,
+                        borderRadius: FRRad.all(2),
                       ),
                     ),
                   );
                 }),
               ),
             ),
-
-            // ── Slides ────────────────────────────────────────────
             Expanded(
               child: PageView.builder(
                 controller: _controller,
                 itemCount: _slides.length,
                 onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (context, i) =>
-                    _SlideView(slide: _slides[i]),
+                itemBuilder: (_, i) => _SlideView(slide: _slides[i]),
               ),
             ),
-
-            // ── Bottom CTA ────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 36),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (isLast) {
-                      _finish();
-                    } else {
-                      _controller.nextPage(
-                        duration: const Duration(milliseconds: 320),
-                        curve: Curves.easeInOut,
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: CoffeeColors.caramel,
-                    foregroundColor: CoffeeColors.espresso,
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    isLast ? 'Başla →' : 'Devam',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+              child: FRCta(
+                label: isLast ? 'Başla' : 'Devam',
+                icon: isLast ? Icons.arrow_forward_rounded : null,
+                onTap: () {
+                  if (isLast) {
+                    _finish();
+                  } else {
+                    _controller.nextPage(
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                },
               ),
             ),
           ],
@@ -205,17 +159,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _Slide {
-  final String emoji;
+  final IconData icon;
+  final String overline;
   final String title;
   final String body;
-  final String tag;
-  final String highlight;
+  final String stat;
   const _Slide({
-    required this.emoji,
+    required this.icon,
+    required this.overline,
     required this.title,
     required this.body,
-    required this.tag,
-    required this.highlight,
+    required this.stat,
   });
 }
 
@@ -226,7 +180,7 @@ class _SlideView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+      padding: const EdgeInsets.fromLTRB(26, 24, 26, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -234,105 +188,58 @@ class _SlideView extends StatelessWidget {
           Expanded(
             flex: 5,
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 148,
-                    height: 148,
-                    decoration: BoxDecoration(
-                      color: CoffeeColors.darkRoast,
-                      borderRadius: BorderRadius.circular(42),
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.08)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: CoffeeColors.caramel.withOpacity(0.18),
-                          blurRadius: 48,
-                          spreadRadius: 12,
-                        ),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(slide.emoji,
-                        style: const TextStyle(fontSize: 64)),
+              child: Container(
+                width: 160,
+                height: 160,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [FR.surface, FR.surfaceLo],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(height: 22),
-                  // Tag
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: CoffeeColors.caramel.withOpacity(0.16),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color:
-                              CoffeeColors.caramel.withOpacity(0.30)),
-                    ),
-                    child: Text(
-                      slide.tag,
-                      style: const TextStyle(
-                        color: CoffeeColors.caramel,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
+                  borderRadius: FRRad.all(44),
+                  border: Border.all(color: FR.goldDeep.withOpacity(.3)),
+                  boxShadow: [
+                    BoxShadow(color: FR.gold.withOpacity(.14), blurRadius: 42, spreadRadius: 6),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Icon(slide.icon, size: 64, color: FR.gold),
               ),
             ),
           ),
-
           // Text area
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  slide.title,
-                  style: const TextStyle(
-                    color: CoffeeColors.cream,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.8,
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                Text(slide.overline, style: frOverline()),
+                const SizedBox(height: 10),
+                Text(slide.title, style: frDisplay(32, FontWeight.w700, height: 1.15)),
+                const SizedBox(height: 14),
                 Text(
                   slide.body,
-                  style: const TextStyle(
-                    color: CoffeeColors.latte,
-                    fontSize: 15,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: frText(14.5, FontWeight.w500, color: FR.ink2, height: 1.55),
                 ),
-                const SizedBox(height: 14),
-                // Highlight stat
+                const SizedBox(height: 18),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: Colors.white.withOpacity(0.10)),
+                    color: FR.surface,
+                    borderRadius: FRRad.all(12),
+                    border: Border.all(color: FR.hairline),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      LiveDot(color: CoffeeColors.caramel),
-                      const SizedBox(width: 8),
-                      Text(
-                        slide.highlight,
-                        style: const TextStyle(
-                          color: CoffeeColors.caramel,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      const FRLiveDot(color: FR.gold),
+                      const SizedBox(width: 9),
+                      Flexible(
+                        child: Text(
+                          slide.stat,
+                          style: frText(12, FontWeight.w700, color: FR.ink2),
                         ),
                       ),
                     ],
