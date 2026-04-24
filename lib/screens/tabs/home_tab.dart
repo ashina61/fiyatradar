@@ -338,7 +338,7 @@ class _RadarHero extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
         decoration: BoxDecoration(
-          color: FR.bg.withOpacity(.5),
+          color: FR.surface.withOpacity(FR.isDark ? .34 : .88),
           borderRadius: FRRad.all(12),
           border: Border.all(color: FR.hairline),
         ),
@@ -443,7 +443,7 @@ class _TrendCard extends StatelessWidget {
                       width: 30,
                       height: 30,
                       decoration: BoxDecoration(
-                        color: FR.bg.withOpacity(.65),
+                        color: FR.surface.withOpacity(FR.isDark ? .62 : .9),
                         shape: BoxShape.circle,
                         border: Border.all(color: FR.hairline),
                       ),

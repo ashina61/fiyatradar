@@ -32,7 +32,24 @@ class FirebaseService {
     return (url: url, path: path);
   }
 
-  Future<void> deleteProductImage(String path) async {
+  /// Upload a user profile image under `user_profiles/{uid}/…`.
+  Future<({String url, String path})> uploadUserProfileImage({
+    required String uid,
+    required Uint8List bytes,
+    String contentType = 'image/jpeg',
+  }) async {
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path = 'user_profiles/$uid/$ts.jpg';
+    final ref = storage.ref(path);
+    final snap = await ref.putData(
+      bytes,
+      SettableMetadata(contentType: contentType),
+    );
+    final url = await snap.ref.getDownloadURL();
+    return (url: url, path: path);
+  }
+
+  Future<void> deleteStorageFile(String path) async {
     if (path.isEmpty) return;
     try {
       await storage.ref(path).delete();
@@ -40,6 +57,9 @@ class FirebaseService {
       // Swallow — image may already be gone or unreadable; not critical.
     }
   }
+
+  @Deprecated('Use deleteStorageFile(path) instead.')
+  Future<void> deleteProductImage(String path) => deleteStorageFile(path);
 
   CollectionReference<Map<String, dynamic>> get products =>
       db.collection('products');

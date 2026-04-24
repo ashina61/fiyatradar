@@ -978,9 +978,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                                 ],
                               ),
                             ),
-                            Switch.adaptive(
+                            Switch(
                               value: _isActive,
-                              activeColor: FR.gold,
+                              activeColor: FR.bg,
+                              activeTrackColor: FR.gold,
+                              inactiveThumbColor: FR.ink2,
+                              inactiveTrackColor: FR.surfaceHi,
                               onChanged: (v) =>
                                   setState(() => _isActive = v),
                             ),
@@ -1080,7 +1083,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: FR.bg.withOpacity(.85),
+                  color: FR.surface.withOpacity(FR.isDark ? .78 : .92),
                   borderRadius: FRRad.all(999),
                   border: Border.all(color: FR.hairline),
                 ),
@@ -1242,8 +1245,495 @@ class _SettingsTab extends StatelessWidget {
         icon: Icons.shield_moon_outlined,
         withActions: false,
       ),
+      _GenericRow(
+        title: 'Market yönetimi',
+        subtitle: 'Ekle · düzenle · sil',
+        icon: Icons.storefront_outlined,
+        withActions: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminStoreCrudScreen()),
+        ),
+      ),
+      _GenericRow(
+        title: 'Kategori yönetimi',
+        subtitle: 'Ekle · düzenle · sil',
+        icon: Icons.category_outlined,
+        withActions: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminCategoryCrudScreen()),
+        ),
+      ),
+      _GenericRow(
+        title: 'Kullanıcı düzenleme',
+        subtitle: 'Ad · kullanıcı adı · admin rolü',
+        icon: Icons.people_outline_rounded,
+        withActions: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminUserEditScreen()),
+        ),
+      ),
+      _GenericRow(
+        title: 'Fiyat raporları',
+        subtitle: 'Gelen raporları incele',
+        icon: Icons.flag_outlined,
+        withActions: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminPriceReportsScreen()),
+        ),
+      ),
     ]);
   }
+}
+
+class AdminStoreCrudScreen extends StatelessWidget {
+  const AdminStoreCrudScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final stores = FirebaseService.instance.stores.orderBy('order').snapshots();
+    return _AdminCrudScaffold(
+      title: 'Market yönetimi',
+      onAdd: () => _showTextEditSheet(
+        context,
+        title: 'Market ekle',
+        onSave: (name) => FirebaseService.instance.stores.add({
+          'name': name,
+          'order': DateTime.now().millisecondsSinceEpoch,
+          'isActive': true,
+        }),
+      ),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: stores,
+        builder: (_, snap) {
+          if (snap.hasError) return _empty('Market verisi yüklenemedi.');
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snap.data?.docs ?? const [];
+          if (docs.isEmpty) return _empty('Market kaydı yok.');
+          return _rowList([
+            for (final d in docs)
+              _CrudRow(
+                title: (d.data()['name'] ?? '').toString(),
+                subtitle: (d.data()['isActive'] ?? true) ? 'Aktif' : 'Pasif',
+                onEdit: () => _showTextEditSheet(
+                  context,
+                  title: 'Market düzenle',
+                  initial: (d.data()['name'] ?? '').toString(),
+                  onSave: (name) => d.reference.update({'name': name}),
+                ),
+                onDelete: () => d.reference.delete(),
+                onToggleActive: () => d.reference.update({
+                  'isActive': !((d.data()['isActive'] as bool?) ?? true),
+                }),
+              ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class AdminCategoryCrudScreen extends StatelessWidget {
+  const AdminCategoryCrudScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final categories =
+        FirebaseService.instance.categories.orderBy('order').snapshots();
+    return _AdminCrudScaffold(
+      title: 'Kategori yönetimi',
+      onAdd: () => _showTextEditSheet(
+        context,
+        title: 'Kategori ekle',
+        onSave: (name) => FirebaseService.instance.categories.add({
+          'name': name,
+          'order': DateTime.now().millisecondsSinceEpoch,
+          'isActive': true,
+        }),
+      ),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: categories,
+        builder: (_, snap) {
+          if (snap.hasError) return _empty('Kategori verisi yüklenemedi.');
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snap.data?.docs ?? const [];
+          if (docs.isEmpty) return _empty('Kategori kaydı yok.');
+          return _rowList([
+            for (final d in docs)
+              _CrudRow(
+                title: (d.data()['name'] ?? '').toString(),
+                subtitle: (d.data()['isActive'] ?? true) ? 'Aktif' : 'Pasif',
+                onEdit: () => _showTextEditSheet(
+                  context,
+                  title: 'Kategori düzenle',
+                  initial: (d.data()['name'] ?? '').toString(),
+                  onSave: (name) => d.reference.update({'name': name}),
+                ),
+                onDelete: () => d.reference.delete(),
+                onToggleActive: () => d.reference.update({
+                  'isActive': !((d.data()['isActive'] as bool?) ?? true),
+                }),
+              ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class AdminUserEditScreen extends StatelessWidget {
+  const AdminUserEditScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final users = FirebaseService.instance.users.limit(300).snapshots();
+    return _AdminCrudScaffold(
+      title: 'Kullanıcı düzenleme',
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: users,
+        builder: (_, snap) {
+          if (snap.hasError) return _empty('Kullanıcı verisi yüklenemedi.');
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snap.data?.docs ?? const [];
+          if (docs.isEmpty) return _empty('Kullanıcı bulunamadı.');
+          return _rowList([
+            for (final d in docs)
+              _UserEditRow(
+                uid: d.id,
+                data: d.data(),
+              ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class AdminPriceReportsScreen extends StatelessWidget {
+  const AdminPriceReportsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final reports = FirebaseService.instance.db
+        .collection('priceReports')
+        .orderBy('createdAt', descending: true)
+        .limit(200)
+        .snapshots();
+    return _AdminCrudScaffold(
+      title: 'Fiyat raporları',
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: reports,
+        builder: (_, snap) {
+          if (snap.hasError) return _empty('Raporlar yüklenemedi.');
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snap.data?.docs ?? const [];
+          if (docs.isEmpty) return _empty('Henüz rapor yok.');
+          return _rowList([
+            for (final d in docs)
+              _CrudRow(
+                title:
+                    'Ürün: ${(d.data()['productId'] ?? '').toString()} · ${(d.data()['price'] ?? 0).toString()} ₺',
+                subtitle:
+                    'Raporlayan: ${(d.data()['createdByUid'] ?? '').toString()} · ${(d.data()['status'] ?? 'active')}'
+                    '${(d.data()['reason'] ?? '').toString().isEmpty ? '' : ' · ${d.data()['reason']}'}',
+                onEdit: () => d.reference.update({
+                  'status': 'removed',
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }),
+                onDelete: () => d.reference.delete(),
+                editLabel: 'Kaldır',
+                deleteLabel: 'Sil',
+              ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class _AdminCrudScaffold extends StatelessWidget {
+  const _AdminCrudScaffold({
+    required this.title,
+    required this.child,
+    this.onAdd,
+  });
+  final String title;
+  final Widget child;
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: FR.bg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Row(
+                children: [
+                  FRIconChip(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                  if (onAdd != null)
+                    FRIconChip(icon: Icons.add_rounded, onTap: onAdd),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: FRPageHeader(overline: 'ADMIN', title: title),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: [child],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CrudRow extends StatelessWidget {
+  const _CrudRow({
+    required this.title,
+    required this.subtitle,
+    required this.onEdit,
+    required this.onDelete,
+    this.onToggleActive,
+    this.editLabel = 'Düzenle',
+    this.deleteLabel = 'Sil',
+  });
+  final String title;
+  final String subtitle;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback? onToggleActive;
+  final String editLabel;
+  final String deleteLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: frText(13, FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (onToggleActive != null) ...[
+                Expanded(
+                  child: FRCta(
+                    label: 'Aktif/Pasif',
+                    filled: false,
+                    onTap: onToggleActive,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: FRCta(
+                  label: editLabel,
+                  filled: false,
+                  onTap: onEdit,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FRCta(
+                  label: deleteLabel,
+                  icon: Icons.delete_outline_rounded,
+                  onTap: onDelete,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserEditRow extends StatefulWidget {
+  const _UserEditRow({required this.uid, required this.data});
+  final String uid;
+  final Map<String, dynamic> data;
+
+  @override
+  State<_UserEditRow> createState() => _UserEditRowState();
+}
+
+class _UserEditRowState extends State<_UserEditRow> {
+  late final TextEditingController _name =
+      TextEditingController(text: (widget.data['displayName'] ?? '').toString());
+  late final TextEditingController _username =
+      TextEditingController(text: (widget.data['username'] ?? '').toString());
+  bool _saving = false;
+  bool _roleSaving = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _username.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await FirebaseService.instance.users.doc(widget.uid).update({
+        'displayName': _name.text.trim(),
+        'username': _username.text.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kullanıcı bilgileri güncellendi.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kullanıcı bilgileri kaydedilemedi.')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _toggleAdmin(bool v) async {
+    if (_roleSaving) return;
+    setState(() => _roleSaving = true);
+    try {
+      await FirebaseService.instance.users.doc(widget.uid).update({
+        'isAdmin': v,
+        'role': v ? 'admin' : 'user',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(v ? 'Admin yetkisi verildi.' : 'Admin yetkisi kaldırıldı.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yetki güncellenemedi.')),
+      );
+    } finally {
+      if (mounted) setState(() => _roleSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = (widget.data['isAdmin'] as bool?) == true ||
+        (widget.data['role'] as String?) == 'admin';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: _name,
+            decoration: const InputDecoration(hintText: 'Ad Soyad'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _username,
+            decoration: const InputDecoration(hintText: 'Kullanıcı adı'),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text('UID: ${widget.uid.substring(0, widget.uid.length > 8 ? 8 : widget.uid.length)}',
+                  style: frText(10.5, FontWeight.w700, color: FR.ink3)),
+              const Spacer(),
+              Switch(
+                value: isAdmin,
+                onChanged: _roleSaving ? null : _toggleAdmin,
+                activeColor: FR.bg,
+                activeTrackColor: FR.gold,
+                inactiveThumbColor: FR.ink2,
+                inactiveTrackColor: FR.surfaceHi,
+              ),
+              const SizedBox(width: 8),
+              FRCta(
+                label: _saving ? 'Kaydediliyor…' : 'Kaydet',
+                filled: false,
+                onTap: _saving ? null : _save,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> _showTextEditSheet(
+  BuildContext context, {
+  required String title,
+  String initial = '',
+  required Future<void> Function(String value) onSave,
+}) async {
+  final ctrl = TextEditingController(text: initial);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: FR.surface,
+      title: Text(title, style: frDisplay(20, FontWeight.w700)),
+      content: TextField(
+        controller: ctrl,
+        decoration: InputDecoration(
+          hintText: 'Ad',
+          hintStyle: frText(12, FontWeight.w600, color: FR.ink3),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('İptal', style: frText(12.5, FontWeight.w800, color: FR.ink3)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text('Kaydet', style: frText(12.5, FontWeight.w800, color: FR.gold)),
+        ),
+      ],
+    ),
+  );
+  if (ok == true && ctrl.text.trim().isNotEmpty) {
+    await onSave(ctrl.text.trim());
+  }
+  ctrl.dispose();
 }
 
 Widget _empty(String label) {
@@ -1399,53 +1889,59 @@ class _GenericRow extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.withActions,
+    this.onTap,
   });
   final String title;
   final String subtitle;
   final IconData icon;
   final bool withActions;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: FR.surface,
-        borderRadius: FRRad.all(FRRad.l),
-        border: Border.all(color: FR.hairline),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: FR.surfaceHi,
-              borderRadius: FRRad.all(12),
-              border: Border.all(color: FR.hairline),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: FR.surface,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
+                borderRadius: FRRad.all(12),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Icon(icon, size: 17, color: FR.gold),
             ),
-            child: Icon(icon, size: 17, color: FR.gold),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: frText(13, FontWeight.w800),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: frText(11, FontWeight.w600, color: FR.ink3),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: frText(13, FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: frText(11, FontWeight.w600, color: FR.ink3),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
             ),
-          ),
-          if (withActions)
-            Icon(Icons.chevron_right_rounded, color: FR.ink3),
-        ],
+            if (withActions)
+              Icon(Icons.chevron_right_rounded, color: FR.ink3),
+          ],
+        ),
       ),
     );
   }

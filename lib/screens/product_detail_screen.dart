@@ -489,6 +489,58 @@ class _ContributionRow extends StatefulWidget {
 class _ContributionRowState extends State<_ContributionRow> {
   bool _busy = false;
 
+  Future<void> _report() async {
+    final ctrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FR.surface,
+        title: Text('Fiyatı raporla', style: frDisplay(20, FontWeight.w700)),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Kısa not (opsiyonel)',
+            hintStyle: frText(12, FontWeight.w600, color: FR.ink3),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('İptal', style: frText(12.5, FontWeight.w800, color: FR.ink3)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: Text('Raporla', style: frText(12.5, FontWeight.w800, color: FR.gold)),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (reason == null) return;
+    try {
+      await widget.state.reportPriceEntry(
+        product: widget.product,
+        entry: widget.entry,
+        reason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fiyat raporu iletildi.')),
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rapor gönderilemedi, tekrar dene.')),
+      );
+    }
+  }
+
   Future<void> _cast(VoteKind kind) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -585,6 +637,12 @@ class _ContributionRowState extends State<_ContributionRow> {
                 ),
               ),
               FRPriceText(entry.price, size: 15),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: _busy ? null : _report,
+                icon: Icon(Icons.flag_outlined, size: 18, color: FR.ink3),
+                tooltip: 'Raporla',
+              ),
             ],
           ),
           if (entry.note.isNotEmpty) ...[

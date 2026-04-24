@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/product.dart';
+import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -68,6 +72,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   final _nameCtrl = TextEditingController();
   final _userCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  Uint8List? _pendingProfileImage;
   bool _saving = false;
   bool _loaded = false;
 
@@ -94,10 +99,26 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   Future<void> _save(AppState state) async {
     setState(() => _saving = true);
     try {
+      String? imageUrl;
+      String? imagePath;
+      if (_pendingProfileImage != null && state.user != null) {
+        final res = await FirebaseService.instance.uploadUserProfileImage(
+          uid: state.user!.uid,
+          bytes: _pendingProfileImage!,
+        );
+        imageUrl = res.url;
+        imagePath = res.path;
+        final oldPath = state.profileImagePath;
+        if (oldPath != null && oldPath.isNotEmpty && oldPath != imagePath) {
+          await FirebaseService.instance.deleteStorageFile(oldPath);
+        }
+      }
       await state.updateProfileSettings(
         displayName: _nameCtrl.text,
         username: _userCtrl.text,
         phoneNumber: _phoneCtrl.text,
+        profileImageUrl: imageUrl,
+        profileImagePath: imagePath,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -106,6 +127,19 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _pickProfileImage() async {
+    final picker = ImagePicker();
+    final x = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 88,
+    );
+    if (x == null) return;
+    final bytes = await x.readAsBytes();
+    if (!mounted) return;
+    setState(() => _pendingProfileImage = bytes);
   }
 
   @override
@@ -117,6 +151,8 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
         children: [
+          _avatarEditor(state),
+          const SizedBox(height: 14),
           _field('Ad Soyad', _nameCtrl, Icons.person_outline_rounded),
           const SizedBox(height: 12),
           _field('Kullanıcı adı', _userCtrl, Icons.alternate_email_rounded),
@@ -149,6 +185,58 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
           decoration: InputDecoration(prefixIcon: Icon(icon, color: FR.ink3, size: 19)),
         ),
       ],
+    );
+  }
+
+  Widget _avatarEditor(AppState state) {
+    final hasPending = _pendingProfileImage != null;
+    return InkWell(
+      onTap: _saving ? null : _pickProfileImage,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: frSurface(radius: FRRad.l),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                borderRadius: FRRad.all(18),
+                border: Border.all(color: FR.hairline),
+                color: FR.surfaceHi,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: hasPending
+                  ? Image.memory(_pendingProfileImage!, fit: BoxFit.cover)
+                  : (state.profileImageUrl != null
+                      ? Image.network(state.profileImageUrl!, fit: BoxFit.cover)
+                      : Center(
+                          child: Text(
+                            state.displayName.isEmpty
+                                ? 'F'
+                                : state.displayName[0].toUpperCase(),
+                            style: frDisplay(24, FontWeight.w800, color: FR.gold),
+                          ),
+                        )),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Profil fotoğrafı', style: frText(13, FontWeight.w800)),
+                  Text(
+                    hasPending ? 'Kaydet ile yüklenir' : 'Galeri seç',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.edit_outlined, size: 18, color: FR.ink3),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -531,9 +619,12 @@ class _ToggleRow extends StatelessWidget {
               ],
             ),
           ),
-          Switch.adaptive(
+          Switch(
             value: value,
-            activeColor: FR.gold,
+            activeColor: FR.bg,
+            activeTrackColor: FR.gold,
+            inactiveThumbColor: FR.ink2,
+            inactiveTrackColor: FR.surfaceHi,
             onChanged: onChanged,
           ),
         ],

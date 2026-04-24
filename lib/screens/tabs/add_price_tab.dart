@@ -75,27 +75,20 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     return SafeArea(
       bottom: false,
-      child: Stack(
+      child: Column(
         children: [
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: FRPageHeader(
-                  overline: 'TOPLULUĞA KATKI',
-                  title: 'Fiyat',
-                  italicTail: ' ekle',
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    18,
-                    20,
-                    frScrollPaddingWithFooter(context, footerHeight: 96),
-                  ),
-                  children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: FRPageHeader(
+              overline: 'TOPLULUĞA KATKI',
+              title: 'Fiyat',
+              italicTail: ' ekle',
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+              children: [
                 _IntroBanner(),
                 const SizedBox(height: 18),
                 _label('Ürün'),
@@ -232,17 +225,16 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 const SizedBox(height: 14),
                 _GuideStrip(),
               ],
-                ),
-              ),
-            ],
+            ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+          SafeArea(
+            top: false,
+            bottom: false,
+            minimum: EdgeInsets.only(
+              bottom: frStickyFooterBottomPadding(context),
+            ),
             child: Container(
-              padding: EdgeInsets.fromLTRB(
-                  20, 12, 20, frStickyFooterBottomPadding(context)),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               decoration: BoxDecoration(
                 color: FR.bgElev,
                 border: Border(top: BorderSide(color: FR.hairline)),

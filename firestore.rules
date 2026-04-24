@@ -149,6 +149,11 @@ service cloud.firestore {
         allow update, delete: if isAdmin() || isOwner(uid);
       }
 
+      match /productAlerts/{alertId} {
+        allow read: if isAdmin() || isOwner(uid);
+        allow create, update, delete: if isAdmin() || isOwner(uid);
+      }
+
       // Legacy migration read path
       match /inbox/{notificationId} {
         allow read: if isAdmin() || isOwner(uid);
@@ -245,9 +250,11 @@ service cloud.firestore {
     function hasSafePriceReportCreatePayload() {
       return request.resource.data.keys().hasOnly([
         'productId',
+        'entryId',
         'createdByUid',
         'price',
         'storeName',
+        'reason',
         'chainId',
         'branchStoreId',
         'branchId',
@@ -258,12 +265,15 @@ service cloud.firestore {
         'updatedAt'
       ]) &&
       ('productId' in request.resource.data) &&
+      ('entryId' in request.resource.data) &&
       ('createdByUid' in request.resource.data) &&
       ('price' in request.resource.data) &&
       (request.resource.data.productId is string) &&
+      (request.resource.data.entryId is string) &&
       (request.resource.data.createdByUid is string) &&
       ((request.resource.data.price is int) || (request.resource.data.price is float)) &&
       (!('storeName' in request.resource.data) || request.resource.data.storeName is string) &&
+      (!('reason' in request.resource.data) || request.resource.data.reason is string) &&
       (!('chainId' in request.resource.data) || request.resource.data.chainId is string) &&
       (!('branchStoreId' in request.resource.data) || request.resource.data.branchStoreId is string) &&
       (!('branchId' in request.resource.data) || request.resource.data.branchId is string) &&
@@ -276,6 +286,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if signedIn() &&
         hasSafePriceReportCreatePayload() &&
+        priceId == (request.auth.uid + '_' + request.resource.data.entryId) &&
         request.resource.data.createdByUid == request.auth.uid &&
         (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
         (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified');

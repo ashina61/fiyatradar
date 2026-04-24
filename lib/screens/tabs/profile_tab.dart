@@ -4,6 +4,7 @@ import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../admin_screen.dart';
+import '../main_screen.dart';
 import '../notifications_screen.dart';
 import '../profile_screens.dart';
 import '../product_request_screen.dart';
@@ -176,65 +177,76 @@ class _IdentityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final initial =
         state.displayName.isEmpty ? 'F' : state.displayName[0].toUpperCase();
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [FR.surfaceHi, FR.surfaceLo],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: FRRad.all(24),
-        border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileInfoScreen()),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
-              borderRadius: FRRad.all(22),
-              boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 20)],
-            ),
-            alignment: Alignment.center,
-            child: Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.bg)),
+      borderRadius: FRRad.all(24),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [FR.surfaceHi, FR.surfaceLo],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(state.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: frDisplay(22, FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text(state.username,
-                    style: frText(12, FontWeight.w700, color: FR.ink3)),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: FR.gold.withOpacity(.16),
-                    borderRadius: FRRad.all(999),
-                    border: Border.all(color: FR.gold.withOpacity(.35)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome_rounded,
-                          color: FR.gold, size: 13),
-                      const SizedBox(width: 5),
-                      Text('Elit Radar · ${state.points} PT',
-                          style: frText(11, FontWeight.w800, color: FR.gold)),
-                    ],
-                  ),
-                ),
-              ],
+          borderRadius: FRRad.all(24),
+          border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                borderRadius: FRRad.all(22),
+                boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 20)],
+              ),
+              alignment: Alignment.center,
+              clipBehavior: Clip.antiAlias,
+              child: state.profileImageUrl != null
+                  ? Image.network(state.profileImageUrl!, fit: BoxFit.cover)
+                  : Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.bg)),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(state.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frDisplay(22, FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(state.username,
+                      style: frText(12, FontWeight.w700, color: FR.ink3)),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: FR.gold.withOpacity(.16),
+                      borderRadius: FRRad.all(999),
+                      border: Border.all(color: FR.gold.withOpacity(.35)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome_rounded,
+                            color: FR.gold, size: 13),
+                        const SizedBox(width: 5),
+                        Text('Elit Radar · ${state.points} PT',
+                            style: frText(11, FontWeight.w800, color: FR.gold)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -284,28 +296,56 @@ class _StatGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _stat('${state.favorites.length}', 'FAVORİ'),
+        _stat(
+          context,
+          '${state.favorites.length}',
+          'FAVORİ',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+          ),
+        ),
         const SizedBox(width: 10),
-        _stat('${state.productAlerts.length}', 'ALARM'),
+        _stat(
+          context,
+          '${state.productAlerts.length}',
+          'ALARM',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AlertsScreen()),
+          ),
+        ),
         const SizedBox(width: 10),
-        _stat('${state.cartItemCount}', 'SEPET'),
+        _stat(
+          context,
+          '${state.cartItemCount}',
+          'SEPET',
+          onTap: () => Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 3)),
+          ),
+        ),
         const SizedBox(width: 10),
-        _stat('${state.points}', 'PUAN'),
+        _stat(context, '${state.points}', 'PUAN'),
       ],
     );
   }
 
-  Widget _stat(String v, String l) => Expanded(
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: frSurface(radius: FRRad.m),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(v, style: frPrice(22, color: FR.ink)),
-              const SizedBox(height: 2),
-              Text(l, style: frOverline(color: FR.ink3, size: 9)),
-            ],
+  Widget _stat(BuildContext context, String v, String l, {VoidCallback? onTap}) =>
+      Expanded(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: FRRad.all(FRRad.m),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: frSurface(radius: FRRad.m),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(v, style: frPrice(22, color: FR.ink)),
+                const SizedBox(height: 2),
+                Text(l, style: frOverline(color: FR.ink3, size: 9)),
+              ],
+            ),
           ),
         ),
       );
@@ -536,9 +576,12 @@ class _ThemeToggleCardState extends State<_ThemeToggleCard> {
                   ],
                 ),
               ),
-              Switch.adaptive(
+              Switch(
                 value: isDark,
-                activeColor: FR.gold,
+                activeColor: FR.bg,
+                activeTrackColor: FR.gold,
+                inactiveThumbColor: FR.ink2,
+                inactiveTrackColor: FR.surfaceHi,
                 onChanged: (_) => FRThemeController.instance.toggle(),
               ),
             ],

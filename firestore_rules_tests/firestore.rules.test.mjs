@@ -110,6 +110,31 @@ describe('users rules', () => {
   });
 });
 
+describe('users/{uid}/productAlerts rules', () => {
+  test('owner can create and update own product alert', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'users/user1/productAlerts/p1'), {
+        targetPrice: 42.5,
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/user1/productAlerts/p1'), {
+        targetPrice: 39.9,
+      }),
+    );
+  });
+
+  test('another user cannot write someone else product alert doc', async () => {
+    const db = testEnv.authenticatedContext('user2').firestore();
+    await assertFails(
+      setDoc(doc(db, 'users/user1/productAlerts/p2'), {
+        targetPrice: 21.0,
+      }),
+    );
+  });
+});
+
 describe('products rules', () => {
   test('non-admin cannot create product', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
@@ -128,10 +153,24 @@ describe('priceReports rules', () => {
   test('authenticated user can create own price report', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertSucceeds(
-      setDoc(doc(db, 'priceReports/r1'), {
+      setDoc(doc(db, 'priceReports/user1_e1'), {
         productId: 'p1',
+        entryId: 'e1',
         createdByUid: 'user1',
         price: 39.9,
+      }),
+    );
+  });
+
+  test('authenticated user can create own price report with string reason', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'priceReports/user1_e1b'), {
+        productId: 'p1',
+        entryId: 'e1b',
+        createdByUid: 'user1',
+        price: 38.5,
+        reason: 'Fiyat etiketi kasada farklıydı',
       }),
     );
   });
@@ -139,8 +178,9 @@ describe('priceReports rules', () => {
   test('authenticated user cannot create report for another user uid', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertFails(
-      setDoc(doc(db, 'priceReports/r2'), {
+      setDoc(doc(db, 'priceReports/user1_e2'), {
         productId: 'p1',
+        entryId: 'e2',
         createdByUid: 'user2',
         price: 49.9,
       }),
@@ -150,8 +190,9 @@ describe('priceReports rules', () => {
   test('authenticated user cannot create report as pre-verified', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertFails(
-      setDoc(doc(db, 'priceReports/r5'), {
+      setDoc(doc(db, 'priceReports/user1_e5'), {
         productId: 'p1',
+        entryId: 'e5',
         createdByUid: 'user1',
         price: 29.9,
         verificationStatus: 'verified',
@@ -162,8 +203,9 @@ describe('priceReports rules', () => {
   test('authenticated user cannot create report with unexpected field', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertFails(
-      setDoc(doc(db, 'priceReports/r9'), {
+      setDoc(doc(db, 'priceReports/user1_e9'), {
         productId: 'p1',
+        entryId: 'e9',
         createdByUid: 'user1',
         price: 19.9,
         injected: true,
@@ -174,8 +216,9 @@ describe('priceReports rules', () => {
   test('authenticated user cannot create report with invalid price type', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertFails(
-      setDoc(doc(db, 'priceReports/r10'), {
+      setDoc(doc(db, 'priceReports/user1_e10'), {
         productId: 'p1',
+        entryId: 'e10',
         createdByUid: 'user1',
         price: '19.9',
       }),
@@ -185,8 +228,9 @@ describe('priceReports rules', () => {
   test('authenticated user cannot create report with removed status', async () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertFails(
-      setDoc(doc(db, 'priceReports/r6'), {
+      setDoc(doc(db, 'priceReports/user1_e6'), {
         productId: 'p1',
+        entryId: 'e6',
         createdByUid: 'user1',
         price: 19.9,
         status: 'removed',
@@ -195,10 +239,11 @@ describe('priceReports rules', () => {
   });
 
   test('owner cannot update moderation fields (status / verificationStatus)', async () => {
-    const adminDb = testEnv.authenticatedContext('admin1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1').firestore();
     await assertSucceeds(
-      setDoc(doc(adminDb, 'priceReports/r3'), {
+      setDoc(doc(ownerDb, 'priceReports/user1_e3'), {
         productId: 'p1',
+        entryId: 'e3',
         createdByUid: 'user1',
         price: 59.9,
         status: 'active',
@@ -208,22 +253,23 @@ describe('priceReports rules', () => {
 
     const userDb = testEnv.authenticatedContext('user1').firestore();
     await assertFails(
-      updateDoc(doc(userDb, 'priceReports/r3'), {
+      updateDoc(doc(userDb, 'priceReports/user1_e3'), {
         status: 'removed',
       }),
     );
     await assertFails(
-      updateDoc(doc(userDb, 'priceReports/r3'), {
+      updateDoc(doc(userDb, 'priceReports/user1_e3'), {
         verificationStatus: 'verified',
       }),
     );
   });
 
   test('owner can update allowed mutable fields (price/storeName)', async () => {
-    const adminDb = testEnv.authenticatedContext('admin1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1').firestore();
     await assertSucceeds(
-      setDoc(doc(adminDb, 'priceReports/r4'), {
+      setDoc(doc(ownerDb, 'priceReports/user1_e4'), {
         productId: 'p1',
+        entryId: 'e4',
         createdByUid: 'user1',
         price: 31.5,
         storeName: 'A',
@@ -234,7 +280,7 @@ describe('priceReports rules', () => {
 
     const userDb = testEnv.authenticatedContext('user1').firestore();
     await assertSucceeds(
-      updateDoc(doc(userDb, 'priceReports/r4'), {
+      updateDoc(doc(userDb, 'priceReports/user1_e4'), {
         price: 30.9,
         storeName: 'B',
       }),
@@ -242,10 +288,11 @@ describe('priceReports rules', () => {
   });
 
   test('owner cannot update disallowed immutable domain fields (productId)', async () => {
-    const adminDb = testEnv.authenticatedContext('admin1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1').firestore();
     await assertSucceeds(
-      setDoc(doc(adminDb, 'priceReports/r7'), {
+      setDoc(doc(ownerDb, 'priceReports/user1_e7'), {
         productId: 'p1',
+        entryId: 'e7',
         createdByUid: 'user1',
         price: 12.5,
         status: 'active',
@@ -255,17 +302,18 @@ describe('priceReports rules', () => {
 
     const userDb = testEnv.authenticatedContext('user1').firestore();
     await assertFails(
-      updateDoc(doc(userDb, 'priceReports/r7'), {
+      updateDoc(doc(userDb, 'priceReports/user1_e7'), {
         productId: 'p2',
       }),
     );
   });
 
   test('admin can update moderation fields on priceReports', async () => {
-    const adminDb = testEnv.authenticatedContext('admin1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1').firestore();
     await assertSucceeds(
-      setDoc(doc(adminDb, 'priceReports/r8'), {
+      setDoc(doc(ownerDb, 'priceReports/user1_e8'), {
         productId: 'p1',
+        entryId: 'e8',
         createdByUid: 'user1',
         price: 44.0,
         status: 'active',
@@ -273,8 +321,9 @@ describe('priceReports rules', () => {
       }),
     );
 
+    const adminDb = testEnv.authenticatedContext('admin1').firestore();
     await assertSucceeds(
-      updateDoc(doc(adminDb, 'priceReports/r8'), {
+      updateDoc(doc(adminDb, 'priceReports/user1_e8'), {
         status: 'removed',
         verificationStatus: 'verified',
       }),
