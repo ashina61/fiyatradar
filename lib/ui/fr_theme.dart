@@ -84,7 +84,7 @@ ThemeData buildFRTheme({required FRPalette palette}) {
       backgroundColor: palette.bg,
       surfaceTintColor: palette.bg,
       modalBackgroundColor: palette.bg,
-      modalBarrierColor: Colors.black.withOpacity(isDark ? .55 : .35),
+      modalBarrierColor: palette.ink.withOpacity(isDark ? .5 : .22),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -107,6 +107,26 @@ ThemeData buildFRTheme({required FRPalette palette}) {
         (s) => s.contains(MaterialState.selected)
             ? palette.gold.withOpacity(.5)
             : palette.hairline,
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: palette.gold,
+        textStyle: frText(12.5, FontWeight.w800, color: palette.gold),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: palette.ink2,
+        side: BorderSide(color: palette.hairline),
+        textStyle: frText(12.5, FontWeight.w700, color: palette.ink2),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: palette.gold,
+        foregroundColor: palette.bg,
+        textStyle: frText(12.5, FontWeight.w800, color: palette.bg),
       ),
     ),
     dividerColor: palette.hairline,

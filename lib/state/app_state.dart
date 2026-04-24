@@ -89,6 +89,8 @@ class AppState extends ChangeNotifier {
   String displayName = 'Kahve Avcısı';
   String username = '@fiyatradar_user';
   String? phoneNumber;
+  String? profileImageUrl;
+  String? profileImagePath;
 
   bool pushNotificationsEnabled = true;
   bool priceAlertsEnabled = true;
@@ -152,6 +154,7 @@ class AppState extends ChangeNotifier {
   List<ProductRequest> productRequests = <ProductRequest>[];
 
   StreamSubscription? _productsSub;
+  StreamSubscription<User?>? _authSub;
   StreamSubscription? _bannersSub;
   StreamSubscription? _storesSub;
   StreamSubscription? _categoriesSub;
@@ -209,6 +212,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> init() async {
+    _authSub ??= _svc.auth.authStateChanges().listen((next) {
+      if (next == null) return;
+      user = next;
+      notifyListeners();
+    });
     user = await _svc.ensureSignedIn();
     await _svc.bootstrap();
 
@@ -316,6 +324,13 @@ class AppState extends ChangeNotifier {
       phoneNumber = (m['phoneNumber'] as String?)?.trim().isNotEmpty == true
           ? (m['phoneNumber'] as String)
           : null;
+      profileImageUrl = (m['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+          ? (m['profileImageUrl'] as String)
+          : null;
+      profileImagePath =
+          (m['profileImagePath'] as String?)?.trim().isNotEmpty == true
+              ? (m['profileImagePath'] as String)
+              : null;
       points = (m['points'] as num?)?.toInt() ?? 0;
       trustVerifiedTotal = (m['trustVerifiedTotal'] as num?)?.toInt() ?? 0;
       trustWrongTotal = (m['trustWrongTotal'] as num?)?.toInt() ?? 0;
@@ -390,6 +405,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _productsSub?.cancel();
+    _authSub?.cancel();
     _bannersSub?.cancel();
     _storesSub?.cancel();
     _categoriesSub?.cancel();
@@ -891,6 +907,8 @@ class AppState extends ChangeNotifier {
     required String displayName,
     required String username,
     String? phoneNumber,
+    String? profileImageUrl,
+    String? profileImagePath,
   }) async {
     if (user == null) return;
     await _svc.userDoc(user!.uid).update({
@@ -899,7 +917,42 @@ class AppState extends ChangeNotifier {
       'phoneNumber': phoneNumber?.trim().isEmpty == true
           ? FieldValue.delete()
           : phoneNumber?.trim(),
+      if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+      if (profileImagePath != null) 'profileImagePath': profileImagePath,
       'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> reportPriceEntry({
+    required Product product,
+    required PriceEntry entry,
+    required String reason,
+  }) async {
+    final uid = user?.uid;
+    if (uid == null || uid.isEmpty) return;
+    final ref = _svc.db.collection('priceReports').doc('${uid}_${entry.id}');
+    await _svc.db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (snap.exists) {
+        final status = (snap.data()?['status'] as String?) ?? 'active';
+        if (status == 'active') {
+          throw StateError('Bu fiyatı zaten raporladın.');
+        }
+        throw StateError(
+            'Bu fiyat için önceki raporun sonuçlandı. Tekrar raporlayamazsın.');
+      }
+      tx.set(ref, {
+        'productId': product.id,
+        'entryId': entry.id,
+        'createdByUid': uid,
+        'price': entry.price,
+        'storeName': entry.store,
+        if (reason.trim().isNotEmpty) 'reason': reason.trim(),
+        'status': 'active',
+        'verificationStatus': 'unverified',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 
@@ -941,6 +994,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> logout() async {
     await _productsSub?.cancel();
+    await _authSub?.cancel();
     await _bannersSub?.cancel();
     await _storesSub?.cancel();
     await _categoriesSub?.cancel();
@@ -949,6 +1003,7 @@ class AppState extends ChangeNotifier {
     await _productAlertsSub?.cancel();
     await _productRequestsSub?.cancel();
     _productsSub = null;
+    _authSub = null;
     _bannersSub = null;
     _storesSub = null;
     _categoriesSub = null;
@@ -964,6 +1019,9 @@ class AppState extends ChangeNotifier {
     cart.clear();
     points = 0;
     pointsToRedeem = 0;
+    phoneNumber = null;
+    profileImageUrl = null;
+    profileImagePath = null;
     trustVerifiedTotal = 0;
     trustWrongTotal = 0;
     trustTotalVotes = 0;
@@ -978,6 +1036,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> refreshFromAuthSession() async {
     await _productsSub?.cancel();
+    await _authSub?.cancel();
     await _bannersSub?.cancel();
     await _storesSub?.cancel();
     await _categoriesSub?.cancel();
@@ -986,6 +1045,7 @@ class AppState extends ChangeNotifier {
     await _productAlertsSub?.cancel();
     await _productRequestsSub?.cancel();
     _productsSub = null;
+    _authSub = null;
     _bannersSub = null;
     _storesSub = null;
     _categoriesSub = null;
@@ -1001,6 +1061,9 @@ class AppState extends ChangeNotifier {
     cart.clear();
     points = 0;
     pointsToRedeem = 0;
+    phoneNumber = null;
+    profileImageUrl = null;
+    profileImagePath = null;
     trustVerifiedTotal = 0;
     trustWrongTotal = 0;
     trustTotalVotes = 0;
@@ -1010,6 +1073,16 @@ class AppState extends ChangeNotifier {
     _initialized = false;
     notifyListeners();
     await init();
+  }
+
+  /// Syncs [user] from FirebaseAuth immediately so auth-gated navigation
+  /// can react without waiting for full data re-initialization.
+  void syncUserFromAuthSession() {
+    final next = _svc.auth.currentUser;
+    if (next == null) return;
+    if (user?.uid == next.uid && user?.isAnonymous == next.isAnonymous) return;
+    user = next;
+    notifyListeners();
   }
 }
 

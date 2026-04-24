@@ -107,7 +107,7 @@ class _Segmented extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: index == i
-                              ? FR.bg.withOpacity(.2)
+                              ? FR.surface.withOpacity(FR.isDark ? .24 : .82)
                               : FR.bgElev,
                           borderRadius: FRRad.all(8),
                         ),
@@ -137,25 +137,17 @@ class _CartPanel extends StatelessWidget {
     if (cart.isEmpty) {
       return _EmptyCart();
     }
-    return Stack(
+    return Column(
       children: [
-        ListView.separated(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            14,
-            20,
-            frScrollPaddingWithFooter(context, footerHeight: 132),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+            itemCount: cart.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, i) => _CartRow(item: cart[i], state: state),
           ),
-          itemCount: cart.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (_, i) => _CartRow(item: cart[i], state: state),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _CartFooter(state: state, onCompare: onCompare),
-        ),
+        _CartFooter(state: state, onCompare: onCompare),
       ],
     );
   }
@@ -319,26 +311,32 @@ class _CartFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          20, 14, 20, frStickyFooterBottomPadding(context)),
-      decoration: BoxDecoration(
-        color: FR.bgElev,
-        border: Border(top: BorderSide(color: FR.hairline)),
+    return SafeArea(
+      top: false,
+      bottom: false,
+      minimum: EdgeInsets.only(
+        bottom: frStickyFooterBottomPadding(context),
       ),
-      child: Column(
-        children: [
-          _line('Alt toplam', '₺${state.cartSubtotal.toStringAsFixed(2)}'),
-          const SizedBox(height: 4),
-          _line('Tahmini tasarruf', '₺${state.cartSavings.toStringAsFixed(2)}',
-              hl: FR.good),
-          const SizedBox(height: 12),
-          FRCta(
-            label: 'En ucuz sepeti bul',
-            icon: Icons.bolt_rounded,
-            onTap: onCompare,
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+        decoration: BoxDecoration(
+          color: FR.bgElev,
+          border: Border(top: BorderSide(color: FR.hairline)),
+        ),
+        child: Column(
+          children: [
+            _line('Alt toplam', '₺${state.cartSubtotal.toStringAsFixed(2)}'),
+            const SizedBox(height: 4),
+            _line('Tahmini tasarruf', '₺${state.cartSavings.toStringAsFixed(2)}',
+                hl: FR.good),
+            const SizedBox(height: 12),
+            FRCta(
+              label: 'En ucuz sepeti bul',
+              icon: Icons.bolt_rounded,
+              onTap: onCompare,
+            ),
+          ],
+        ),
       ),
     );
   }

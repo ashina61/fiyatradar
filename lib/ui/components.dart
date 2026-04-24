@@ -128,7 +128,7 @@ class FRIconChip extends StatelessWidget {
                 ),
                 child: Text(
                   badge > 9 ? '9+' : '$badge',
-                  style: frText(9, FontWeight.w800, color: Colors.white),
+                  style: frText(9, FontWeight.w800, color: FR.bg),
                 ),
               ),
             ),

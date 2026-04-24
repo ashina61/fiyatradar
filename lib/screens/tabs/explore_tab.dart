@@ -269,7 +269,7 @@ class _ExploreCard extends StatelessWidget {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: FR.bg.withOpacity(.7),
+                        color: FR.surface.withOpacity(FR.isDark ? .62 : .9),
                         shape: BoxShape.circle,
                         border: Border.all(color: FR.hairline),
                       ),

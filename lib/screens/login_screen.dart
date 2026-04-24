@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -53,13 +55,23 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await svc.signInWithEmail(email: email, password: password);
       }
-      await state.refreshFromAuthSession();
+      state.syncUserFromAuthSession();
       state.setGuestAcknowledged(false);
+      await state
+          .refreshFromAuthSession()
+          .timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+      if (state.user == null) {
+        setState(() => _error = 'Oturum doğrulanamadı. Lütfen tekrar dene.');
+      }
       // No Navigator.pop needed: the root _AuthGate listens to AppState and
       // swaps LoginScreen → MainScreen as soon as `user` becomes non-anon.
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _error = 'Bağlantı yavaş. Oturum doğrulaması zaman aşımına uğradı.');
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Giriş sırasında beklenmeyen bir hata oluştu.');
@@ -92,9 +104,19 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _submitting = true);
     try {
       await FirebaseService.instance.ensureSignedIn();
-      await state.refreshFromAuthSession();
+      state.syncUserFromAuthSession();
       state.setGuestAcknowledged(true);
+      await state
+          .refreshFromAuthSession()
+          .timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+      if (state.user == null) {
+        setState(() => _error = 'Misafir oturumu doğrulanamadı. Lütfen tekrar dene.');
+      }
       // Auth gate handles the route swap.
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _error = 'Bağlantı yavaş. Misafir oturumu zaman aşımına uğradı.');
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Misafir oturumu başlatılamadı.');
