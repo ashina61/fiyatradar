@@ -33,7 +33,7 @@ class HomeTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 26),
-          FRSectionHead(
+          const FRSectionHead(
             eyebrow: 'FİLTRE',
             title: 'Kategoriler',
           ),
@@ -54,7 +54,7 @@ class HomeTab extends StatelessWidget {
           SizedBox(
             height: 302,
             child: topDrops.isEmpty
-                ? _EmptyBlock(height: 302, text: 'Bu hafta fiyat düşüşü henüz yok.')
+                ? const _EmptyBlock(height: 302, text: 'Bu hafta fiyat düşüşü henüz yok.')
                 : ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: topDrops.length,
@@ -80,7 +80,7 @@ class HomeTab extends StatelessWidget {
             action: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                FRLiveDot(),
+                const FRLiveDot(),
                 const SizedBox(width: 6),
                 Text('canlı', style: frText(11, FontWeight.w800, color: FR.good)),
               ],
@@ -88,7 +88,7 @@ class HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (feedItems.isEmpty)
-            _EmptyBlock(height: 120, text: 'Topluluktan fiyat gelince burada görünür.')
+            const _EmptyBlock(height: 120, text: 'Topluluktan fiyat gelince burada görünür.')
           else
             ...feedItems.map(
               (p) => _FeedRow(
@@ -266,7 +266,7 @@ class _RadarHero extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        FRLiveDot(),
+                        const FRLiveDot(),
                         const SizedBox(width: 6),
                         Text('RADAR AKTİF',
                             style: frText(9.5, FontWeight.w800, color: FR.good, letter: 1.3)),

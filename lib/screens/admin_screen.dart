@@ -61,7 +61,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        FRLiveDot(),
+                        const FRLiveDot(),
                         const SizedBox(width: 6),
                         Text('KONTROL CANLI',
                             style: frOverline(color: FR.gold, size: 9.5)),
@@ -276,7 +276,7 @@ class _Panel extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
-        FRSectionHead(eyebrow: 'CANLI', title: 'Son katkılar'),
+        const FRSectionHead(eyebrow: 'CANLI', title: 'Son katkılar'),
         const SizedBox(height: 10),
         if (recent.isEmpty)
           _empty('Topluluktan henüz katkı gelmedi.')
@@ -402,7 +402,7 @@ class _RequestsTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FRSectionHead(eyebrow: 'BEKLEYEN', title: 'Onay bekleyen talepler'),
+        const FRSectionHead(eyebrow: 'BEKLEYEN', title: 'Onay bekleyen talepler'),
         const SizedBox(height: 10),
         if (pending.isEmpty)
           _empty('Bekleyen talep yok.')
@@ -412,7 +412,7 @@ class _RequestsTab extends StatelessWidget {
               _RequestRow(request: r, state: state),
           ]),
         const SizedBox(height: 18),
-        FRSectionHead(
+        const FRSectionHead(
           eyebrow: 'GEÇMİŞ',
           title: 'Onaylanmış / reddedilmiş talepler',
         ),
@@ -1249,7 +1249,7 @@ class _VerificationTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (disputed.isNotEmpty) ...[
-          FRSectionHead(eyebrow: 'DİKKAT', title: 'İhtilaflı fiyatlar'),
+          const FRSectionHead(eyebrow: 'DİKKAT', title: 'İhtilaflı fiyatlar'),
           const SizedBox(height: 10),
           _rowList([
             for (final r in disputed) _EntryRow(product: r.$1, entry: r.$2),
@@ -1257,7 +1257,7 @@ class _VerificationTab extends StatelessWidget {
           const SizedBox(height: 18),
         ],
         if (pending.isNotEmpty) ...[
-          FRSectionHead(eyebrow: 'BEKLEYEN', title: 'Topluluk oyuna açık'),
+          const FRSectionHead(eyebrow: 'BEKLEYEN', title: 'Topluluk oyuna açık'),
           const SizedBox(height: 10),
           _rowList([
             for (final r in pending) _EntryRow(product: r.$1, entry: r.$2),
@@ -1289,21 +1289,21 @@ class _SettingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _rowList([
-      _GenericRow(
+      const _GenericRow(
         title: 'Minimum oy sayısı',
         subtitle:
             '${VerificationRules.minVotesForStatus} oy sonrası durum değişir',
         icon: Icons.verified_rounded,
         withActions: false,
       ),
-      _GenericRow(
+      const _GenericRow(
         title: 'Doğrulama eşiği',
         subtitle:
             'Güven ağırlıklı skor ≥ ${VerificationRules.verifyScore} → doğrulandı',
         icon: Icons.tune_rounded,
         withActions: false,
       ),
-      _GenericRow(
+      const _GenericRow(
         title: 'Red eşiği',
         subtitle:
             'Güven ağırlıklı skor ≤ ${VerificationRules.rejectScore} → reddedildi',
