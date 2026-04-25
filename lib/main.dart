@@ -8,6 +8,7 @@ import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'state/app_state.dart';
+import 'ui/components.dart';
 import 'ui/fr_theme.dart';
 import 'ui/tokens.dart';
 
