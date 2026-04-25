@@ -81,6 +81,9 @@ class AppState extends ChangeNotifier {
   /// whose uid matches an admin record or whose profile has the admin flag.
   bool _isAdmin = false;
   bool get isAdmin => _isAdmin;
+  bool _isBanned = false;
+  bool get isBanned => _isBanned;
+  String? banReason;
 
   // Catalog
   final List<Product> products = [];
@@ -113,6 +116,8 @@ class AppState extends ChangeNotifier {
   String displayName = 'Kahve Avcısı';
   String username = '@fiyatradar_user';
   String? phoneNumber;
+  String? cityName;
+  String? districtName;
   String? profileImageUrl;
   String? profileImagePath;
 
@@ -121,6 +126,8 @@ class AppState extends ChangeNotifier {
   bool weeklySummaryEnabled = true;
   bool twoFactorEnabled = false;
   bool biometricEnabled = true;
+  String? twoFactorPin;
+  bool securitySessionUnlocked = false;
 
   // Trust bookkeeping (0..1 used to weight this user's votes)
   int trustVerifiedTotal = 0;
@@ -395,6 +402,8 @@ class AppState extends ChangeNotifier {
       final prevDisplayName = displayName;
       final prevUsername = username;
       final prevPhone = phoneNumber;
+      final prevCity = cityName;
+      final prevDistrict = districtName;
       final prevProfileImageUrl = profileImageUrl;
       final prevProfileImagePath = profileImagePath;
       final prevPoints = points;
@@ -408,7 +417,10 @@ class AppState extends ChangeNotifier {
       final prevWeekly = weeklySummaryEnabled;
       final prevTwoFactor = twoFactorEnabled;
       final prevBiometric = biometricEnabled;
+      final prevTwoFactorPin = twoFactorPin;
       final prevIsAdmin = _isAdmin;
+      final prevIsBanned = _isBanned;
+      final prevBanReason = banReason;
       final prevCartSignature = cart
           .map((c) => '${c.product.id}:${c.quantity}')
           .join('|');
@@ -422,6 +434,10 @@ class AppState extends ChangeNotifier {
       phoneNumber = (m['phoneNumber'] as String?)?.trim().isNotEmpty == true
           ? (m['phoneNumber'] as String)
           : null;
+      final cityRaw = ((m['cityName'] ?? m['city']) as String?)?.trim();
+      cityName = (cityRaw?.isNotEmpty ?? false) ? cityRaw : null;
+      final districtRaw = ((m['district'] ?? m['neighborhood']) as String?)?.trim();
+      districtName = (districtRaw?.isNotEmpty ?? false) ? districtRaw : null;
       profileImageUrl = (m['profileImageUrl'] as String?)?.trim().isNotEmpty == true
           ? (m['profileImageUrl'] as String)
           : null;
@@ -454,8 +470,15 @@ class AppState extends ChangeNotifier {
           notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
       twoFactorEnabled = securitySettings['twoFactorEnabled'] as bool? ?? false;
       biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? true;
+      twoFactorPin = (securitySettings['twoFactorPin'] as String?)?.trim().isNotEmpty == true
+          ? (securitySettings['twoFactorPin'] as String)
+          : null;
       _isAdmin = (m['isAdmin'] as bool?) == true ||
           (m['role'] as String?) == 'admin';
+      _isBanned = (m['isBanned'] as bool?) == true;
+      banReason = (m['banReason'] as String?)?.trim().isNotEmpty == true
+          ? (m['banReason'] as String)
+          : null;
       final cartRaw = (m['cart'] as List?) ?? [];
       final nextCart = cartRaw
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -483,6 +506,8 @@ class AppState extends ChangeNotifier {
       final changed = prevDisplayName != displayName ||
           prevUsername != username ||
           prevPhone != phoneNumber ||
+          prevCity != cityName ||
+          prevDistrict != districtName ||
           prevProfileImageUrl != profileImageUrl ||
           prevProfileImagePath != profileImagePath ||
           prevPoints != points ||
@@ -496,7 +521,10 @@ class AppState extends ChangeNotifier {
           prevWeekly != weeklySummaryEnabled ||
           prevTwoFactor != twoFactorEnabled ||
           prevBiometric != biometricEnabled ||
+          prevTwoFactorPin != twoFactorPin ||
           prevIsAdmin != _isAdmin ||
+          prevIsBanned != _isBanned ||
+          prevBanReason != banReason ||
           prevCartSignature != nextCartSignature;
       if (changed) notifyListeners();
     });
@@ -1148,7 +1176,9 @@ class AppState extends ChangeNotifier {
     String? profileImageUrl,
     String? profileImagePath,
   }) async {
-    if (user == null) return;
+    if (user == null) {
+      throw StateError('Aktif kullanıcı bulunamadı.');
+    }
     await _svc.userDoc(user!.uid).update({
       'displayName': displayName.trim(),
       'username': username.trim(),
@@ -1159,6 +1189,23 @@ class AppState extends ChangeNotifier {
       if (profileImagePath != null) 'profileImagePath': profileImagePath,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> updateRegionSettings({
+    required String cityName,
+    String? districtName,
+  }) async {
+    if (user == null) {
+      throw StateError('Aktif kullanıcı bulunamadı.');
+    }
+    await _svc.userDoc(user!.uid).set({
+      'cityName': cityName.trim(),
+      if (districtName != null && districtName.trim().isNotEmpty)
+        'district': districtName.trim()
+      else
+        'district': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> reportPriceEntry({
@@ -1255,6 +1302,8 @@ class AppState extends ChangeNotifier {
   Future<void> updateSecuritySettings({
     bool? twoFactorEnabled,
     bool? biometricEnabled,
+    String? twoFactorPin,
+    bool clearTwoFactorPin = false,
   }) async {
     if (user == null) return;
     await _svc.userDoc(user!.uid).set({
@@ -1262,10 +1311,18 @@ class AppState extends ChangeNotifier {
         'security': {
           if (twoFactorEnabled != null) 'twoFactorEnabled': twoFactorEnabled,
           if (biometricEnabled != null) 'biometricEnabled': biometricEnabled,
+          if (twoFactorPin != null) 'twoFactorPin': twoFactorPin.trim(),
+          if (clearTwoFactorPin) 'twoFactorPin': FieldValue.delete(),
         },
       },
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  void markSecuritySessionUnlocked(bool value) {
+    if (securitySessionUnlocked == value) return;
+    securitySessionUnlocked = value;
+    notifyListeners();
   }
 
   Future<void> logout() async {
@@ -1296,14 +1353,20 @@ class AppState extends ChangeNotifier {
     points = 0;
     pointsToRedeem = 0;
     phoneNumber = null;
+    cityName = null;
+    districtName = null;
     profileImageUrl = null;
     profileImagePath = null;
     trustVerifiedTotal = 0;
     trustWrongTotal = 0;
     trustTotalVotes = 0;
     contributions = 0;
+    twoFactorPin = null;
+    securitySessionUnlocked = false;
     guestAcknowledged = false;
     _isAdmin = false;
+    _isBanned = false;
+    banReason = null;
     _initialized = false;
     _productsSignature = 0;
     notifyListeners();
@@ -1342,16 +1405,22 @@ class AppState extends ChangeNotifier {
     points = 0;
     pointsToRedeem = 0;
     phoneNumber = null;
+    cityName = null;
+    districtName = null;
     profileImageUrl = null;
     profileImagePath = null;
     trustVerifiedTotal = 0;
     trustWrongTotal = 0;
     trustTotalVotes = 0;
     contributions = 0;
+    twoFactorPin = null;
+    securitySessionUnlocked = false;
     guestAcknowledged = preserveGuestAcknowledged
         ? wasGuestAcknowledged
         : false;
     _isAdmin = false;
+    _isBanned = false;
+    banReason = null;
     _initialized = false;
     _productsSignature = 0;
     notifyListeners();

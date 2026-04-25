@@ -15,6 +15,15 @@ class BasketTab extends StatefulWidget {
 
 class _BasketTabState extends State<BasketTab> {
   int _tab = 0;
+  int _previousTab = 0;
+
+  void _setTab(int next) {
+    if (next == _tab) return;
+    setState(() {
+      _previousTab = _tab;
+      _tab = next;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,13 +54,38 @@ class _BasketTabState extends State<BasketTab> {
               labels: const ['Sepetim', 'Karşılaştır'],
               counts: [state.cartItemCount, cart.isEmpty ? 0 : state.cart.length],
               index: _tab,
-              onChange: (i) => setState(() => _tab = i),
+              onChange: _setTab,
             ),
           ),
           Expanded(
-            child: _tab == 0
-                ? _CartPanel(state: state, onCompare: () => setState(() => _tab = 1))
-                : _ComparePanel(state: state),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 360),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final isIncoming = child.key == ValueKey(_tab);
+                final fromLeft = _tab > _previousTab;
+                final begin = isIncoming
+                    ? Offset(fromLeft ? 0.08 : -0.08, 0)
+                    : Offset(fromLeft ? -0.04 : 0.04, 0);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: begin,
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey(_tab),
+                child: _tab == 0
+                    ? _CartPanel(state: state, onCompare: () => _setTab(1))
+                    : _ComparePanel(state: state),
+              ),
+            ),
           ),
         ],
       ),

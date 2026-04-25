@@ -1411,6 +1411,7 @@ class AdminStoreCrudScreen extends StatelessWidget {
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
     String rawName,
   ) async {
+    final oldName = (doc.data()['name'] ?? '').toString().trim();
     final name = rawName.trim().replaceAll(RegExp(r'\s+'), ' ');
     final normalized = _normalizeName(name);
     final dupDoc = await _findByNormalizedName(
@@ -1424,6 +1425,43 @@ class AdminStoreCrudScreen extends StatelessWidget {
       'name': name,
       'nameNormalized': normalized,
     });
+    await _syncStoreRenameAcrossProducts(
+      oldName: oldName,
+      newName: name,
+    );
+  }
+
+  Future<void> _syncStoreRenameAcrossProducts({
+    required String oldName,
+    required String newName,
+  }) async {
+    if (oldName.isEmpty || oldName == newName) return;
+    final products = await FirebaseService.instance.products.get();
+    final coll = FirebaseService.instance.products;
+    final batch = FirebaseService.instance.db.batch();
+    var hasWrite = false;
+    for (final product in products.docs) {
+      final raw = (product.data()['priceHistory'] as List?) ?? const [];
+      var changed = false;
+      final nextHistory = raw.map((entry) {
+        final map = Map<String, dynamic>.from(entry as Map);
+        if ((map['store'] ?? '').toString().trim() == oldName) {
+          map['store'] = newName;
+          changed = true;
+        }
+        return map;
+      }).toList();
+      if (changed) {
+        batch.update(coll.doc(product.id), {
+          'priceHistory': nextHistory,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        hasWrite = true;
+      }
+    }
+    if (hasWrite) {
+      await batch.commit();
+    }
   }
 
   @override
@@ -1471,6 +1509,43 @@ class AdminStoreCrudScreen extends StatelessWidget {
 class AdminCategoryCrudScreen extends StatelessWidget {
   const AdminCategoryCrudScreen({super.key});
 
+  Future<void> _renameCategory(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    String rawName,
+  ) async {
+    final oldName = (doc.data()['name'] ?? '').toString().trim();
+    final newName = rawName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    await doc.reference.update({'name': newName});
+    await _syncCategoryRenameAcrossProducts(
+      oldName: oldName,
+      newName: newName,
+    );
+  }
+
+  Future<void> _syncCategoryRenameAcrossProducts({
+    required String oldName,
+    required String newName,
+  }) async {
+    if (oldName.isEmpty || oldName == newName) return;
+    final products = await FirebaseService.instance.products.get();
+    final coll = FirebaseService.instance.products;
+    final batch = FirebaseService.instance.db.batch();
+    var hasWrite = false;
+    for (final product in products.docs) {
+      if ((product.data()['category'] ?? '').toString().trim() != oldName) {
+        continue;
+      }
+      batch.update(coll.doc(product.id), {
+        'category': newName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      hasWrite = true;
+    }
+    if (hasWrite) {
+      await batch.commit();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final categories =
@@ -1504,7 +1579,7 @@ class AdminCategoryCrudScreen extends StatelessWidget {
                   context,
                   title: 'Kategori düzenle',
                   initial: (d.data()['name'] ?? '').toString(),
-                  onSave: (name) => d.reference.update({'name': name}),
+                  onSave: (name) => _renameCategory(d, name),
                 ),
                 onDelete: () => d.reference.delete(),
                 onToggleActive: () => d.reference.update({
@@ -1788,13 +1863,17 @@ class _UserEditRowState extends State<_UserEditRow> {
       TextEditingController(text: (widget.data['displayName'] ?? '').toString());
   late final TextEditingController _username =
       TextEditingController(text: (widget.data['username'] ?? '').toString());
+  late final TextEditingController _banReason =
+      TextEditingController(text: (widget.data['banReason'] ?? '').toString());
   bool _saving = false;
   bool _roleSaving = false;
+  bool _banSaving = false;
 
   @override
   void dispose() {
     _name.dispose();
     _username.dispose();
+    _banReason.dispose();
     super.dispose();
   }
 
@@ -1843,10 +1922,37 @@ class _UserEditRowState extends State<_UserEditRow> {
     }
   }
 
+  Future<void> _toggleBan(bool v) async {
+    if (_banSaving) return;
+    setState(() => _banSaving = true);
+    try {
+      await FirebaseService.instance.users.doc(widget.uid).update({
+        'isBanned': v,
+        if (v && _banReason.text.trim().isNotEmpty)
+          'banReason': _banReason.text.trim()
+        else
+          'banReason': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(v ? 'Kullanıcı banlandı.' : 'Ban kaldırıldı.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ban işlemi başarısız.')),
+      );
+    } finally {
+      if (mounted) setState(() => _banSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAdmin = (widget.data['isAdmin'] as bool?) == true ||
         (widget.data['role'] as String?) == 'admin';
+    final isBanned = (widget.data['isBanned'] as bool?) == true;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1864,6 +1970,14 @@ class _UserEditRowState extends State<_UserEditRow> {
           TextField(
             controller: _username,
             decoration: const InputDecoration(hintText: 'Kullanıcı adı'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _banReason,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              hintText: 'Ban nedeni (opsiyonel)',
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -1884,6 +1998,37 @@ class _UserEditRowState extends State<_UserEditRow> {
                 label: _saving ? 'Kaydediliyor…' : 'Kaydet',
                 filled: false,
                 onTap: _saving ? null : _save,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isBanned ? 'Kullanıcı banlı' : 'Kullanıcı aktif',
+                  style: frText(
+                    12,
+                    FontWeight.w800,
+                    color: isBanned ? FR.bad : FR.good,
+                  ),
+                ),
+              ),
+              Switch(
+                value: isBanned,
+                onChanged: _banSaving ? null : _toggleBan,
+                activeColor: FR.bg,
+                activeTrackColor: FR.bad,
+                inactiveThumbColor: FR.ink2,
+                inactiveTrackColor: FR.surfaceHi,
+              ),
+              const SizedBox(width: 8),
+              FRCta(
+                label: isBanned ? 'Banı kaldır' : 'Banla',
+                icon: isBanned
+                    ? Icons.lock_open_rounded
+                    : Icons.gpp_bad_rounded,
+                onTap: _banSaving ? null : () => _toggleBan(!isBanned),
               ),
             ],
           ),

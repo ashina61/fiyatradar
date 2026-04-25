@@ -27,7 +27,7 @@ class HomeTab extends StatelessWidget {
         children: [
           FRFadeSlideIn(delay: nextDelay(), child: _Greet(state: state)),
           const SizedBox(height: 18),
-          FRFadeSlideIn(delay: nextDelay(), child: _LocationStrip()),
+          FRFadeSlideIn(delay: nextDelay(), child: _LocationStrip(state: state)),
           const SizedBox(height: 18),
           FRFadeSlideIn(
             delay: nextDelay(),
@@ -209,9 +209,114 @@ class _Greet extends StatelessWidget {
   }
 }
 
-class _LocationStrip extends StatelessWidget {
+class _LocationStrip extends StatefulWidget {
+  const _LocationStrip({required this.state});
+  final AppState state;
+
+  @override
+  State<_LocationStrip> createState() => _LocationStripState();
+}
+
+class _LocationStripState extends State<_LocationStrip> {
+  Future<void> _editRegion() async {
+    final cityCtrl = TextEditingController(text: widget.state.cityName ?? '');
+    final districtCtrl = TextEditingController(
+      text: widget.state.districtName ?? '',
+    );
+    var saving = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: FR.bgElev,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            Future<void> save() async {
+              final city = cityCtrl.text.trim();
+              if (city.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Lütfen bir şehir gir.')),
+                );
+                return;
+              }
+              setSheetState(() => saving = true);
+              try {
+                await widget.state.updateRegionSettings(
+                  cityName: city,
+                  districtName: districtCtrl.text,
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (_) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bölge güncellenemedi.')),
+                );
+              } finally {
+                if (ctx.mounted) setSheetState(() => saving = false);
+              }
+            }
+
+            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(18, 18, 18, bottomInset + 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Bölge tercihi', style: frDisplay(18, FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Anasayfa bölgeni kaydeder. Şehir ve ilçe bilgini güncelleyebilirsin.',
+                    style: frText(12, FontWeight.w600, color: FR.ink3),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: cityCtrl,
+                    style: frText(14, FontWeight.w700),
+                    cursorColor: FR.gold,
+                    decoration: const InputDecoration(
+                      labelText: 'Şehir',
+                      hintText: 'Örn: İstanbul',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: districtCtrl,
+                    style: frText(14, FontWeight.w700),
+                    cursorColor: FR.gold,
+                    decoration: const InputDecoration(
+                      labelText: 'İlçe (opsiyonel)',
+                      hintText: 'Örn: Kadıköy',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FRCta(
+                    label: saving ? 'Kaydediliyor…' : 'Bölgeyi kaydet',
+                    icon: Icons.check_rounded,
+                    onTap: saving ? null : save,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    cityCtrl.dispose();
+    districtCtrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final city = widget.state.cityName;
+    final district = widget.state.districtName;
+    final hasRegion = city != null && city.isNotEmpty;
+    final title = hasRegion
+        ? (district != null && district.isNotEmpty ? '$city · $district' : city)
+        : 'Tüm Türkiye';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: frSurface(radius: FRRad.l),
@@ -232,15 +337,25 @@ class _LocationStrip extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('BÖLGE (VARSAYILAN)', style: frOverline(color: FR.ink3, size: 9.5)),
+                Text(
+                  hasRegion ? 'BÖLGE' : 'BÖLGE (VARSAYILAN)',
+                  style: frOverline(color: FR.ink3, size: 9.5),
+                ),
                 const SizedBox(height: 2),
-                Text('Tüm Türkiye', style: frText(14, FontWeight.w800)),
-                Text('Konum iznini açarsan radar daraltılır',
+                Text(title, style: frText(14, FontWeight.w800)),
+                Text('Dokunup bölge tercihini güncelle',
                     style: frText(11.5, FontWeight.w600, color: FR.ink3)),
               ],
             ),
           ),
-          Icon(Icons.tune_rounded, color: FR.ink3, size: 20),
+          InkWell(
+            onTap: _editRegion,
+            borderRadius: FRRad.all(10),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(Icons.tune_rounded, color: FR.ink3, size: 20),
+            ),
+          ),
         ],
       ),
     );
