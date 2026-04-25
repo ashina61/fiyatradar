@@ -89,7 +89,7 @@ class _ExploreTabState extends State<ExploreTab> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
             child: FRPageHeader(
               overline: 'RADARDAKİ ÜRÜNLER',
               title: 'Keşfet',
