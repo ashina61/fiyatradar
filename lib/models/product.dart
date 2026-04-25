@@ -214,12 +214,6 @@ class Product {
     List<PriceEntry>? priceHistory,
   }) : priceHistory = priceHistory ?? [];
 
-  List<PriceEntry> _sorted() {
-    final s = [...priceHistory];
-    s.sort((a, b) => a.date.compareTo(b.date));
-    return s;
-  }
-
   /// Entries deemed trustworthy enough to surface (not rejected).
   List<PriceEntry> get validEntries =>
       priceHistory.where((e) => e.status != PriceStatus.rejected).toList();

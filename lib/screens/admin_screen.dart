@@ -136,7 +136,12 @@ class _AdminUnauthorizedScreen extends StatelessWidget {
       backgroundColor: FR.bg,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            FRSpace.xl,
+            FRSpace.m,
+            FRSpace.xl,
+            FRSpace.xxl - FRSpace.xs,
+          ),
           child: Column(
             children: [
               Row(
@@ -151,7 +156,12 @@ class _AdminUnauthorizedScreen extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      FRSpace.xl,
+                      FRSpace.xl,
+                      FRSpace.xl,
+                      FRSpace.xl,
+                    ),
                     decoration: frSurface(radius: FRRad.l),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,

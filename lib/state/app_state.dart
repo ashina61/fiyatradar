@@ -145,7 +145,7 @@ class AppState extends ChangeNotifier {
       return 1.0 + 0.5 * over.clamp(0, 1);
     }
     // Linear ramp 0.3 → 1.0 between low and high thresholds.
-    final span =
+    const span =
         VerificationRules.highTrustThreshold - VerificationRules.lowTrustThreshold;
     final ratio = (t - VerificationRules.lowTrustThreshold) / span;
     return 0.3 + 0.7 * ratio;
