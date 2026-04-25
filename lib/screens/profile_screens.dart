@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/product.dart';
 import '../services/firebase_service.dart';
@@ -217,6 +218,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                   ? Image.memory(_pendingProfileImage!, fit: BoxFit.cover)
                   : (state.profileImageUrl != null
                       ? Image.network(
+                          key: ValueKey(state.profileImageUrl),
                           state.profileImageUrl!,
                           fit: BoxFit.cover,
                           cacheWidth: 192,
@@ -309,10 +311,14 @@ class SecurityPrefsScreen extends StatefulWidget {
 
 class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
   final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _securityBusy = false;
 
   Future<void> _toggleBiometric(AppState state, bool enabled) async {
+    if (_securityBusy) return;
+    setState(() => _securityBusy = true);
     if (!enabled) {
       await state.updateSecuritySettings(biometricEnabled: false);
+      if (mounted) setState(() => _securityBusy = false);
       return;
     }
     try {
@@ -323,45 +329,60 @@ class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bu cihaz biyometriyi desteklemiyor.')),
         );
+        if (mounted) setState(() => _securityBusy = false);
         return;
       }
       final ok = await _localAuth.authenticate(
         localizedReason: 'Biyometrik güvenliği açmak için doğrula',
         options: const AuthenticationOptions(
-          biometricOnly: false,
-          stickyAuth: true,
+          biometricOnly: true,
+          stickyAuth: false,
         ),
       );
-      if (!ok) return;
-      await state.updateSecuritySettings(biometricEnabled: true);
+      if (!ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biyometrik doğrulama iptal edildi.')),
+        );
+        return;
+      }
       state.markSecuritySessionUnlocked(true);
+      await state.updateSecuritySettings(biometricEnabled: true);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Biyometrik doğrulama başarısız.')),
       );
+    } finally {
+      if (mounted) setState(() => _securityBusy = false);
     }
   }
 
   Future<void> _toggleTwoFactor(AppState state, bool enabled) async {
-    if (!enabled) {
+    if (_securityBusy) return;
+    setState(() => _securityBusy = true);
+    try {
+      if (!enabled) {
+        await state.updateSecuritySettings(
+          twoFactorEnabled: false,
+          clearTwoFactorPin: true,
+        );
+        return;
+      }
+      final pin = await _askTwoFactorPin();
+      if (pin == null) return;
+      state.markSecuritySessionUnlocked(true);
       await state.updateSecuritySettings(
-        twoFactorEnabled: false,
-        clearTwoFactorPin: true,
+        twoFactorEnabled: true,
+        twoFactorPin: pin,
       );
-      return;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İki aşamalı kimlik etkinleştirildi.')),
+      );
+    } finally {
+      if (mounted) setState(() => _securityBusy = false);
     }
-    final pin = await _askTwoFactorPin();
-    if (pin == null) return;
-    await state.updateSecuritySettings(
-      twoFactorEnabled: true,
-      twoFactorPin: pin,
-    );
-    state.markSecuritySessionUnlocked(true);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('İki aşamalı kimlik etkinleştirildi.')),
-    );
   }
 
   Future<String?> _askTwoFactorPin() async {
@@ -444,7 +465,7 @@ class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
             title: 'İki aşamalı kimlik (2FA)',
             subtitle: 'Girişte doğrulama kodu iste',
             value: state.twoFactorEnabled,
-            onChanged: (v) => _toggleTwoFactor(state, v),
+            onChanged: _securityBusy ? null : (v) => _toggleTwoFactor(state, v),
           ),
           const SizedBox(height: 10),
           _ToggleRow(
@@ -452,9 +473,186 @@ class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
             title: 'Biyometri',
             subtitle: 'Parmak izi / Face ID ile hızlı giriş',
             value: state.biometricEnabled,
-            onChanged: (v) => _toggleBiometric(state, v),
+            onChanged: _securityBusy ? null : (v) => _toggleBiometric(state, v),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Markets ────────────────────────────────────────────────────────────────
+
+class MarketsScreen extends StatelessWidget {
+  const MarketsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final stores = state.stores;
+    return _ProfileSubScaffold(
+      overline: 'PAZAR KAPSAMI',
+      title: 'Marketler',
+      child: stores.isEmpty
+          ? _emptyBlock('Market verisi henüz yüklenmedi.')
+          : ListView.separated(
+              padding: EdgeInsets.fromLTRB(
+                  20, 4, 20, frBottomScrollPadding(context)),
+              itemCount: stores.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => Container(
+                padding: const EdgeInsets.all(14),
+                decoration: frSurface(radius: FRRad.l),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: FR.surfaceHi,
+                        borderRadius: FRRad.all(12),
+                        border: Border.all(color: FR.hairline),
+                      ),
+                      child: Text(
+                        '${i + 1}',
+                        style: frText(12, FontWeight.w800, color: FR.gold),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        stores[i],
+                        style: frText(13.5, FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+// ─── About & release notes ──────────────────────────────────────────────────
+
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+
+  Future<void> _openExternalLink(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bağlantı açılamadı. Lütfen tekrar dene.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileSubScaffold(
+      overline: 'UYGULAMA',
+      title: 'Hakkında',
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: frSurface(radius: FRRad.l),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('FiyatRadar', style: frDisplay(20, FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(
+                  'Premium topluluk destekli market fiyat zekâsı.',
+                  style: frText(12.5, FontWeight.w600, color: FR.ink3),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.description_outlined,
+            title: 'Kullanıcı sözleşmesi',
+            subtitle: 'fiyatradar.netlify.app/sozlesme',
+            onTap: () =>
+                _openExternalLink(context, 'https://fiyatradar.netlify.app/sozlesme'),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Gizlilik sözleşmesi',
+            subtitle: 'fiyatradar.netlify.app/gizlilik',
+            onTap: () =>
+                _openExternalLink(context, 'https://fiyatradar.netlify.app/gizlilik'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ReleaseNotesScreen extends StatelessWidget {
+  const ReleaseNotesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const notes = <({String version, String date, List<String> items})>[
+      (
+        version: 'v1.2.0',
+        date: '25 Nisan 2026',
+        items: [
+          'Ayarlarda Marketler bölümü canlı market listesine bağlandı.',
+          'Hakkında ekranına kullanıcı sözleşmesi ve gizlilik sözleşmesi bağlantıları eklendi.',
+          'Güvenlik ekranında biyometri / 2FA geçişleri daha stabil hale getirildi.',
+        ],
+      ),
+    ];
+    return _ProfileSubScaffold(
+      overline: 'SÜRÜM NOTLARI',
+      title: 'Güncelleme geçmişi',
+      child: ListView.separated(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
+        itemCount: notes.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, i) {
+          final n = notes[i];
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: frSurface(radius: FRRad.l),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(n.version, style: frDisplay(20, FontWeight.w700)),
+                Text(n.date, style: frText(12, FontWeight.w600, color: FR.ink3)),
+                const SizedBox(height: 8),
+                ...n.items.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 5),
+                          child: Icon(Icons.circle, size: 6, color: FR.gold),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            item,
+                            style: frText(12.5, FontWeight.w600, color: FR.ink),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -689,6 +887,31 @@ class SettingsHubScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _HubRow(
+            icon: Icons.storefront_outlined,
+            title: 'Marketler',
+            subtitle: 'Aktif market adları',
+            onTap: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const MarketsScreen())),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.history_rounded,
+            title: 'Güncelleme geçmişi',
+            subtitle: 'Yeni özellik ve düzeltmeler',
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReleaseNotesScreen())),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.info_outline_rounded,
+            title: 'Hakkında',
+            subtitle: 'Sürüm ve yasal metinler',
+            onTap: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const AboutScreen())),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
             icon: Icons.local_offer_outlined,
             title: 'Katkılarım',
             subtitle: 'Paylaştığın fiyatlar',
@@ -725,7 +948,7 @@ class _ToggleRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {
