@@ -72,6 +72,7 @@ class AppState extends ChangeNotifier {
   bool guestAcknowledged = false;
 
   void setGuestAcknowledged(bool v) {
+    if (guestAcknowledged == v) return;
     guestAcknowledged = v;
     notifyListeners();
   }
@@ -164,14 +165,7 @@ class AppState extends ChangeNotifier {
   ];
 
   /// Stores streamed from Firestore. Same fallback strategy as categories.
-  List<String> stores = const [
-    'A101',
-    'BİM',
-    'ŞOK',
-    'Migros',
-    'CarrefourSA',
-    'Tarım Kredi',
-  ];
+  List<String> stores = const [];
 
   /// Pending product requests (admin side).
   List<ProductRequest> productRequests = <ProductRequest>[];
@@ -186,6 +180,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _productAlertsSub;
   StreamSubscription? _productRequestsSub;
   bool _initialized = false;
+  int _productsSignature = 0;
   bool get initialized => _initialized;
   final List<AppNotification> notifications = [];
   final Map<String, ProductAlert> productAlerts = {};
@@ -247,9 +242,17 @@ class AppState extends ChangeNotifier {
     await _svc.bootstrap();
 
     _productsSub = _svc.products.snapshots().listen((snap) {
+      final nextProducts =
+          snap.docs.map(Product.fromDoc).where((p) => p.isActive).toList();
+      final nextSignature = nextProducts.fold<int>(
+        _bannerVersionSeed,
+        (acc, p) => Object.hash(acc, _productSignature(p)),
+      );
+      if (nextSignature == _productsSignature) return;
+      _productsSignature = nextSignature;
       products
         ..clear()
-        ..addAll(snap.docs.map(Product.fromDoc).where((p) => p.isActive));
+        ..addAll(nextProducts);
       _reconcileCartProducts();
       _rebuildCatalogDerivedViews();
       _productsVersion++;
@@ -287,11 +290,15 @@ class AppState extends ChangeNotifier {
         final bo = (b['order'] as num?)?.toInt() ?? 999;
         return ao.compareTo(bo);
       });
-      final names =
-          docs.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
+      final seen = <String>{};
+      final names = docs
+          .map((m) => (m['name'] ?? '').toString().trim())
+          .where((s) => s.isNotEmpty)
+          .where((s) => seen.add(s.toLowerCase()))
+          .toList();
       final same = names.length == stores.length &&
           names.asMap().entries.every((e) => stores[e.key] == e.value);
-      if (names.isNotEmpty && !same) {
+      if (!same) {
         stores = names;
         notifyListeners();
       }
@@ -1298,6 +1305,7 @@ class AppState extends ChangeNotifier {
     guestAcknowledged = false;
     _isAdmin = false;
     _initialized = false;
+    _productsSignature = 0;
     notifyListeners();
     await _svc.auth.signOut();
     await init();
@@ -1345,6 +1353,7 @@ class AppState extends ChangeNotifier {
         : false;
     _isAdmin = false;
     _initialized = false;
+    _productsSignature = 0;
     notifyListeners();
     await init();
   }
@@ -1357,6 +1366,52 @@ class AppState extends ChangeNotifier {
     if (user?.uid == next.uid && user?.isAnonymous == next.isAnonymous) return;
     user = next;
     notifyListeners();
+  }
+
+  int _productSignature(Product p) {
+    var entriesSig = _bannerVersionSeed;
+    for (final e in p.priceHistory) {
+      entriesSig = Object.hash(entriesSig, _priceEntrySignature(e));
+    }
+    return Object.hash(
+      p.id,
+      p.name,
+      p.brand,
+      p.category,
+      p.emoji,
+      p.unit,
+      p.imageUrl,
+      p.imagePath,
+      p.barcode,
+      p.isActive,
+      entriesSig,
+    );
+  }
+
+  int _priceEntrySignature(PriceEntry e) {
+    final sortedVoters = e.voters.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final votersSig = Object.hashAll(
+      sortedVoters.map((v) => Object.hash(v.key, v.value)),
+    );
+    return Object.hash(
+      e.id,
+      e.store,
+      e.price,
+      e.date.millisecondsSinceEpoch,
+      e.reportedBy,
+      e.reportedByUid,
+      e.note,
+      e.proofImageUrl,
+      e.upvotes,
+      e.downvotes,
+      e.verifiedByCount,
+      e.rejectedByCount,
+      e.trustWeightedScore,
+      e.status.name,
+      e.statusUpdatedAt?.millisecondsSinceEpoch,
+      votersSig,
+    );
   }
 }
 

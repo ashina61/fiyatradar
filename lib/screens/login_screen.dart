@@ -46,14 +46,24 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final email = _emailCtrl.text.trim();
       final password = _passwordCtrl.text.trim();
+      User? signedUser;
       if (_registerMode) {
-        await svc.registerWithEmail(
+        final cred = await svc.registerWithEmail(
           email: email,
           password: password,
           displayName: _nameCtrl.text.trim(),
         );
+        signedUser = cred.user;
       } else {
-        await svc.signInWithEmail(email: email, password: password);
+        final cred = await svc.signInWithEmail(email: email, password: password);
+        signedUser = cred.user;
+      }
+      final current = signedUser ?? svc.auth.currentUser;
+      if (current == null || current.isAnonymous) {
+        throw FirebaseAuthException(
+          code: 'session-invalid',
+          message: 'Oturum doğrulanamadı.',
+        );
       }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(false);
@@ -62,10 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
             .refreshFromAuthSession(preserveGuestAcknowledged: false)
             .catchError((_) {}),
       );
-      if (!mounted) return;
-      if (state.user == null) {
-        setState(() => _error = 'Oturum doğrulanamadı. Lütfen tekrar dene.');
-      }
       // No Navigator.pop needed: the root _AuthGate listens to AppState and
       // swaps LoginScreen → MainScreen as soon as `user` becomes non-anon.
     } on FirebaseAuthException catch (e) {
@@ -99,10 +105,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _continueAsGuest() async {
     if (_submitting) return;
+    setState(() => _error = null);
     final state = AppStateScope.of(context);
     setState(() => _submitting = true);
     try {
-      await FirebaseService.instance.ensureSignedIn();
+      final guest = await FirebaseService.instance.ensureSignedIn();
+      if (!guest.isAnonymous) {
+        throw FirebaseAuthException(
+          code: 'guest-auth-failed',
+          message: 'Misafir oturumu başlatılamadı.',
+        );
+      }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(true);
       unawaited(
@@ -110,11 +123,10 @@ class _LoginScreenState extends State<LoginScreen> {
             .refreshFromAuthSession(preserveGuestAcknowledged: true)
             .catchError((_) {}),
       );
-      if (!mounted) return;
-      if (state.user == null) {
-        setState(() => _error = 'Misafir oturumu doğrulanamadı. Lütfen tekrar dene.');
-      }
       // Auth gate handles the route swap.
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = _mapAuthError(e));
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Misafir oturumu başlatılamadı.');
