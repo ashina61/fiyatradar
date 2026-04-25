@@ -130,6 +130,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               child: Image.network(
                                 product.imageUrl!,
                                 fit: BoxFit.cover,
+                                cacheWidth: 1200,
+                                filterQuality: FilterQuality.medium,
                                 errorBuilder: (_, __, ___) => Center(
                                   child: Text(product.emoji,
                                       style: const TextStyle(fontSize: 108)),

@@ -58,6 +58,10 @@ class AppState extends ChangeNotifier {
   AppState();
 
   final FirebaseService _svc = FirebaseService.instance;
+  static const int _bannerVersionSeed = 1000003;
+  static const int _notificationVersionSeed = 1000003;
+  static const int _alertVersionSeed = 1000003;
+  static const int _requestVersionSeed = 1000003;
 
   // Auth
   User? user;
@@ -256,10 +260,20 @@ class AppState extends ChangeNotifier {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .listen((snap) {
+      final next = snap.docs.map(AppBanner.fromDoc).toList()
+        ..sort((a, b) => a.order.compareTo(b.order));
+      final nextSignature = next.fold<int>(
+        _bannerVersionSeed,
+        (acc, b) => Object.hash(acc, b.id, b.title, b.subtitle, b.actionLabel, b.order),
+      );
+      final prevSignature = banners.fold<int>(
+        _bannerVersionSeed,
+        (acc, b) => Object.hash(acc, b.id, b.title, b.subtitle, b.actionLabel, b.order),
+      );
+      if (nextSignature == prevSignature) return;
       banners
         ..clear()
-        ..addAll(snap.docs.map(AppBanner.fromDoc));
-      banners.sort((a, b) => a.order.compareTo(b.order));
+        ..addAll(next);
       notifyListeners();
     });
 
@@ -309,7 +323,35 @@ class AppState extends ChangeNotifier {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .listen((snap) {
-      productRequests = snap.docs.map(ProductRequest.fromDoc).toList();
+      final next = snap.docs.map(ProductRequest.fromDoc).toList();
+      final nextSignature = next.fold<int>(
+        _requestVersionSeed,
+        (acc, r) => Object.hash(
+          acc,
+          r.id,
+          r.name,
+          r.brand,
+          r.category,
+          r.status,
+          r.createdAt.millisecondsSinceEpoch,
+          r.requestedByUid,
+        ),
+      );
+      final prevSignature = productRequests.fold<int>(
+        _requestVersionSeed,
+        (acc, r) => Object.hash(
+          acc,
+          r.id,
+          r.name,
+          r.brand,
+          r.category,
+          r.status,
+          r.createdAt.millisecondsSinceEpoch,
+          r.requestedByUid,
+        ),
+      );
+      if (nextSignature == prevSignature) return;
+      productRequests = next;
       notifyListeners();
     });
 
@@ -457,9 +499,33 @@ class AppState extends ChangeNotifier {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .listen((snap) {
+      final next = snap.docs.map(AppNotification.fromDoc).toList();
+      final nextSignature = next.fold<int>(
+        _notificationVersionSeed,
+        (acc, n) => Object.hash(
+          acc,
+          n.id,
+          n.title,
+          n.body,
+          n.createdAt.millisecondsSinceEpoch,
+          n.readAt?.millisecondsSinceEpoch,
+        ),
+      );
+      final prevSignature = notifications.fold<int>(
+        _notificationVersionSeed,
+        (acc, n) => Object.hash(
+          acc,
+          n.id,
+          n.title,
+          n.body,
+          n.createdAt.millisecondsSinceEpoch,
+          n.readAt?.millisecondsSinceEpoch,
+        ),
+      );
+      if (nextSignature == prevSignature) return;
       notifications
         ..clear()
-        ..addAll(snap.docs.map(AppNotification.fromDoc));
+        ..addAll(next);
       notifyListeners();
     });
 
@@ -467,12 +533,33 @@ class AppState extends ChangeNotifier {
         .userProductAlerts(user!.uid)
         .snapshots()
         .listen((snap) {
+      final nextEntries = snap.docs.map((d) {
+        final a = ProductAlert.fromDoc(d);
+        return MapEntry(a.productId, a);
+      });
+      final next = Map<String, ProductAlert>.fromEntries(nextEntries);
+      final nextSignature = next.values.fold<int>(
+        _alertVersionSeed,
+        (acc, a) => Object.hash(
+          acc,
+          a.productId,
+          a.targetPrice,
+          a.createdAt.millisecondsSinceEpoch,
+        ),
+      );
+      final prevSignature = productAlerts.values.fold<int>(
+        _alertVersionSeed,
+        (acc, a) => Object.hash(
+          acc,
+          a.productId,
+          a.targetPrice,
+          a.createdAt.millisecondsSinceEpoch,
+        ),
+      );
+      if (nextSignature == prevSignature) return;
       productAlerts
         ..clear()
-        ..addEntries(snap.docs.map((d) {
-          final a = ProductAlert.fromDoc(d);
-          return MapEntry(a.productId, a);
-        }));
+        ..addAll(next);
       notifyListeners();
     });
 
@@ -806,15 +893,34 @@ class AppState extends ChangeNotifier {
   Future<void> toggleFavorite(String productId) async {
     if (user == null) return;
     final ref = _svc.userDoc(user!.uid);
-    if (favorites.contains(productId)) {
-      await ref.update({
-        'favorites': FieldValue.arrayRemove([productId]),
-      });
+    final hadFavorite = favorites.contains(productId);
+    if (hadFavorite) {
+      favorites.remove(productId);
     } else {
-      await ref.update({
-        'favorites': FieldValue.arrayUnion([productId]),
-      });
-      await _addPoints(PointsRules.favorite);
+      favorites.add(productId);
+    }
+    _favoritesVersion++;
+    notifyListeners();
+    try {
+      if (hadFavorite) {
+        await ref.update({
+          'favorites': FieldValue.arrayRemove([productId]),
+        });
+      } else {
+        await ref.update({
+          'favorites': FieldValue.arrayUnion([productId]),
+        });
+        await _addPoints(PointsRules.favorite);
+      }
+    } catch (_) {
+      if (hadFavorite) {
+        favorites.add(productId);
+      } else {
+        favorites.remove(productId);
+      }
+      _favoritesVersion++;
+      notifyListeners();
+      rethrow;
     }
   }
 
@@ -1197,7 +1303,10 @@ class AppState extends ChangeNotifier {
     await init();
   }
 
-  Future<void> refreshFromAuthSession() async {
+  Future<void> refreshFromAuthSession({
+    bool preserveGuestAcknowledged = true,
+  }) async {
+    final wasGuestAcknowledged = guestAcknowledged;
     await _productsSub?.cancel();
     await _authSub?.cancel();
     await _bannersSub?.cancel();
@@ -1231,7 +1340,9 @@ class AppState extends ChangeNotifier {
     trustWrongTotal = 0;
     trustTotalVotes = 0;
     contributions = 0;
-    guestAcknowledged = false;
+    guestAcknowledged = preserveGuestAcknowledged
+        ? wasGuestAcknowledged
+        : false;
     _isAdmin = false;
     _initialized = false;
     notifyListeners();

@@ -112,6 +112,55 @@ service cloud.firestore {
       ]);
     }
 
+    function intFieldOrMissing(data, field) {
+      return !(field in data) || data[field] is int;
+    }
+
+    function intFieldOrZero(data, field) {
+      return (field in data && data[field] is int) ? data[field] : 0;
+    }
+
+    function hasSafeUserGamificationMutation() {
+      let oldPoints = intFieldOrZero(resource.data, 'points');
+      let newPoints = intFieldOrZero(request.resource.data, 'points');
+      let oldTrustVotes = intFieldOrZero(resource.data, 'trustTotalVotes');
+      let newTrustVotes = intFieldOrZero(request.resource.data, 'trustTotalVotes');
+      let oldTrustVerified = intFieldOrZero(resource.data, 'trustVerifiedTotal');
+      let newTrustVerified = intFieldOrZero(request.resource.data, 'trustVerifiedTotal');
+      let oldTrustWrong = intFieldOrZero(resource.data, 'trustWrongTotal');
+      let newTrustWrong = intFieldOrZero(request.resource.data, 'trustWrongTotal');
+      let oldContributions = intFieldOrZero(resource.data, 'contributions');
+      let newContributions = intFieldOrZero(request.resource.data, 'contributions');
+      let trustVotesDelta = newTrustVotes - oldTrustVotes;
+      let trustVerifiedDelta = newTrustVerified - oldTrustVerified;
+      let trustWrongDelta = newTrustWrong - oldTrustWrong;
+      let trustEventDelta = trustVerifiedDelta + trustWrongDelta;
+      let contributionsDelta = newContributions - oldContributions;
+
+      return intFieldOrMissing(request.resource.data, 'points') &&
+        intFieldOrMissing(request.resource.data, 'trustTotalVotes') &&
+        intFieldOrMissing(request.resource.data, 'trustVerifiedTotal') &&
+        intFieldOrMissing(request.resource.data, 'trustWrongTotal') &&
+        intFieldOrMissing(request.resource.data, 'contributions') &&
+        newPoints >= 0 &&
+        trustVotesDelta >= 0 &&
+        trustVotesDelta <= 1 &&
+        trustVerifiedDelta >= 0 &&
+        trustVerifiedDelta <= 1 &&
+        trustWrongDelta >= 0 &&
+        trustWrongDelta <= 1 &&
+        trustEventDelta == trustVotesDelta &&
+        contributionsDelta >= 0 &&
+        contributionsDelta <= 1;
+    }
+
+    function hasSafePriceHistoryMutation() {
+      return resource.data.priceHistory is list &&
+        request.resource.data.priceHistory is list &&
+        request.resource.data.priceHistory.size() >= resource.data.priceHistory.size() &&
+        request.resource.data.priceHistory.size() <= resource.data.priceHistory.size() + 1;
+    }
+
     match /users/{uid} {
       allow read: if signedIn();
 
@@ -138,7 +187,8 @@ service cloud.firestore {
           immutable('trustScorePercent') &&
           immutable('inviteCode') &&
           immutable('invitedBy') &&
-          immutable('createdAt')
+          immutable('createdAt') &&
+          hasSafeUserGamificationMutation()
         );
 
       allow delete: if isAdmin();
@@ -198,7 +248,8 @@ service cloud.firestore {
       // The client transaction enforces self-vote / duplicate-vote blocks.
       allow update: if isAdmin() || (
         signedIn() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['priceHistory'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['priceHistory']) &&
+        hasSafePriceHistoryMutation()
       );
       allow delete: if isAdmin();
     }
@@ -283,22 +334,16 @@ service cloud.firestore {
     }
 
     match /priceReports/{priceId} {
-      allow read: if true;
+      allow get: if isAdmin() ||
+        (signedIn() && priceId.matches('^' + request.auth.uid + '_.*'));
+      allow list: if isAdmin();
       allow create: if signedIn() &&
         hasSafePriceReportCreatePayload() &&
         priceId == (request.auth.uid + '_' + request.resource.data.entryId) &&
         request.resource.data.createdByUid == request.auth.uid &&
         (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
         (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified');
-      allow update: if isAdmin() ||
-        (
-          signedIn() &&
-          resource.data.createdByUid == request.auth.uid &&
-          hasOnlyPriceReportOwnerWritableKeys() &&
-          immutable('createdByUid') &&
-          immutable('status') &&
-          immutable('verificationStatus')
-        );
+      allow update, delete: if isAdmin();
 
       // Legacy vote documents.
       match /verifications/{voteUid} {

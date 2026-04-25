@@ -32,6 +32,9 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    if (!state.isAdmin) {
+      return const _AdminUnauthorizedScreen();
+    }
     return Scaffold(
       backgroundColor: FR.bg,
       body: SafeArea(
@@ -121,6 +124,57 @@ class _AdminScreenState extends State<AdminScreen> {
       default:
         return _SettingsTab(state: state);
     }
+  }
+}
+
+class _AdminUnauthorizedScreen extends StatelessWidget {
+  const _AdminUnauthorizedScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: FR.bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  FRIconChip(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: frSurface(radius: FRRad.l),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.lock_outline_rounded, size: 32, color: FR.bad),
+                        const SizedBox(height: 10),
+                        Text('Yetkin yok', style: frDisplay(24, FontWeight.w700)),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Bu alan yalnızca admin kullanıcılar için erişilebilir.',
+                          textAlign: TextAlign.center,
+                          style: frText(12.5, FontWeight.w600, color: FR.ink3, height: 1.45),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1064,6 +1118,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           child: Image.network(
                             _currentImageUrl!,
                             fit: BoxFit.cover,
+                            cacheWidth: 1400,
+                            filterQuality: FilterQuality.medium,
                           ),
                         )
                       : Center(
