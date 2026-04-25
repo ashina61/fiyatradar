@@ -141,7 +141,12 @@ class _CartPanel extends StatelessWidget {
       children: [
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              14,
+              20,
+              frScrollPaddingWithFooter(context),
+            ),
             itemCount: cart.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, i) => _CartRow(item: cart[i], state: state),
@@ -313,12 +318,12 @@ class _CartFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      bottom: false,
+      bottom: true,
       minimum: EdgeInsets.only(
         bottom: frStickyFooterBottomPadding(context),
       ),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
         decoration: BoxDecoration(
           color: FR.bgElev,
           border: Border(top: BorderSide(color: FR.hairline)),

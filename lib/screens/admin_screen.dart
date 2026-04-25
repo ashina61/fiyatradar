@@ -166,13 +166,12 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     final products = state.products;
     final fresh = state.freshContributionCountLast24h;
-    final pending = _collectEntries(products, status: PriceStatus.pending).length;
-    final disputed =
-        _collectEntries(products, status: PriceStatus.disputed).length;
+    final pending = state.adminPendingEntries.length;
+    final disputed = state.adminDisputedEntries.length;
     final verified = state.aggregateVerifiedCount;
     final trust = state.catalogTrustPercent;
 
-    final recent = _recentEntries(products).take(4).toList();
+    final recent = state.adminRecentEntries.take(4).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -417,6 +416,7 @@ class _RequestRow extends StatelessWidget {
     final reason = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: FR.surface,
         title: Text('Talebi reddet', style: frDisplay(20, FontWeight.w700)),
         content: TextField(
           controller: reasonCtrl,
@@ -727,6 +727,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         }
       } else {
         final id = widget.existing!.id;
+        final previousImagePath = _currentImagePath;
         if (_pendingImageBytes != null) {
           final res = await FirebaseService.instance.uploadProductImage(
             productId: id,
@@ -747,6 +748,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           imageUrl: newImageUrl,
           imagePath: newImagePath,
         );
+        if (newImagePath != null &&
+            previousImagePath != null &&
+            previousImagePath.isNotEmpty &&
+            previousImagePath != newImagePath) {
+          await FirebaseService.instance.deleteStorageFile(previousImagePath);
+        }
       }
       if (!mounted) return;
       Navigator.pop(context);
@@ -773,6 +780,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: FR.surface,
         title: Text('Ürünü sil', style: frDisplay(20, FontWeight.w700)),
         content: Text(
           '${p.name} kalıcı olarak silinecek. Bu işlem geri alınamaz.',
@@ -793,6 +801,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (ok != true) return;
     setState(() => _deleting = true);
     try {
+      if (p.imagePath != null && p.imagePath!.isNotEmpty) {
+        await FirebaseService.instance.deleteStorageFile(p.imagePath!);
+      }
       await state.adminDeleteProduct(p.id);
       if (!mounted) return;
       Navigator.pop(context);
@@ -1149,7 +1160,7 @@ class _PricesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recent = _recentEntries(state.products).take(20).toList();
+    final recent = state.adminRecentEntries.take(20).toList();
     if (recent.isEmpty) return _empty('Fiyat akışı boş.');
     return _rowList([
       for (final r in recent) _EntryRow(product: r.$1, entry: r.$2),
@@ -1163,10 +1174,8 @@ class _VerificationTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pending =
-        _collectEntries(state.products, status: PriceStatus.pending).take(20).toList();
-    final disputed =
-        _collectEntries(state.products, status: PriceStatus.disputed).take(20).toList();
+    final pending = state.adminPendingEntries.take(20).toList();
+    final disputed = state.adminDisputedEntries.take(20).toList();
     if (pending.isEmpty && disputed.isEmpty) {
       return _empty('Tüm fiyatlar doğrulanmış.');
     }
@@ -1199,10 +1208,7 @@ class _ModerationTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rejected =
-        _collectEntries(state.products, status: PriceStatus.rejected)
-            .take(20)
-            .toList();
+    final rejected = state.adminRejectedEntries.take(20).toList();
     if (rejected.isEmpty) return _empty('Reddedilmiş fiyat yok.');
     return _rowList([
       for (final r in rejected) _EntryRow(product: r.$1, entry: r.$2),
@@ -1423,6 +1429,7 @@ class AdminPriceReportsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
     final reports = FirebaseService.instance.db
         .collection('priceReports')
         .orderBy('createdAt', descending: true)
@@ -1441,23 +1448,86 @@ class AdminPriceReportsScreen extends StatelessWidget {
           if (docs.isEmpty) return _empty('Henüz rapor yok.');
           return _rowList([
             for (final d in docs)
-              _CrudRow(
-                title:
-                    'Ürün: ${(d.data()['productId'] ?? '').toString()} · ${(d.data()['price'] ?? 0).toString()} ₺',
-                subtitle:
-                    'Raporlayan: ${(d.data()['createdByUid'] ?? '').toString()} · ${(d.data()['status'] ?? 'active')}'
-                    '${(d.data()['reason'] ?? '').toString().isEmpty ? '' : ' · ${d.data()['reason']}'}',
-                onEdit: () => d.reference.update({
-                  'status': 'removed',
-                  'updatedAt': FieldValue.serverTimestamp(),
-                }),
-                onDelete: () => d.reference.delete(),
-                editLabel: 'Kaldır',
-                deleteLabel: 'Sil',
+              _PriceReportRow(
+                reportId: d.id,
+                data: d.data(),
+                state: state,
               ),
           ]);
         },
       ),
+    );
+  }
+}
+
+class _PriceReportRow extends StatefulWidget {
+  const _PriceReportRow({
+    required this.reportId,
+    required this.data,
+    required this.state,
+  });
+  final String reportId;
+  final Map<String, dynamic> data;
+  final AppState state;
+
+  @override
+  State<_PriceReportRow> createState() => _PriceReportRowState();
+}
+
+class _PriceReportRowState extends State<_PriceReportRow> {
+  bool _busy = false;
+
+  Future<void> _resolve({required bool removeEntry}) async {
+    if (_busy) return;
+    final productId = (widget.data['productId'] ?? '').toString();
+    final entryId = (widget.data['entryId'] ?? '').toString();
+    if (productId.isEmpty || entryId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rapor verisi eksik, işlem yapılamadı.')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.state.adminResolvePriceReport(
+        reportId: widget.reportId,
+        productId: productId,
+        entryId: entryId,
+        removeEntry: removeEntry,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            removeEntry ? 'Fiyat girdisi kaldırıldı.' : 'Rapor incelendi olarak işaretlendi.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rapor işlemi başarısız.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final m = widget.data;
+    final productId = (m['productId'] ?? '').toString();
+    final price = (m['price'] ?? 0).toString();
+    final by = (m['createdByUid'] ?? '').toString();
+    final status = (m['status'] ?? 'active').toString();
+    final reason = (m['reason'] ?? '').toString();
+    return _CrudRow(
+      title: 'Ürün: $productId · $price ₺',
+      subtitle: 'Raporlayan: $by · $status${reason.isEmpty ? '' : ' · $reason'}',
+      onEdit: _busy ? () {} : () => _resolve(removeEntry: true),
+      onDelete: _busy ? () {} : () => _resolve(removeEntry: false),
+      editLabel: _busy ? 'İşleniyor…' : 'Girdiyi kaldır',
+      deleteLabel: _busy ? 'Bekle…' : 'İncelendi',
     );
   }
 }
@@ -1754,25 +1824,6 @@ Widget _rowList(List<Widget> rows) {
       ],
     ],
   );
-}
-
-/// Flatten products into (product, entry) pairs filtered by status.
-List<(Product, PriceEntry)> _collectEntries(
-  List<Product> products, {
-  PriceStatus? status,
-}) {
-  final out = <(Product, PriceEntry)>[];
-  for (final p in products) {
-    for (final e in p.priceHistory) {
-      if (status == null || e.status == status) out.add((p, e));
-    }
-  }
-  out.sort((a, b) => b.$2.date.compareTo(a.$2.date));
-  return out;
-}
-
-List<(Product, PriceEntry)> _recentEntries(List<Product> products) {
-  return _collectEntries(products);
 }
 
 class _StatCard extends StatelessWidget {

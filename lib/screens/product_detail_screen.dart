@@ -6,19 +6,49 @@ import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
 
-class ProductDetailScreen extends StatelessWidget {
+class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({super.key, required this.product});
   final Product product;
 
   @override
-  Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
-    final isFav = state.isFavorite(product.id);
-    final alert = state.alertForProduct(product.id);
-    final sorted = [...product.priceHistory]..sort((a, b) => b.date.compareTo(a.date));
-    final best = product.bestValueEntry;
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
 
-    // Store aggregates: best-value entry per store (not just cheapest).
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  late List<PriceEntry> _sorted;
+  late List<PriceEntry> _stores;
+  late PriceEntry? _best;
+
+  @override
+  void initState() {
+    super.initState();
+    _recomputeDerived();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldP = oldWidget.product;
+    final next = widget.product;
+    final oldHistorySignature = oldP.priceHistory
+        .map((e) =>
+            '${e.id}:${e.price}:${e.upvotes}:${e.downvotes}:${e.trustWeightedScore}:${e.status.name}:${e.date.millisecondsSinceEpoch}')
+        .join('|');
+    final nextHistorySignature = next.priceHistory
+        .map((e) =>
+            '${e.id}:${e.price}:${e.upvotes}:${e.downvotes}:${e.trustWeightedScore}:${e.status.name}:${e.date.millisecondsSinceEpoch}')
+        .join('|');
+    if (oldP.id != next.id ||
+        oldHistorySignature != nextHistorySignature) {
+      _recomputeDerived();
+    }
+  }
+
+  void _recomputeDerived() {
+    final product = widget.product;
+    _sorted = [...product.priceHistory]..sort((a, b) => b.date.compareTo(a.date));
+    _best = product.bestValueEntry;
+
     final perStore = <String, PriceEntry>{};
     for (final e in product.validEntries) {
       final cur = perStore[e.store];
@@ -26,7 +56,6 @@ class ProductDetailScreen extends StatelessWidget {
         perStore[e.store] = e;
         continue;
       }
-      // prefer verified, then cheaper
       final curVerified = cur.status == PriceStatus.communityVerified;
       final eVerified = e.status == PriceStatus.communityVerified;
       if (eVerified && !curVerified) {
@@ -35,14 +64,21 @@ class ProductDetailScreen extends StatelessWidget {
         perStore[e.store] = e;
       }
     }
-    final stores = perStore.values.toList()
+    _stores = perStore.values.toList()
       ..sort((a, b) {
-        // Verified first, then ascending price.
         final av = a.status == PriceStatus.communityVerified ? 0 : 1;
         final bv = b.status == PriceStatus.communityVerified ? 0 : 1;
         if (av != bv) return av - bv;
         return a.price.compareTo(b.price);
       });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final product = widget.product;
+    final state = AppStateScope.of(context);
+    final isFav = state.isFavorite(product.id);
+    final alert = state.alertForProduct(product.id);
 
     return Scaffold(
       backgroundColor: FR.bg,
@@ -139,26 +175,26 @@ class ProductDetailScreen extends StatelessWidget {
                   Text(product.unit,
                       style: frText(13, FontWeight.w600, color: FR.ink3)),
                   const SizedBox(height: 18),
-                  _BestPriceCard(product: product, best: best),
+                  _BestPriceCard(product: product, best: _best),
                   const SizedBox(height: 18),
                   if (product.validEntries.length >= 2)
                     _PriceHistoryCard(product: product),
                   if (product.validEntries.length >= 2) const SizedBox(height: 18),
                   FRSectionHead(eyebrow: 'MARKETLER', title: 'Mağaza karşılaştırması'),
                   const SizedBox(height: 12),
-                  if (stores.isEmpty)
+                  if (_stores.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Text('Bu ürün için henüz fiyat yok.',
                           style: frText(12.5, FontWeight.w600, color: FR.ink3)),
                     )
                   else
-                    ...stores.map((e) => Padding(
+                    ..._stores.map((e) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _StoreRow(
                             store: e.store,
                             entry: e,
-                            isBest: best != null && e.id == best.id,
+                            isBest: _best != null && e.id == _best!.id,
                           ),
                         )),
                   const SizedBox(height: 20),
@@ -171,14 +207,14 @@ class ProductDetailScreen extends StatelessWidget {
                     style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.5),
                   ),
                   const SizedBox(height: 10),
-                  if (sorted.isEmpty)
+                  if (_sorted.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Text('Henüz katkı yok — ilk fiyatı sen ekle.',
                           style: frText(12, FontWeight.w600, color: FR.ink3)),
                     )
                   else
-                    ...sorted.take(6).map((e) => Padding(
+                    ..._sorted.take(6).map((e) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _ContributionRow(
                             product: product,
@@ -215,6 +251,7 @@ class ProductDetailScreen extends StatelessWidget {
     final res = await showDialog<double>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: FR.surface,
         title: Text('Fiyat alarmı', style: frDisplay(20, FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,

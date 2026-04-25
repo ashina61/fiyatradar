@@ -18,6 +18,12 @@ class _ExploreTabState extends State<ExploreTab> {
   String _query = '';
   String _category = 'Tümü';
   int _filter = 0;
+  List<Product> _visibleProducts = const [];
+  int _lastProductsVersion = -1;
+  int _lastFavoritesVersion = -1;
+  String _lastQuery = '';
+  String _lastCategory = '';
+  int _lastFilter = -1;
 
   static const _filters = ['Hepsi', 'Ucuzlayanlar', 'Yeni', 'Favoriler', 'Yakınımda'];
 
@@ -57,10 +63,26 @@ class _ExploreTabState extends State<ExploreTab> {
     return list.toList();
   }
 
+  void _refreshVisibleIfNeeded(AppState state) {
+    final unchanged = _lastProductsVersion == state.productsVersion &&
+        _lastFavoritesVersion == state.favoritesVersion &&
+        _lastQuery == _query &&
+        _lastCategory == _category &&
+        _lastFilter == _filter;
+    if (unchanged) return;
+    _visibleProducts = _filtered(state);
+    _lastProductsVersion = state.productsVersion;
+    _lastFavoritesVersion = state.favoritesVersion;
+    _lastQuery = _query;
+    _lastCategory = _category;
+    _lastFilter = _filter;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final products = _filtered(state);
+    _refreshVisibleIfNeeded(state);
+    final products = _visibleProducts;
 
     return SafeArea(
       bottom: false,
