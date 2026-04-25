@@ -80,6 +80,25 @@ class AppState extends ChangeNotifier {
   // Catalog
   final List<Product> products = [];
   final List<AppBanner> banners = [];
+  List<Product> _homeTopDrops = const [];
+  List<Product> _homeFeed = const [];
+  final Map<String, PriceEntry?> _latestPriceEntryByProduct = {};
+  List<(Product, PriceEntry)> _adminRecentEntries = const [];
+  List<(Product, PriceEntry)> _adminPendingEntries = const [];
+  List<(Product, PriceEntry)> _adminDisputedEntries = const [];
+  List<(Product, PriceEntry)> _adminRejectedEntries = const [];
+  int _productsVersion = 0;
+  int _favoritesVersion = 0;
+  List<Product> get homeTopDrops => _homeTopDrops;
+  List<Product> get homeFeed => _homeFeed;
+  PriceEntry? latestEntryForProduct(String productId) =>
+      _latestPriceEntryByProduct[productId];
+  List<(Product, PriceEntry)> get adminRecentEntries => _adminRecentEntries;
+  List<(Product, PriceEntry)> get adminPendingEntries => _adminPendingEntries;
+  List<(Product, PriceEntry)> get adminDisputedEntries => _adminDisputedEntries;
+  List<(Product, PriceEntry)> get adminRejectedEntries => _adminRejectedEntries;
+  int get productsVersion => _productsVersion;
+  int get favoritesVersion => _favoritesVersion;
 
   // User data (from Firestore user doc)
   Set<String> favorites = <String>{};
@@ -213,7 +232,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> init() async {
     _authSub ??= _svc.auth.authStateChanges().listen((next) {
-      if (next == null) return;
+      if (user?.uid == next?.uid &&
+          user?.isAnonymous == next?.isAnonymous) {
+        return;
+      }
       user = next;
       notifyListeners();
     });
@@ -225,6 +247,8 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(snap.docs.map(Product.fromDoc).where((p) => p.isActive));
       _reconcileCartProducts();
+      _rebuildCatalogDerivedViews();
+      _productsVersion++;
       notifyListeners();
     });
 
@@ -251,7 +275,9 @@ class AppState extends ChangeNotifier {
       });
       final names =
           docs.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
-      if (names.isNotEmpty) {
+      final same = names.length == stores.length &&
+          names.asMap().entries.every((e) => stores[e.key] == e.value);
+      if (names.isNotEmpty && !same) {
         stores = names;
         notifyListeners();
       }
@@ -271,7 +297,9 @@ class AppState extends ChangeNotifier {
           .map((m) => (m['name'] ?? '').toString())
           .where((s) => s.isNotEmpty)
           .toList();
-      if (names.isNotEmpty) {
+      final same = names.length == categories.length &&
+          names.asMap().entries.every((e) => categories[e.key] == e.value);
+      if (names.isNotEmpty && !same) {
         categories = names;
         notifyListeners();
       }
@@ -315,6 +343,27 @@ class AppState extends ChangeNotifier {
     }
     _userSub = uref.snapshots().listen((snap) {
       final m = snap.data() ?? <String, dynamic>{};
+      final prevDisplayName = displayName;
+      final prevUsername = username;
+      final prevPhone = phoneNumber;
+      final prevProfileImageUrl = profileImageUrl;
+      final prevProfileImagePath = profileImagePath;
+      final prevPoints = points;
+      final prevTrustVerified = trustVerifiedTotal;
+      final prevTrustWrong = trustWrongTotal;
+      final prevTrustVotes = trustTotalVotes;
+      final prevContributions = contributions;
+      final prevFavorites = Set<String>.from(favorites);
+      final prevPush = pushNotificationsEnabled;
+      final prevPriceAlerts = priceAlertsEnabled;
+      final prevWeekly = weeklySummaryEnabled;
+      final prevTwoFactor = twoFactorEnabled;
+      final prevBiometric = biometricEnabled;
+      final prevIsAdmin = _isAdmin;
+      final prevCartSignature = cart
+          .map((c) => '${c.product.id}:${c.quantity}')
+          .join('|');
+
       displayName = (m['displayName'] as String?)?.trim().isNotEmpty == true
           ? (m['displayName'] as String)
           : 'Kahve Avcısı';
@@ -359,19 +408,48 @@ class AppState extends ChangeNotifier {
       _isAdmin = (m['isAdmin'] as bool?) == true ||
           (m['role'] as String?) == 'admin';
       final cartRaw = (m['cart'] as List?) ?? [];
+      final nextCart = cartRaw
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .map((e) {
+            final pid = (e['productId'] ?? '') as String;
+            final qty = (e['qty'] as num?)?.toInt() ?? 1;
+            final p = findById(pid);
+            if (p == null) return null;
+            return CartItem(product: p, quantity: qty);
+          })
+          .whereType<CartItem>()
+          .toList();
       cart
         ..clear()
-        ..addAll(cartRaw
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .map((e) {
-              final pid = (e['productId'] ?? '') as String;
-              final qty = (e['qty'] as num?)?.toInt() ?? 1;
-              final p = findById(pid);
-              if (p == null) return null;
-              return CartItem(product: p, quantity: qty);
-            })
-            .whereType<CartItem>());
-      notifyListeners();
+        ..addAll(nextCart);
+      final nextCartSignature = cart
+          .map((c) => '${c.product.id}:${c.quantity}')
+          .join('|');
+      final favoritesChanged =
+          prevFavorites.length != favorites.length ||
+              !prevFavorites.containsAll(favorites);
+      if (favoritesChanged) {
+        _favoritesVersion++;
+      }
+      final changed = prevDisplayName != displayName ||
+          prevUsername != username ||
+          prevPhone != phoneNumber ||
+          prevProfileImageUrl != profileImageUrl ||
+          prevProfileImagePath != profileImagePath ||
+          prevPoints != points ||
+          prevTrustVerified != trustVerifiedTotal ||
+          prevTrustWrong != trustWrongTotal ||
+          prevTrustVotes != trustTotalVotes ||
+          prevContributions != contributions ||
+          favoritesChanged ||
+          prevPush != pushNotificationsEnabled ||
+          prevPriceAlerts != priceAlertsEnabled ||
+          prevWeekly != weeklySummaryEnabled ||
+          prevTwoFactor != twoFactorEnabled ||
+          prevBiometric != biometricEnabled ||
+          prevIsAdmin != _isAdmin ||
+          prevCartSignature != nextCartSignature;
+      if (changed) notifyListeners();
     });
 
     _notificationsSub = _svc
@@ -791,6 +869,53 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  void _rebuildCatalogDerivedViews() {
+    final droppers = [...products]
+      ..sort((a, b) {
+        final ap = a.priceChangePct ?? 0;
+        final bp = b.priceChangePct ?? 0;
+        return ap.compareTo(bp);
+      });
+    _homeTopDrops =
+        droppers.where((p) => (p.priceChangePct ?? 0) < 0).take(3).toList();
+
+    final feed = [...products]
+      ..sort((a, b) {
+        final ad = a.priceHistory.isEmpty ? DateTime(0) : a.priceHistory.last.date;
+        final bd = b.priceHistory.isEmpty ? DateTime(0) : b.priceHistory.last.date;
+        return bd.compareTo(ad);
+      });
+    _homeFeed = feed.take(4).toList();
+
+    _latestPriceEntryByProduct
+      ..clear()
+      ..addEntries(products.map((p) => MapEntry(
+            p.id,
+            p.priceHistory.isEmpty ? null : p.priceHistory.last,
+          )));
+
+    final recent = <(Product, PriceEntry)>[];
+    final pending = <(Product, PriceEntry)>[];
+    final disputed = <(Product, PriceEntry)>[];
+    final rejected = <(Product, PriceEntry)>[];
+    for (final p in products) {
+      for (final e in p.priceHistory) {
+        recent.add((p, e));
+        if (e.status == PriceStatus.pending) pending.add((p, e));
+        if (e.status == PriceStatus.disputed) disputed.add((p, e));
+        if (e.status == PriceStatus.rejected) rejected.add((p, e));
+      }
+    }
+    recent.sort((a, b) => b.$2.date.compareTo(a.$2.date));
+    pending.sort((a, b) => b.$2.date.compareTo(a.$2.date));
+    disputed.sort((a, b) => b.$2.date.compareTo(a.$2.date));
+    rejected.sort((a, b) => b.$2.date.compareTo(a.$2.date));
+    _adminRecentEntries = recent;
+    _adminPendingEntries = pending;
+    _adminDisputedEntries = disputed;
+    _adminRejectedEntries = rejected;
+  }
+
   // --- Pricing ------------------------------------------------------------
 
   double get cartSubtotal {
@@ -951,6 +1076,44 @@ class AppState extends ChangeNotifier {
         'status': 'active',
         'verificationStatus': 'unverified',
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  /// Admin moderation for a price report. Marks the report status and
+  /// optionally removes the reported price entry from the product history.
+  Future<void> adminResolvePriceReport({
+    required String reportId,
+    required String productId,
+    required String entryId,
+    required bool removeEntry,
+  }) async {
+    final reportRef = _svc.db.collection('priceReports').doc(reportId);
+    final productRef = _svc.products.doc(productId);
+    await _svc.db.runTransaction((tx) async {
+      final reportSnap = await tx.get(reportRef);
+      if (!reportSnap.exists) return;
+
+      if (removeEntry) {
+        final productSnap = await tx.get(productRef);
+        if (productSnap.exists) {
+          final raw = (productSnap.data()?['priceHistory'] as List?) ?? [];
+          final history = raw
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .where((e) => e['id'] != entryId)
+              .toList();
+          tx.update(productRef, {
+            'priceHistory': history,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      tx.update(reportRef, {
+        'status': removeEntry ? 'removed' : 'reviewed',
+        'resolvedByUid': user?.uid ?? '',
+        'resolvedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });

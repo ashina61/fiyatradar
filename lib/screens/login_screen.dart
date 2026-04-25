@@ -57,9 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(false);
-      await state
-          .refreshFromAuthSession()
-          .timeout(const Duration(seconds: 8));
+      unawaited(state.refreshFromAuthSession().catchError((_) {}));
       if (!mounted) return;
       if (state.user == null) {
         setState(() => _error = 'Oturum doğrulanamadı. Lütfen tekrar dene.');
@@ -69,9 +67,6 @@ class _LoginScreenState extends State<LoginScreen> {
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
-    } on TimeoutException {
-      if (!mounted) return;
-      setState(() => _error = 'Bağlantı yavaş. Oturum doğrulaması zaman aşımına uğradı.');
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Giriş sırasında beklenmeyen bir hata oluştu.');
@@ -106,17 +101,12 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseService.instance.ensureSignedIn();
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(true);
-      await state
-          .refreshFromAuthSession()
-          .timeout(const Duration(seconds: 8));
+      unawaited(state.refreshFromAuthSession().catchError((_) {}));
       if (!mounted) return;
       if (state.user == null) {
         setState(() => _error = 'Misafir oturumu doğrulanamadı. Lütfen tekrar dene.');
       }
       // Auth gate handles the route swap.
-    } on TimeoutException {
-      if (!mounted) return;
-      setState(() => _error = 'Bağlantı yavaş. Misafir oturumu zaman aşımına uğradı.');
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Misafir oturumu başlatılamadı.');

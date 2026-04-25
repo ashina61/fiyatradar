@@ -14,28 +14,8 @@ class HomeTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final products = state.products;
-
-    // "Düşenler" = price dropped (pct < 0), sorted by biggest drop.
-    final droppers = [...products]
-      ..sort((a, b) {
-        final ap = a.priceChangePct ?? 0;
-        final bp = b.priceChangePct ?? 0;
-        return ap.compareTo(bp);
-      });
-    final topDrops = droppers.where((p) => (p.priceChangePct ?? 0) < 0).take(3).toList();
-    // Live feed = most recently contributed prices.
-    final feed = [...products]
-      ..sort((a, b) {
-        final ad = a.priceHistory.isEmpty
-            ? DateTime(0)
-            : a.priceHistory.last.date;
-        final bd = b.priceHistory.isEmpty
-            ? DateTime(0)
-            : b.priceHistory.last.date;
-        return bd.compareTo(ad);
-      });
-    final feedItems = feed.take(4).toList();
+    final topDrops = state.homeTopDrops;
+    final feedItems = state.homeFeed;
 
     return SafeArea(
       bottom: false,
@@ -113,6 +93,7 @@ class HomeTab extends StatelessWidget {
             ...feedItems.map(
               (p) => _FeedRow(
                 product: p,
+                latest: state.latestEntryForProduct(p.id),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
@@ -513,15 +494,17 @@ class _TrendCard extends StatelessWidget {
 }
 
 class _FeedRow extends StatelessWidget {
-  const _FeedRow({required this.product, required this.onTap});
+  const _FeedRow({
+    required this.product,
+    required this.latest,
+    required this.onTap,
+  });
   final Product product;
+  final PriceEntry? latest;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final latest = product.priceHistory.isEmpty
-        ? null
-        : product.priceHistory.last;
     final pct = product.priceChangePct;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),

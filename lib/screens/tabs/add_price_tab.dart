@@ -87,7 +87,12 @@ class _AddPriceTabState extends State<AddPriceTab> {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                18,
+                20,
+                frScrollPaddingWithFooter(context),
+              ),
               children: [
                 _IntroBanner(),
                 const SizedBox(height: 18),
@@ -229,12 +234,12 @@ class _AddPriceTabState extends State<AddPriceTab> {
           ),
           SafeArea(
             top: false,
-            bottom: false,
+            bottom: true,
             minimum: EdgeInsets.only(
               bottom: frStickyFooterBottomPadding(context),
             ),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
               decoration: BoxDecoration(
                 color: FR.bgElev,
                 border: Border(top: BorderSide(color: FR.hairline)),
