@@ -207,7 +207,12 @@ class _IdentityCard extends StatelessWidget {
               alignment: Alignment.center,
               clipBehavior: Clip.antiAlias,
               child: state.profileImageUrl != null
-                  ? Image.network(state.profileImageUrl!, fit: BoxFit.cover)
+                  ? Image.network(
+                      state.profileImageUrl!,
+                      fit: BoxFit.cover,
+                      cacheWidth: 228,
+                      filterQuality: FilterQuality.medium,
+                    )
                   : Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.bg)),
             ),
             const SizedBox(width: 16),

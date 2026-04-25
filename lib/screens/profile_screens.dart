@@ -210,7 +210,12 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
               child: hasPending
                   ? Image.memory(_pendingProfileImage!, fit: BoxFit.cover)
                   : (state.profileImageUrl != null
-                      ? Image.network(state.profileImageUrl!, fit: BoxFit.cover)
+                      ? Image.network(
+                          state.profileImageUrl!,
+                          fit: BoxFit.cover,
+                          cacheWidth: 192,
+                          filterQuality: FilterQuality.medium,
+                        )
                       : Center(
                           child: Text(
                             state.displayName.isEmpty

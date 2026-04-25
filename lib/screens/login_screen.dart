@@ -57,7 +57,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(false);
-      unawaited(state.refreshFromAuthSession().catchError((_) {}));
+      unawaited(
+        state
+            .refreshFromAuthSession(preserveGuestAcknowledged: false)
+            .catchError((_) {}),
+      );
       if (!mounted) return;
       if (state.user == null) {
         setState(() => _error = 'Oturum doğrulanamadı. Lütfen tekrar dene.');
@@ -101,7 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseService.instance.ensureSignedIn();
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(true);
-      unawaited(state.refreshFromAuthSession().catchError((_) {}));
+      unawaited(
+        state
+            .refreshFromAuthSession(preserveGuestAcknowledged: true)
+            .catchError((_) {}),
+      );
       if (!mounted) return;
       if (state.user == null) {
         setState(() => _error = 'Misafir oturumu doğrulanamadı. Lütfen tekrar dene.');
