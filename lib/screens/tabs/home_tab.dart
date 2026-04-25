@@ -506,6 +506,7 @@ class _FeedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = product.priceChangePct;
+    final latestEntry = latest;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: FRCard(
@@ -539,16 +540,16 @@ class _FeedRow extends StatelessWidget {
                     children: [
                       FRStoreBadge(latest?.store ?? '—'),
                       const SizedBox(width: 6),
-                      if (latest != null)
-                        FRFreshChip(date: latest.date)
+                      if (latestEntry != null)
+                        FRFreshChip(date: latestEntry.date)
                       else
                         Text('fiyat yok',
                             style: frText(11, FontWeight.w700, color: FR.ink3)),
-                      if (latest != null) ...[
+                      if (latestEntry != null) ...[
                         const SizedBox(width: 6),
                         FRVerifyBadge.status(
-                          status: statusToString(latest.status),
-                          trustPercent: latest.trustPercent,
+                          status: statusToString(latestEntry.status),
+                          trustPercent: latestEntry.trustPercent,
                           dense: true,
                         ),
                       ],
