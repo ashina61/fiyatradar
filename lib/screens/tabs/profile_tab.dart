@@ -213,7 +213,7 @@ class _IdentityCard extends StatelessWidget {
                       cacheWidth: 228,
                       filterQuality: FilterQuality.medium,
                     )
-                  : Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.bg)),
+                  : Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.onGold)),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -583,7 +583,7 @@ class _ThemeToggleCardState extends State<_ThemeToggleCard> {
               ),
               Switch(
                 value: isDark,
-                activeColor: FR.bg,
+                activeColor: FR.onGold,
                 activeTrackColor: FR.gold,
                 inactiveThumbColor: FR.ink2,
                 inactiveTrackColor: FR.surfaceHi,

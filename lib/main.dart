@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -65,9 +66,11 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
   }
 }
 
-/// Reactive auth gate: rebuilds whenever [AppState] changes (e.g. after a
-/// successful login call refreshes the auth session), so the tree swaps from
-/// [LoginScreen] to [MainScreen] without requiring an app restart.
+/// Reactive auth gate: subscribes directly to [FirebaseAuth.authStateChanges]
+/// AND to [AppState] (for the guest-acknowledged flag). Either signal causes
+/// the gate to re-evaluate which screen to render, so a successful email
+/// sign-in immediately swaps the [LoginScreen] for the [MainScreen] without
+/// requiring an app restart.
 class _AuthGate extends StatelessWidget {
   const _AuthGate({required this.state, required this.initFuture});
   final AppState state;
@@ -85,19 +88,54 @@ class _AuthGate extends StatelessWidget {
           return _ErrorScreen(error: '${snap.error}');
         }
         if (snap.data!.showOnboarding) return const OnboardingScreen();
-        return AnimatedBuilder(
-          animation: state,
-          builder: (_, __) {
-            final user = state.user;
-            if (user == null) return const LoginScreen();
-            if (user.isAnonymous && !state.guestAcknowledged) {
-              return const LoginScreen();
-            }
-            return const MainScreen();
+        return StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          initialData: FirebaseAuth.instance.currentUser,
+          builder: (_, authSnap) {
+            return AnimatedBuilder(
+              animation: state,
+              builder: (_, __) {
+                final user = authSnap.data ?? state.user;
+                final tree = _routeFor(user, state);
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.04),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey(_routeKey(user, state)),
+                    child: tree,
+                  ),
+                );
+              },
+            );
           },
         );
       },
     );
+  }
+
+  Widget _routeFor(User? user, AppState state) {
+    if (user == null) return const LoginScreen();
+    if (user.isAnonymous && !state.guestAcknowledged) {
+      return const LoginScreen();
+    }
+    return const MainScreen();
+  }
+
+  String _routeKey(User? user, AppState state) {
+    if (user == null) return 'login';
+    if (user.isAnonymous && !state.guestAcknowledged) return 'login';
+    return 'main:${user.uid}';
   }
 }
 
@@ -132,7 +170,7 @@ class _SplashScreen extends StatelessWidget {
                 ],
               ),
               alignment: Alignment.center,
-              child: Text('FR', style: frDisplay(30, FontWeight.w800, color: FR.bg)),
+              child: Text('FR', style: frDisplay(30, FontWeight.w800, color: FR.onGold)),
             ),
             const SizedBox(height: 22),
             Text('FiyatRadar', style: frDisplay(26, FontWeight.w700)),

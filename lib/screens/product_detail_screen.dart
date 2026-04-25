@@ -191,14 +191,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           style: frText(12.5, FontWeight.w600, color: FR.ink3)),
                     )
                   else
-                    ..._stores.map((e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _StoreRow(
-                            store: e.store,
-                            entry: e,
-                            isBest: _best != null && e.id == _best!.id,
-                          ),
-                        )),
+                    ..._stores.map((e) {
+                      final cheapest = product.lowestPrice ?? e.price;
+                      final delta = e.price - cheapest;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _StoreRow(
+                          store: e.store,
+                          entry: e,
+                          isBest: _best != null && e.id == _best!.id,
+                          delta: delta,
+                          cheapestPrice: cheapest,
+                        ),
+                      );
+                    }),
                   const SizedBox(height: 20),
                   const FRSectionHead(
                       eyebrow: 'TOPLULUK DOĞRULAMASI',
@@ -444,14 +450,20 @@ class _StoreRow extends StatelessWidget {
     required this.store,
     required this.entry,
     required this.isBest,
+    required this.delta,
+    required this.cheapestPrice,
   });
   final String store;
   final PriceEntry entry;
   final bool isBest;
+  final double delta;
+  final double cheapestPrice;
 
   @override
   Widget build(BuildContext context) {
     final verified = entry.status == PriceStatus.communityVerified;
+    final pct = cheapestPrice <= 0 ? 0.0 : (delta / cheapestPrice) * 100.0;
+    final isCheapest = delta.abs() < 0.005;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -490,10 +502,11 @@ class _StoreRow extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
                     FRFreshChip(date: entry.date),
-                    const SizedBox(width: 6),
                     FRVerifyBadge.status(
                       status: statusToString(entry.status),
                       trustPercent: entry.trustPercent,
@@ -504,7 +517,83 @@ class _StoreRow extends StatelessWidget {
               ],
             ),
           ),
-          FRPriceText(entry.price, size: 18, color: verified || isBest ? FR.gold : FR.ink),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              FRPriceText(
+                entry.price,
+                size: 18,
+                color: verified || isBest ? FR.gold : FR.ink,
+              ),
+              const SizedBox(height: 4),
+              _DeltaPill(delta: delta, pct: pct, isCheapest: isCheapest),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact pill that summarises how much pricier (or cheaper) a store is
+/// compared to the lowest tracked price. Renders "en ucuz" when the store
+/// holds the cheapest price.
+class _DeltaPill extends StatelessWidget {
+  const _DeltaPill({
+    required this.delta,
+    required this.pct,
+    required this.isCheapest,
+  });
+  final double delta;
+  final double pct;
+  final bool isCheapest;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isCheapest) {
+      final c = FR.good;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: c.withOpacity(.14),
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: c.withOpacity(.35)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.bolt_rounded, size: 11, color: c),
+            const SizedBox(width: 4),
+            Text('en ucuz', style: frText(10, FontWeight.w800, color: c)),
+          ],
+        ),
+      );
+    }
+    final more = delta > 0;
+    final c = more ? FR.bad : FR.good;
+    final pctText = pct.abs() < 0.5
+        ? pct.abs().toStringAsFixed(1)
+        : pct.abs().toStringAsFixed(pct.abs() < 10 ? 1 : 0);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.withOpacity(.12),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: c.withOpacity(.32)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            more ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+            size: 11,
+            color: c,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${more ? '+' : '-'}₺${delta.abs().toStringAsFixed(delta.abs() < 10 ? 2 : 0)} · %$pctText',
+            style: frText(10, FontWeight.w800, color: c),
+          ),
         ],
       ),
     );
@@ -785,7 +874,7 @@ class _Actions extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 18)],
               ),
-              child: Icon(Icons.add_rounded, color: FR.bg, size: 24),
+              child: Icon(Icons.add_rounded, color: FR.onGold, size: 24),
             ),
           ),
         ],

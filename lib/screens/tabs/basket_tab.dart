@@ -100,20 +100,20 @@ class _Segmented extends StatelessWidget {
                       Text(
                         labels[i],
                         style: frText(12.5, FontWeight.w800,
-                            color: index == i ? FR.bg : FR.ink2),
+                            color: index == i ? FR.onGold : FR.ink2),
                       ),
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: index == i
-                              ? FR.surface.withOpacity(FR.isDark ? .24 : .82)
+                              ? FR.onGold.withOpacity(.18)
                               : FR.bgElev,
                           borderRadius: FRRad.all(8),
                         ),
                         child: Text('${counts[i]}',
                             style: frText(10, FontWeight.w800,
-                                color: index == i ? FR.bg : FR.ink3)),
+                                color: index == i ? FR.onGold : FR.ink3)),
                       ),
                     ],
                   ),
@@ -378,7 +378,7 @@ class _ComparePanelState extends State<_ComparePanel> {
           return '${p.id}:${c.quantity}:$histSig';
         })
         .join('||');
-    if (key == _cacheKey) return _cachedGroups;
+    if (key == _cacheKey && _cachedGroups.isNotEmpty) return _cachedGroups;
     _cacheKey = key;
     _cachedGroups = _computeStoreGroups(state);
     return _cachedGroups;
@@ -393,84 +393,74 @@ class _ComparePanelState extends State<_ComparePanel> {
     }
     final groups = _groups(state);
     final best = groups.isEmpty ? null : groups.first;
+    final bestTotal = best?.total ?? 0;
 
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
       children: [
         if (best != null)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [FR.surfaceHi, FR.surfaceLo],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: FRRad.all(24),
-              border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-              boxShadow: [BoxShadow(color: FR.gold.withOpacity(.12), blurRadius: 32)],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('EN UCUZ KOMBİNASYON', style: frOverline()),
-                const SizedBox(height: 10),
-                Text(best.store, style: frDisplay(28, FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text('${best.items} ürün · ${best.covered}/${cart.length} eşleşti',
-                    style: frText(12, FontWeight.w600, color: FR.ink3)),
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    FRPriceText(best.total, size: 38, color: FR.gold),
-                    const SizedBox(width: 12),
-                    if (state.cartSavings > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: FR.good.withOpacity(.14),
-                            borderRadius: FRRad.all(999),
-                            border: Border.all(color: FR.good.withOpacity(.35)),
-                          ),
-                          child: Text(
-                              '-₺${state.cartSavings.toStringAsFixed(0)}',
-                              style: frText(12, FontWeight.w800, color: FR.good)),
-                        ),
-                      ),
-                  ],
+          FRFadeSlideIn(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [FR.surfaceHi, FR.surfaceLo],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
+                borderRadius: FRRad.all(24),
+                border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+                boxShadow: [BoxShadow(color: FR.gold.withOpacity(.12), blurRadius: 32)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('EN UCUZ KOMBİNASYON', style: frOverline()),
+                  const SizedBox(height: 10),
+                  Text(best.store, style: frDisplay(28, FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text('${best.items} ürün · ${best.covered}/${cart.length} eşleşti',
+                      style: frText(12, FontWeight.w600, color: FR.ink3)),
+                  const SizedBox(height: 14),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      FRPriceText(best.total, size: 38, color: FR.gold),
+                      const SizedBox(width: 12),
+                      if (state.cartSavings > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: FR.good.withOpacity(.14),
+                              borderRadius: FRRad.all(999),
+                              border: Border.all(color: FR.good.withOpacity(.35)),
+                            ),
+                            child: Text(
+                                '-₺${state.cartSavings.toStringAsFixed(0)}',
+                                style: frText(12, FontWeight.w800, color: FR.good)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         const SizedBox(height: 20),
         const FRSectionHead(eyebrow: 'DİĞER MARKETLER', title: 'Zincir karşılaştırması'),
         const SizedBox(height: 12),
-        for (final g in groups.skip(1).take(4))
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: frSurface(radius: FRRad.l),
-              child: Row(
-                children: [
-                  FRStoreBadge(g.store),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${g.covered}/${cart.length} ürün eşleşti',
-                            style: frText(12.5, FontWeight.w800)),
-                        Text('${g.items} fiyat noktası',
-                            style: frText(11, FontWeight.w600, color: FR.ink3)),
-                      ],
-                    ),
-                  ),
-                  FRPriceText(g.total, size: 16, color: FR.ink),
-                ],
+        for (final entry in groups.skip(1).take(6).toList().asMap().entries)
+          FRFadeSlideIn(
+            delay: Duration(milliseconds: 40 * entry.key),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CompareRow(
+                group: entry.value,
+                cartSize: cart.length,
+                bestTotal: bestTotal,
+                bestStore: best?.store ?? '',
               ),
             ),
           ),
@@ -511,41 +501,165 @@ class _ComparePanelState extends State<_ComparePanel> {
       ],
     );
   }
+}
 
-  static List<_StoreGroup> _computeStoreGroups(AppState state) {
-    final storeCount = <String, int>{};
-    final storeTotal = <String, double>{};
-    final storeItems = <String, int>{};
-    for (final c in state.cart) {
-      for (final e in c.product.priceHistory) {
-        storeItems[e.store] = (storeItems[e.store] ?? 0) + 1;
-      }
-      // For each store with a price for this product, add its cheapest entry
-      final byStore = <String, double>{};
-      for (final e in c.product.priceHistory) {
-        final cur = byStore[e.store];
-        if (cur == null || e.price < cur) byStore[e.store] = e.price;
-      }
-      byStore.forEach((store, price) {
-        storeTotal[store] = (storeTotal[store] ?? 0) + price * c.quantity;
-        storeCount[store] = (storeCount[store] ?? 0) + 1;
-      });
-    }
-    final groups = storeTotal.entries
-        .map((e) => _StoreGroup(
-              store: e.key,
-              total: e.value,
-              covered: storeCount[e.key] ?? 0,
-              items: storeItems[e.key] ?? 0,
-            ))
-        .toList();
-    groups.sort((a, b) {
-      final covCmp = b.covered.compareTo(a.covered);
-      if (covCmp != 0) return covCmp;
-      return a.total.compareTo(b.total);
-    });
-    return groups;
+class _CompareRow extends StatelessWidget {
+  const _CompareRow({
+    required this.group,
+    required this.cartSize,
+    required this.bestTotal,
+    required this.bestStore,
+  });
+  final _StoreGroup group;
+  final int cartSize;
+  final double bestTotal;
+  final String bestStore;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = group.total - bestTotal;
+    final pct = bestTotal <= 0 ? 0.0 : ((delta / bestTotal) * 100.0).abs();
+    final more = delta > 0.005;
+    final coverColor = group.covered >= cartSize ? FR.good : FR.warn;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: frSurface(radius: FRRad.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              FRStoreBadge(group.store),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${group.covered}/$cartSize ürün eşleşti',
+                        style: frText(12.5, FontWeight.w800)),
+                    Text(
+                      group.covered < cartSize
+                          ? '${cartSize - group.covered} ürün için fiyat yok'
+                          : '${group.items} fiyat noktası tarandı',
+                      style: frText(11, FontWeight.w600, color: coverColor),
+                    ),
+                  ],
+                ),
+              ),
+              FRPriceText(group.total, size: 16, color: FR.ink),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (more)
+            _MoreExpensive(delta: delta, pct: pct, vsStore: bestStore)
+          else
+            const _SamePriceTag(),
+        ],
+      ),
+    );
   }
+}
+
+class _MoreExpensive extends StatelessWidget {
+  const _MoreExpensive({
+    required this.delta,
+    required this.pct,
+    required this.vsStore,
+  });
+  final double delta;
+  final double pct;
+  final String vsStore;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = FR.bad;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: c.withOpacity(.10),
+        borderRadius: FRRad.all(10),
+        border: Border.all(color: c.withOpacity(.28)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.arrow_upward_rounded, size: 14, color: c),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '${vsStore.isEmpty ? 'En ucuz seçeneğe' : '$vsStore\'e'} göre +₺${delta.toStringAsFixed(delta < 10 ? 2 : 0)} '
+              '(%${pct.toStringAsFixed(pct < 10 ? 1 : 0)}) daha pahalı',
+              style: frText(11, FontWeight.w800, color: c),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SamePriceTag extends StatelessWidget {
+  const _SamePriceTag();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = FR.good;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: c.withOpacity(.10),
+        borderRadius: FRRad.all(10),
+        border: Border.all(color: c.withOpacity(.28)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.bolt_rounded, size: 14, color: c),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'En ucuz kombinasyona eşit fiyat',
+              style: frText(11, FontWeight.w800, color: c),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+List<_StoreGroup> _computeStoreGroups(AppState state) {
+  final storeCount = <String, int>{};
+  final storeTotal = <String, double>{};
+  final storeItems = <String, int>{};
+  for (final c in state.cart) {
+    for (final e in c.product.priceHistory) {
+      storeItems[e.store] = (storeItems[e.store] ?? 0) + 1;
+    }
+    // For each store with a price for this product, add its cheapest entry
+    final byStore = <String, double>{};
+    for (final e in c.product.priceHistory) {
+      final cur = byStore[e.store];
+      if (cur == null || e.price < cur) byStore[e.store] = e.price;
+    }
+    byStore.forEach((store, price) {
+      storeTotal[store] = (storeTotal[store] ?? 0) + price * c.quantity;
+      storeCount[store] = (storeCount[store] ?? 0) + 1;
+    });
+  }
+  final groups = storeTotal.entries
+      .map((e) => _StoreGroup(
+            store: e.key,
+            total: e.value,
+            covered: storeCount[e.key] ?? 0,
+            items: storeItems[e.key] ?? 0,
+          ))
+      .toList();
+  groups.sort((a, b) {
+    final covCmp = b.covered.compareTo(a.covered);
+    if (covCmp != 0) return covCmp;
+    return a.total.compareTo(b.total);
+  });
+  return groups;
 }
 
 class _StoreGroup {

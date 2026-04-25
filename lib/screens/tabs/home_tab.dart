@@ -17,86 +17,116 @@ class HomeTab extends StatelessWidget {
     final topDrops = state.homeTopDrops;
     final feedItems = state.homeFeed;
 
+    var step = 0;
+    Duration nextDelay() => Duration(milliseconds: 60 * step++);
+
     return SafeArea(
       bottom: false,
       child: ListView(
         padding: EdgeInsets.fromLTRB(20, 10, 20, frBottomScrollPadding(context)),
         children: [
-          _Greet(state: state),
+          FRFadeSlideIn(delay: nextDelay(), child: _Greet(state: state)),
           const SizedBox(height: 18),
-          _LocationStrip(),
+          FRFadeSlideIn(delay: nextDelay(), child: _LocationStrip()),
           const SizedBox(height: 18),
-          _RadarHero(
-            state: state,
-            onInspect: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
-            ),
-          ),
-          const SizedBox(height: 26),
-          const FRSectionHead(
-            eyebrow: 'FİLTRE',
-            title: 'Kategoriler',
-          ),
-          const SizedBox(height: 12),
-          _CategoryStrip(categories: state.categories),
-          const SizedBox(height: 26),
-          FRSectionHead(
-            eyebrow: 'BU HAFTA',
-            title: 'Fiyatı düşenler',
-            action: TextButton(
-              onPressed: () => Navigator.of(context).pushReplacement(
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: _RadarHero(
+              state: state,
+              onInspect: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
               ),
-              child: Text('Tümü', style: frText(12, FontWeight.w800, color: FR.goldDeep)),
+            ),
+          ),
+          const SizedBox(height: 26),
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: const FRSectionHead(
+              eyebrow: 'FİLTRE',
+              title: 'Kategoriler',
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 302,
-            child: topDrops.isEmpty
-                ? const _EmptyBlock(height: 302, text: 'Bu hafta fiyat düşüşü henüz yok.')
-                : ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: topDrops.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (_, i) {
-                      final p = topDrops[i];
-                      return _TrendCard(
-                        product: p,
-                        isFavorite: state.isFavorite(p.id),
-                        onFavorite: () => state.toggleFavorite(p.id),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
-                        ),
-                      );
-                    },
-                  ),
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: _CategoryStrip(categories: state.categories),
           ),
           const SizedBox(height: 26),
-          FRSectionHead(
-            eyebrow: 'TOPLULUK AKIŞI',
-            title: 'Canlı fiyat akışı',
-            action: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const FRLiveDot(),
-                const SizedBox(width: 6),
-                Text('canlı', style: frText(11, FontWeight.w800, color: FR.good)),
-              ],
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: FRSectionHead(
+              eyebrow: 'BU HAFTA',
+              title: 'Fiyatı düşenler',
+              action: TextButton(
+                onPressed: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
+                ),
+                child: Text('Tümü', style: frText(12, FontWeight.w800, color: FR.goldDeep)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: SizedBox(
+              height: 302,
+              child: topDrops.isEmpty
+                  ? const _EmptyBlock(height: 302, text: 'Bu hafta fiyat düşüşü henüz yok.')
+                  : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: topDrops.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (_, i) {
+                        final p = topDrops[i];
+                        return _TrendCard(
+                          product: p,
+                          isFavorite: state.isFavorite(p.id),
+                          onFavorite: () => state.toggleFavorite(p.id),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),
+          const SizedBox(height: 26),
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: FRSectionHead(
+              eyebrow: 'TOPLULUK AKIŞI',
+              title: 'Canlı fiyat akışı',
+              action: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const FRLiveDot(),
+                  const SizedBox(width: 6),
+                  Text('canlı', style: frText(11, FontWeight.w800, color: FR.good)),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
           if (feedItems.isEmpty)
-            const _EmptyBlock(height: 120, text: 'Topluluktan fiyat gelince burada görünür.')
+            FRFadeSlideIn(
+              delay: nextDelay(),
+              child: const _EmptyBlock(
+                height: 120,
+                text: 'Topluluktan fiyat gelince burada görünür.',
+              ),
+            )
           else
             ...feedItems.map(
-              (p) => _FeedRow(
-                product: p,
-                latest: state.latestEntryForProduct(p.id),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+              (p) => FRFadeSlideIn(
+                delay: nextDelay(),
+                child: _FeedRow(
+                  product: p,
+                  latest: state.latestEntryForProduct(p.id),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                  ),
                 ),
               ),
             ),
@@ -142,7 +172,7 @@ class _Greet extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     (state.displayName.isEmpty ? 'FR' : state.displayName[0].toUpperCase()),
-                    style: frDisplay(18, FontWeight.w800, color: FR.bg),
+                    style: frDisplay(18, FontWeight.w800, color: FR.onGold),
                   ),
                 ),
                 const SizedBox(width: 12),
