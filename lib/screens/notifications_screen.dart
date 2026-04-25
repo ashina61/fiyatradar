@@ -38,8 +38,8 @@ class NotificationsScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 0),
               child: FRPageHeader(
                 overline: 'RADAR SİNYALLERİ',
                 title: 'Bildirim',
