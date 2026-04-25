@@ -356,17 +356,42 @@ class _CartFooter extends StatelessWidget {
       );
 }
 
-class _ComparePanel extends StatelessWidget {
+class _ComparePanel extends StatefulWidget {
   const _ComparePanel({required this.state});
   final AppState state;
 
   @override
+  State<_ComparePanel> createState() => _ComparePanelState();
+}
+
+class _ComparePanelState extends State<_ComparePanel> {
+  String _cacheKey = '';
+  List<_StoreGroup> _cachedGroups = const [];
+
+  List<_StoreGroup> _groups(AppState state) {
+    final key = state.cart
+        .map((c) {
+          final p = c.product;
+          final histSig = p.priceHistory
+              .map((e) => '${e.store}:${e.price}')
+              .join('|');
+          return '${p.id}:${c.quantity}:$histSig';
+        })
+        .join('||');
+    if (key == _cacheKey) return _cachedGroups;
+    _cacheKey = key;
+    _cachedGroups = _computeStoreGroups(state);
+    return _cachedGroups;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     final cart = state.cart;
     if (cart.isEmpty) {
       return _EmptyCart();
     }
-    final groups = _computeStoreGroups(state);
+    final groups = _groups(state);
     final best = groups.isEmpty ? null : groups.first;
 
     return ListView(

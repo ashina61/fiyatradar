@@ -1364,6 +1364,68 @@ class _SettingsTab extends StatelessWidget {
 class AdminStoreCrudScreen extends StatelessWidget {
   const AdminStoreCrudScreen({super.key});
 
+  static String _normalizeName(String value) =>
+      value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
+  Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _findByNormalizedName(
+    String normalized, {
+    String? excludingDocId,
+  }) async {
+    final docs = await FirebaseService.instance.stores.get();
+    for (final doc in docs.docs) {
+      if (excludingDocId != null && doc.id == excludingDocId) continue;
+      final data = doc.data();
+      final docNormalized = ((data['nameNormalized'] ?? '') as String).trim();
+      final docNameNormalized = docNormalized.isNotEmpty
+          ? docNormalized.toLowerCase()
+          : _normalizeName((data['name'] ?? '').toString());
+      if (docNameNormalized == normalized) {
+        return doc;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _createStore(String rawName) async {
+    final name = rawName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final normalized = _normalizeName(name);
+    final coll = FirebaseService.instance.stores;
+    final dupDoc = await _findByNormalizedName(normalized);
+    if (dupDoc != null) {
+      await dupDoc.reference.update({
+        'name': name,
+        'nameNormalized': normalized,
+        'isActive': true,
+      });
+      return;
+    }
+    await coll.add({
+      'name': name,
+      'nameNormalized': normalized,
+      'order': DateTime.now().millisecondsSinceEpoch,
+      'isActive': true,
+    });
+  }
+
+  Future<void> _renameStore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    String rawName,
+  ) async {
+    final name = rawName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final normalized = _normalizeName(name);
+    final dupDoc = await _findByNormalizedName(
+      normalized,
+      excludingDocId: doc.id,
+    );
+    if (dupDoc != null) {
+      throw Exception('Bu market adı zaten kayıtlı.');
+    }
+    await doc.reference.update({
+      'name': name,
+      'nameNormalized': normalized,
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final stores = FirebaseService.instance.stores.orderBy('order').snapshots();
@@ -1372,11 +1434,7 @@ class AdminStoreCrudScreen extends StatelessWidget {
       onAdd: () => _showTextEditSheet(
         context,
         title: 'Market ekle',
-        onSave: (name) => FirebaseService.instance.stores.add({
-          'name': name,
-          'order': DateTime.now().millisecondsSinceEpoch,
-          'isActive': true,
-        }),
+        onSave: _createStore,
       ),
       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: stores,
@@ -1396,7 +1454,7 @@ class AdminStoreCrudScreen extends StatelessWidget {
                   context,
                   title: 'Market düzenle',
                   initial: (d.data()['name'] ?? '').toString(),
-                  onSave: (name) => d.reference.update({'name': name}),
+                  onSave: (name) => _renameStore(d, name),
                 ),
                 onDelete: () => d.reference.delete(),
                 onToggleActive: () => d.reference.update({
@@ -1867,7 +1925,14 @@ Future<void> _showTextEditSheet(
     ),
   );
   if (ok == true && ctrl.text.trim().isNotEmpty) {
-    await onSave(ctrl.text.trim());
+    try {
+      await onSave(ctrl.text.trim());
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
   }
   ctrl.dispose();
 }

@@ -17,12 +17,14 @@ class _AddPriceTabState extends State<AddPriceTab> {
   String? _store;
   final _priceCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+  final _storeQueryCtrl = TextEditingController();
   bool _submitting = false;
 
   @override
   void dispose() {
     _priceCtrl.dispose();
     _noteCtrl.dispose();
+    _storeQueryCtrl.dispose();
     super.dispose();
   }
 
@@ -71,7 +73,11 @@ class _AddPriceTabState extends State<AddPriceTab> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final pinned = state.stores;
+    final storeQuery = _storeQueryCtrl.text.trim().toLowerCase();
+    final stores = state.stores;
+    final filteredStores = storeQuery.isEmpty
+        ? stores
+        : stores.where((s) => s.toLowerCase().contains(storeQuery)).toList();
 
     return SafeArea(
       bottom: false,
@@ -148,34 +154,63 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 ),
                 const SizedBox(height: 18),
                 _label('Mağaza / Market'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: pinned
-                      .map(
-                        (s) => InkWell(
-                          onTap: () => setState(() => _store = s),
-                          borderRadius: FRRad.all(999),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _store == s ? FR.gold : FR.surface,
-                              borderRadius: FRRad.all(999),
-                              border: Border.all(
-                                color: _store == s ? FR.gold : FR.hairline,
+                Container(
+                  padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 2),
+                  decoration: frSurface(radius: FRRad.m),
+                  child: TextField(
+                    controller: _storeQueryCtrl,
+                    onChanged: (_) => setState(() {}),
+                    style: frText(13, FontWeight.w700),
+                    cursorColor: FR.gold,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Market ara…',
+                      hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
+                      prefixIcon: Icon(Icons.search_rounded, color: FR.ink3, size: 18),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (stores.isEmpty)
+                  Text(
+                    'Aktif market bulunamadı. Admin panelden market ekleyin.',
+                    style: frText(12, FontWeight.w600, color: FR.ink3),
+                  )
+                else if (filteredStores.isEmpty)
+                  Text(
+                    'Arama ile eşleşen market yok.',
+                    style: frText(12, FontWeight.w600, color: FR.ink3),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: filteredStores
+                        .take(24)
+                        .map(
+                          (s) => InkWell(
+                            onTap: () => setState(() => _store = s),
+                            borderRadius: FRRad.all(999),
+                            child: Container(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
+                                  14, 10, 14, 10),
+                              decoration: BoxDecoration(
+                                color: _store == s ? FR.gold : FR.surface,
+                                borderRadius: FRRad.all(999),
+                                border: Border.all(
+                                  color: _store == s ? FR.gold : FR.hairline,
+                                ),
+                              ),
+                              child: Text(
+                                s,
+                                style: frText(12, FontWeight.w800,
+                                    color: _store == s ? FR.bg : FR.ink),
                               ),
                             ),
-                            child: Text(
-                              s,
-                              style: frText(12, FontWeight.w800,
-                                  color: _store == s ? FR.bg : FR.ink),
-                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                ),
+                        )
+                        .toList(),
+                  ),
                 const SizedBox(height: 18),
                 _label('Fiyat'),
                 Container(
