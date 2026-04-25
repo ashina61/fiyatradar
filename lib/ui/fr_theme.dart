@@ -100,11 +100,11 @@ ThemeData buildFRTheme({required FRPalette palette}) {
       selectionHandleColor: palette.gold,
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: MaterialStateProperty.resolveWith(
-        (s) => s.contains(MaterialState.selected) ? palette.gold : palette.ink3,
+      thumbColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? palette.gold : palette.ink3,
       ),
-      trackColor: MaterialStateProperty.resolveWith(
-        (s) => s.contains(MaterialState.selected)
+      trackColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected)
             ? palette.gold.withOpacity(.5)
             : palette.hairline,
       ),

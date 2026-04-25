@@ -16,12 +16,10 @@ class _ProfileSubScaffold extends StatelessWidget {
   const _ProfileSubScaffold({
     required this.overline,
     required this.title,
-    this.italicTail,
     required this.child,
   });
   final String overline;
   final String title;
-  final String? italicTail;
   final Widget child;
 
   @override
@@ -48,7 +46,6 @@ class _ProfileSubScaffold extends StatelessWidget {
               child: FRPageHeader(
                 overline: overline,
                 title: title,
-                italicTail: italicTail,
               ),
             ),
             const SizedBox(height: 14),
