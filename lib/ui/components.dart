@@ -2,6 +2,66 @@ import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
+// ─── Animated entry ──────────────────────────────────────────────────────────
+
+/// Fades + slides content into view on first build. Use [delay] to stagger
+/// rows in a list so they cascade into place. Cheap, GPU-friendly, and
+/// deterministic — re-running with the same key won't re-animate.
+class FRFadeSlideIn extends StatefulWidget {
+  const FRFadeSlideIn({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+    this.duration = const Duration(milliseconds: 360),
+    this.offset = const Offset(0, 0.06),
+  });
+  final Widget child;
+  final Duration delay;
+  final Duration duration;
+  final Offset offset;
+
+  @override
+  State<FRFadeSlideIn> createState() => _FRFadeSlideInState();
+}
+
+class _FRFadeSlideInState extends State<FRFadeSlideIn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: widget.duration);
+  late final Animation<double> _fade =
+      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+  late final Animation<Offset> _slide = Tween<Offset>(
+    begin: widget.offset,
+    end: Offset.zero,
+  ).animate(_fade);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.delay == Duration.zero) {
+      _c.forward();
+    } else {
+      Future.delayed(widget.delay, () {
+        if (mounted) _c.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _slide, child: widget.child),
+    );
+  }
+}
+
 // ─── Page header ─────────────────────────────────────────────────────────────
 
 class FRPageHeader extends StatelessWidget {
@@ -213,7 +273,7 @@ class FRStoreBadge extends StatelessWidget {
       child: Text(
         store,
         style: frText(10.5, FontWeight.w800,
-            color: filled ? FR.bg : FR.ink, letter: .3),
+            color: filled ? FR.onGold : FR.ink, letter: .3),
       ),
     );
   }
@@ -246,12 +306,15 @@ class FRFilterChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (leading != null) ...[
-              leading!,
+              IconTheme.merge(
+                data: IconThemeData(color: active ? FR.onGold : FR.ink2),
+                child: leading!,
+              ),
               const SizedBox(width: 6),
             ],
             Text(
               label,
-              style: frText(12.5, FontWeight.w700, color: active ? FR.bg : FR.ink2),
+              style: frText(12.5, FontWeight.w700, color: active ? FR.onGold : FR.ink2),
             ),
           ],
         ),
@@ -289,7 +352,7 @@ class _FRCtaState extends State<FRCta> {
     final filled = widget.filled;
     final enabled = widget.onTap != null;
     final bg = filled ? FR.gold : Colors.transparent;
-    final fg = filled ? FR.bg : FR.ink;
+    final fg = filled ? FR.onGold : FR.ink;
     return AnimatedScale(
       scale: _pressed && enabled ? 0.97 : 1.0,
       duration: const Duration(milliseconds: 120),
@@ -482,7 +545,7 @@ class FRDockFab extends StatelessWidget {
           border: Border.all(color: FR.goldHi.withOpacity(.3), width: 2),
           boxShadow: [BoxShadow(color: FR.gold.withOpacity(.4), blurRadius: 16, offset: const Offset(0, 6))],
         ),
-        child: Icon(Icons.add_rounded, size: 26, color: FR.bg),
+        child: Icon(Icons.add_rounded, size: 26, color: FR.onGold),
       ),
     );
   }

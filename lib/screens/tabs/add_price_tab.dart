@@ -204,7 +204,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                               child: Text(
                                 s,
                                 style: frText(12, FontWeight.w800,
-                                    color: _store == s ? FR.bg : FR.ink),
+                                    color: _store == s ? FR.onGold : FR.ink),
                               ),
                             ),
                           ),

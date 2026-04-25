@@ -85,7 +85,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       borderRadius: FRRad.all(11),
                     ),
                     alignment: Alignment.center,
-                    child: Text('FR', style: frDisplay(13, FontWeight.w800, color: FR.bg)),
+                    child: Text('FR', style: frDisplay(13, FontWeight.w800, color: FR.onGold)),
                   ),
                   const SizedBox(width: 10),
                   Text('FiyatRadar', style: frText(15, FontWeight.w800)),

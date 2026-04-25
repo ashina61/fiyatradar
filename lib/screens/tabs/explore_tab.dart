@@ -221,14 +221,19 @@ class _ExploreTabState extends State<ExploreTab> {
                     ),
                     itemBuilder: (_, i) {
                       final p = products[i];
-                      return _ExploreCard(
-                        product: p,
-                        isFavorite: state.isFavorite(p.id),
-                        onFavorite: () => state.toggleFavorite(p.id),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProductDetailScreen(product: p),
+                      return FRFadeSlideIn(
+                        key: ValueKey('explore_${p.id}'),
+                        delay: Duration(milliseconds: 30 * (i % 8)),
+                        offset: const Offset(0, 0.04),
+                        child: _ExploreCard(
+                          product: p,
+                          isFavorite: state.isFavorite(p.id),
+                          onFavorite: () => state.toggleFavorite(p.id),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProductDetailScreen(product: p),
+                            ),
                           ),
                         ),
                       );

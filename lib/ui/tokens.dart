@@ -25,6 +25,12 @@ class FRPalette {
   final Color goldHi;
   final Color goldDeep;
   final Color copper;
+  /// Foreground color for content placed on top of [gold]/[goldDeep] surfaces
+  /// (filled CTAs, store badges, FAB). In dark mode this is the deep espresso
+  /// background — high contrast on bright honey gold. In light mode the gold
+  /// is a darker copper, so we flip to the darkest ink so text/icons stay
+  /// legible (~6:1) instead of cream-on-copper (~3:1).
+  final Color onGold;
   // Text
   final Color ink;
   final Color ink2;
@@ -52,6 +58,7 @@ class FRPalette {
     required this.goldHi,
     required this.goldDeep,
     required this.copper,
+    required this.onGold,
     required this.ink,
     required this.ink2,
     required this.ink3,
@@ -77,6 +84,7 @@ class FRPalette {
     goldHi: Color(0xFFEACB96),
     goldDeep: Color(0xFFB48B52),
     copper: Color(0xFF8F5A34),
+    onGold: Color(0xFF120B07),
     ink: Color(0xFFF3E9DC),
     ink2: Color(0xFFCBB8A2),
     ink3: Color(0xFF8E7E6E),
@@ -96,22 +104,23 @@ class FRPalette {
     surface: Color(0xFFFFFBF4),
     surfaceHi: Color(0xFFF3E8D4),
     surfaceLo: Color(0xFFEFE3CD),
-    hairline: Color(0xFFE5D6BE),
+    hairline: Color(0xFFD9C5A4),
     hairlineSoft: Color(0xFFEFE3CD),
-    gold: Color(0xFFB48B52),
-    goldHi: Color(0xFFD7B27A),
-    goldDeep: Color(0xFF8F5A34),
-    copper: Color(0xFF6E4220),
-    ink: Color(0xFF1F140C),
-    ink2: Color(0xFF4B3A2A),
-    ink3: Color(0xFF8A7762),
-    ink4: Color(0xFFB3A58F),
-    good: Color(0xFF3F7A51),
-    goodSoft: Color(0xFFE3EFE0),
-    warn: Color(0xFFB87520),
-    bad: Color(0xFFB53B2F),
-    badSoft: Color(0xFFF5E0DB),
-    shadowTone: Color(0xFF2A1B0E),
+    gold: Color(0xFFA67238),
+    goldHi: Color(0xFFC79656),
+    goldDeep: Color(0xFF6E4220),
+    copper: Color(0xFF5A3416),
+    onGold: Color(0xFFFFFBF4),
+    ink: Color(0xFF1B0F06),
+    ink2: Color(0xFF3D2C1C),
+    ink3: Color(0xFF7A6852),
+    ink4: Color(0xFFA9967D),
+    good: Color(0xFF2F6841),
+    goodSoft: Color(0xFFD9EAD9),
+    warn: Color(0xFF9C5C12),
+    bad: Color(0xFF9F2E22),
+    badSoft: Color(0xFFF1D6CF),
+    shadowTone: Color(0xFF6E4220),
     brightness: Brightness.light,
   );
 }
@@ -163,6 +172,7 @@ class FR {
   static Color get goldHi => _p.goldHi;
   static Color get goldDeep => _p.goldDeep;
   static Color get copper => _p.copper;
+  static Color get onGold => _p.onGold;
   static Color get ink => _p.ink;
   static Color get ink2 => _p.ink2;
   static Color get ink3 => _p.ink3;

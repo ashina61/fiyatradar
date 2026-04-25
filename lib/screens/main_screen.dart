@@ -18,22 +18,62 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   late int _index;
+  late int _previousIndex;
   static const _tabs = [HomeTab(), ExploreTab(), AddPriceTab(), BasketTab(), ProfileTab()];
 
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex;
+    _previousIndex = widget.initialIndex;
   }
 
-  void _go(int i) => setState(() => _index = i);
+  void _go(int i) {
+    if (i == _index) return;
+    setState(() {
+      _previousIndex = _index;
+      _index = i;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final goingForward = _index >= _previousIndex;
     return Scaffold(
       backgroundColor: FR.bg,
       extendBody: true,
-      body: IndexedStack(index: _index, children: _tabs),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
+        transitionBuilder: (child, animation) {
+          final isIncoming = child.key == ValueKey<int>(_index);
+          final dx = isIncoming
+              ? (goingForward ? 0.04 : -0.04)
+              : (goingForward ? -0.02 : 0.02);
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: Offset(dx, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(_index),
+          child: _tabs[_index],
+        ),
+      ),
       bottomNavigationBar: _Dock(index: _index, onChange: _go),
     );
   }

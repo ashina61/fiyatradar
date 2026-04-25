@@ -8,13 +8,13 @@ ThemeData buildFRTheme({required FRPalette palette}) {
   final scheme = ColorScheme(
     brightness: palette.brightness,
     primary: palette.gold,
-    onPrimary: palette.bg,
+    onPrimary: palette.onGold,
     secondary: palette.goldDeep,
-    onSecondary: palette.ink,
+    onSecondary: palette.onGold,
     surface: palette.surface,
     onSurface: palette.ink,
     error: palette.bad,
-    onError: palette.bg,
+    onError: isDark ? palette.bg : Colors.white,
   );
 
   final baseText = (isDark ? ThemeData.dark() : ThemeData.light())
@@ -125,8 +125,8 @@ ThemeData buildFRTheme({required FRPalette palette}) {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: palette.gold,
-        foregroundColor: palette.bg,
-        textStyle: frText(12.5, FontWeight.w800, color: palette.bg),
+        foregroundColor: palette.onGold,
+        textStyle: frText(12.5, FontWeight.w800, color: palette.onGold),
       ),
     ),
     dividerColor: palette.hairline,

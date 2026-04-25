@@ -183,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: FRRad.all(12),
                         ),
                         alignment: Alignment.center,
-                        child: Text('FR', style: frDisplay(15, FontWeight.w800, color: FR.bg)),
+                        child: Text('FR', style: frDisplay(15, FontWeight.w800, color: FR.onGold)),
                       ),
                       const SizedBox(width: 10),
                       Text('FiyatRadar', style: frText(16, FontWeight.w800)),
