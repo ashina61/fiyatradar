@@ -208,6 +208,7 @@ class _IdentityCard extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: state.profileImageUrl != null
                   ? Image.network(
+                      key: ValueKey(state.profileImageUrl),
                       state.profileImageUrl!,
                       fit: BoxFit.cover,
                       cacheWidth: 228,
