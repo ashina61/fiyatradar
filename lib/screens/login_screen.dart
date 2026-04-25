@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -7,6 +5,7 @@ import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -67,13 +66,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(false);
-      unawaited(
-        state
-            .refreshFromAuthSession(preserveGuestAcknowledged: false)
-            .catchError((_) {}),
+      await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+        (_) => false,
       );
-      // No Navigator.pop needed: the root _AuthGate listens to AppState and
-      // swaps LoginScreen → MainScreen as soon as `user` becomes non-anon.
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
@@ -118,12 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(true);
-      unawaited(
-        state
-            .refreshFromAuthSession(preserveGuestAcknowledged: true)
-            .catchError((_) {}),
-      );
-      // Auth gate handles the route swap.
+      await state.refreshFromAuthSession(preserveGuestAcknowledged: true);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _error = _mapAuthError(e));

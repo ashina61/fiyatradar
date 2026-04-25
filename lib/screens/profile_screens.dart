@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../models/product.dart';
 import '../services/firebase_service.dart';
@@ -118,8 +119,16 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         profileImagePath: imagePath,
       );
       if (!mounted) return;
+      setState(() => _pendingProfileImage = null);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profil bilgileri güncellendi.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil güncellenemedi. Lütfen tekrar dene.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -291,8 +300,135 @@ class NotificationPrefsScreen extends StatelessWidget {
 
 // ─── Security ───────────────────────────────────────────────────────────────
 
-class SecurityPrefsScreen extends StatelessWidget {
+class SecurityPrefsScreen extends StatefulWidget {
   const SecurityPrefsScreen({super.key});
+
+  @override
+  State<SecurityPrefsScreen> createState() => _SecurityPrefsScreenState();
+}
+
+class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  Future<void> _toggleBiometric(AppState state, bool enabled) async {
+    if (!enabled) {
+      await state.updateSecuritySettings(biometricEnabled: false);
+      return;
+    }
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (!canCheck && !isSupported) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bu cihaz biyometriyi desteklemiyor.')),
+        );
+        return;
+      }
+      final ok = await _localAuth.authenticate(
+        localizedReason: 'Biyometrik güvenliği açmak için doğrula',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+      if (!ok) return;
+      await state.updateSecuritySettings(biometricEnabled: true);
+      state.markSecuritySessionUnlocked(true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Biyometrik doğrulama başarısız.')),
+      );
+    }
+  }
+
+  Future<void> _toggleTwoFactor(AppState state, bool enabled) async {
+    if (!enabled) {
+      await state.updateSecuritySettings(
+        twoFactorEnabled: false,
+        clearTwoFactorPin: true,
+      );
+      return;
+    }
+    final pin = await _askTwoFactorPin();
+    if (pin == null) return;
+    await state.updateSecuritySettings(
+      twoFactorEnabled: true,
+      twoFactorPin: pin,
+    );
+    state.markSecuritySessionUnlocked(true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('İki aşamalı kimlik etkinleştirildi.')),
+    );
+  }
+
+  Future<String?> _askTwoFactorPin() async {
+    final pin = TextEditingController();
+    final pinAgain = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FR.surface,
+        title: Text('2FA kodu oluştur', style: frDisplay(20, FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: pin,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              obscureText: true,
+              decoration: const InputDecoration(
+                hintText: '4-6 haneli kod',
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: pinAgain,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              obscureText: true,
+              decoration: const InputDecoration(
+                hintText: 'Kodu tekrar gir',
+                counterText: '',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('İptal', style: frText(12, FontWeight.w800, color: FR.ink3)),
+          ),
+          TextButton(
+            onPressed: () {
+              final a = pin.text.trim();
+              final b = pinAgain.text.trim();
+              if (a.length < 4 || a.length > 6 || a != b) {
+                Navigator.pop(ctx, '');
+                return;
+              }
+              Navigator.pop(ctx, a);
+            },
+            child: Text('Kaydet', style: frText(12, FontWeight.w800, color: FR.gold)),
+          ),
+        ],
+      ),
+    );
+    pin.dispose();
+    pinAgain.dispose();
+    if (result == '') {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kod eşleşmiyor veya geçersiz.')),
+      );
+      return null;
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -308,8 +444,7 @@ class SecurityPrefsScreen extends StatelessWidget {
             title: 'İki aşamalı kimlik (2FA)',
             subtitle: 'Girişte doğrulama kodu iste',
             value: state.twoFactorEnabled,
-            onChanged: (v) =>
-                state.updateSecuritySettings(twoFactorEnabled: v),
+            onChanged: (v) => _toggleTwoFactor(state, v),
           ),
           const SizedBox(height: 10),
           _ToggleRow(
@@ -317,8 +452,7 @@ class SecurityPrefsScreen extends StatelessWidget {
             title: 'Biyometri',
             subtitle: 'Parmak izi / Face ID ile hızlı giriş',
             value: state.biometricEnabled,
-            onChanged: (v) =>
-                state.updateSecuritySettings(biometricEnabled: v),
+            onChanged: (v) => _toggleBiometric(state, v),
           ),
         ],
       ),
