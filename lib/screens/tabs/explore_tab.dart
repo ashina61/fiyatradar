@@ -88,7 +88,7 @@ class _ExploreTabState extends State<ExploreTab> {
       bottom: false,
       child: Column(
         children: [
-          Padding(
+          const Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
             child: FRPageHeader(
               overline: 'RADARDAKİ ÜRÜNLER',

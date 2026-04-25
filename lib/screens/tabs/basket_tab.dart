@@ -25,7 +25,7 @@ class _BasketTabState extends State<BasketTab> {
       bottom: false,
       child: Column(
         children: [
-          Padding(
+          const Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
             child: FRPageHeader(
               overline: 'TOPLUCA SORGULA',
@@ -42,7 +42,7 @@ class _BasketTabState extends State<BasketTab> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
             child: _Segmented(
-              labels: ['Sepetim', 'Karşılaştır'],
+              labels: const ['Sepetim', 'Karşılaştır'],
               counts: [state.cartItemCount, cart.isEmpty ? 0 : state.cart.length],
               index: _tab,
               onChange: (i) => setState(() => _tab = i),
@@ -421,7 +421,7 @@ class _ComparePanel extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 20),
-        FRSectionHead(eyebrow: 'DİĞER MARKETLER', title: 'Zincir karşılaştırması'),
+        const FRSectionHead(eyebrow: 'DİĞER MARKETLER', title: 'Zincir karşılaştırması'),
         const SizedBox(height: 12),
         for (final g in groups.skip(1).take(4))
           Padding(
@@ -450,7 +450,7 @@ class _ComparePanel extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 20),
-        FRSectionHead(eyebrow: 'ÜRÜN BAZLI', title: 'Sepet dağılımı'),
+        const FRSectionHead(eyebrow: 'ÜRÜN BAZLI', title: 'Sepet dağılımı'),
         const SizedBox(height: 12),
         for (final c in cart)
           Padding(

@@ -182,7 +182,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   if (product.validEntries.length >= 2)
                     _PriceHistoryCard(product: product),
                   if (product.validEntries.length >= 2) const SizedBox(height: 18),
-                  FRSectionHead(eyebrow: 'MARKETLER', title: 'Mağaza karşılaştırması'),
+                  const FRSectionHead(eyebrow: 'MARKETLER', title: 'Mağaza karşılaştırması'),
                   const SizedBox(height: 12),
                   if (_stores.isEmpty)
                     Padding(
@@ -200,7 +200,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                         )),
                   const SizedBox(height: 20),
-                  FRSectionHead(
+                  const FRSectionHead(
                       eyebrow: 'TOPLULUK DOĞRULAMASI',
                       title: 'Son katkılar'),
                   const SizedBox(height: 6),

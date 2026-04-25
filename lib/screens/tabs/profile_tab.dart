@@ -43,11 +43,11 @@ class ProfileTab extends StatelessWidget {
           const SizedBox(height: 20),
           _StatGrid(state: state),
           const SizedBox(height: 20),
-          FRSectionHead(eyebrow: 'GÖRÜNÜM', title: 'Tema'),
+          const FRSectionHead(eyebrow: 'GÖRÜNÜM', title: 'Tema'),
           const SizedBox(height: 10),
           const _ThemeToggleCard(),
           const SizedBox(height: 20),
-          FRSectionHead(eyebrow: 'TAKİP', title: 'Radar takvimin'),
+          const FRSectionHead(eyebrow: 'TAKİP', title: 'Radar takvimin'),
           const SizedBox(height: 10),
           _ListGroup(
             items: [
@@ -93,7 +93,7 @@ class ProfileTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          FRSectionHead(eyebrow: 'HESAP', title: 'Ayarlar'),
+          const FRSectionHead(eyebrow: 'HESAP', title: 'Ayarlar'),
           const SizedBox(height: 10),
           _ListGroup(
             items: [
