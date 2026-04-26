@@ -121,7 +121,7 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
                 ),
                 const Padding(
                   padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
-                  child: const FRPageHeader(
+                  child: FRPageHeader(
                     overline: 'KATALOĞA KATKI',
                     title: 'Ürün',
                     italicTail: ' talebi',

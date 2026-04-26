@@ -36,7 +36,7 @@ class _BasketTabState extends State<BasketTab> {
         children: [
           const Padding(
             padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
-            child: const FRPageHeader(
+            child: FRPageHeader(
               overline: 'TOPLUCA SORGULA',
               title: 'Sepet',
             ),

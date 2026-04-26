@@ -40,7 +40,7 @@ class NotificationsScreen extends StatelessWidget {
             ),
             const Padding(
               padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 10, FRSpace.xl, 0),
-              child: const FRPageHeader(
+              child: FRPageHeader(
                 overline: 'RADAR SİNYALLERİ',
                 title: 'Bildirim',
                 italicTail: ' merkezi',

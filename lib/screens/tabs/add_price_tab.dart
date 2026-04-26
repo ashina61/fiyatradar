@@ -85,7 +85,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
         children: [
           const Padding(
             padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
-            child: const FRPageHeader(
+            child: FRPageHeader(
               overline: 'TOPLULUĞA KATKI',
               title: 'Fiyat',
               italicTail: ' ekle',

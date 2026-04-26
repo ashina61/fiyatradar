@@ -90,7 +90,7 @@ class _ExploreTabState extends State<ExploreTab> {
         children: [
           const Padding(
             padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
-            child: const FRPageHeader(
+            child: FRPageHeader(
               overline: 'RADARDAKİ ÜRÜNLER',
               title: 'Keşfet',
             ),
