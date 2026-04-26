@@ -135,6 +135,14 @@ class FirebaseService {
 
   CollectionReference<Map<String, dynamic>> get stores =>
       db.collection('stores');
+  CollectionReference<Map<String, dynamic>> get storeChains =>
+      db.collection('store_chains');
+  CollectionReference<Map<String, dynamic>> get storePlaces =>
+      db.collection('store_places');
+  CollectionReference<Map<String, dynamic>> get priceEntries =>
+      db.collection('price_entries');
+  CollectionReference<Map<String, dynamic>> get priceSummaries =>
+      db.collection('price_summaries');
 
   CollectionReference<Map<String, dynamic>> get categories =>
       db.collection('categories');
