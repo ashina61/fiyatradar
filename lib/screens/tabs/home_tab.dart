@@ -496,6 +496,18 @@ class _CategoryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (categories.isEmpty) {
+      return SizedBox(
+        height: 42,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Kategoriler yükleniyor…',
+            style: frText(12, FontWeight.w600, color: FR.ink3),
+          ),
+        ),
+      );
+    }
     return SizedBox(
       height: 42,
       child: ListView.builder(

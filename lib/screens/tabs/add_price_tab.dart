@@ -170,6 +170,11 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     ),
                   ),
                 ),
+                _TopStoresStrip(
+                  topStores: state.topStoresByFrequency(),
+                  selected: _store,
+                  onPick: (s) => setState(() => _store = s),
+                ),
                 const SizedBox(height: 10),
                 if (stores.isEmpty)
                   Text(
@@ -301,6 +306,82 @@ class _AddPriceTabState extends State<AddPriceTab> {
           ],
         ),
       );
+}
+
+class _TopStoresStrip extends StatelessWidget {
+  const _TopStoresStrip({
+    required this.topStores,
+    required this.selected,
+    required this.onPick,
+  });
+  final List<String> topStores;
+  final String? selected;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    if (topStores.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_fire_department_rounded,
+                  size: 14, color: FR.goldDeep),
+              const SizedBox(width: 6),
+              Text(
+                'EN ÇOK PAYLAŞILAN',
+                style: frText(10.5, FontWeight.w800,
+                    color: FR.ink3, letter: 1.2),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: topStores
+                .map(
+                  (s) => InkWell(
+                    onTap: () => onPick(s),
+                    borderRadius: FRRad.all(999),
+                    child: Container(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          12, 8, 12, 8),
+                      decoration: BoxDecoration(
+                        color: selected == s ? FR.gold : FR.bgElev,
+                        borderRadius: FRRad.all(999),
+                        border: Border.all(
+                          color: selected == s ? FR.gold : FR.hairline,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.storefront_rounded,
+                            size: 13,
+                            color: selected == s ? FR.onGold : FR.ink2,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            s,
+                            style: frText(12, FontWeight.w800,
+                                color: selected == s ? FR.onGold : FR.ink),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _IntroBanner extends StatelessWidget {

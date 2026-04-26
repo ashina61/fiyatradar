@@ -322,20 +322,21 @@ class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
       return;
     }
     try {
-      final canCheck = await _localAuth.canCheckBiometrics;
       final isSupported = await _localAuth.isDeviceSupported();
-      if (!canCheck && !isSupported) {
+      if (!isSupported) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bu cihaz biyometriyi desteklemiyor.')),
         );
-        if (mounted) setState(() => _securityBusy = false);
         return;
       }
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final available = await _localAuth.getAvailableBiometrics();
+      final hasBiometric = canCheck && available.isNotEmpty;
       final ok = await _localAuth.authenticate(
         localizedReason: 'Biyometrik güvenliği açmak için doğrula',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
+        options: AuthenticationOptions(
+          biometricOnly: hasBiometric,
           stickyAuth: false,
         ),
       );
@@ -348,10 +349,10 @@ class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
       }
       state.markSecuritySessionUnlocked(true);
       await state.updateSecuritySettings(biometricEnabled: true);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Biyometrik doğrulama başarısız.')),
+        SnackBar(content: Text('Biyometrik doğrulama başarısız: $e')),
       );
     } finally {
       if (mounted) setState(() => _securityBusy = false);
