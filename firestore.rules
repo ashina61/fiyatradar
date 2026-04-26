@@ -26,6 +26,8 @@ service cloud.firestore {
         'firstName',
         'lastName',
         'photoUrl',
+        'profileImageUrl',
+        'profileImagePath',
         'displayName',
         'username',
         'phoneNumber',

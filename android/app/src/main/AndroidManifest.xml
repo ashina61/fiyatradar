@@ -22,6 +22,10 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
+    <!-- Biometric / device-credential auth (local_auth) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+
     <application
         android:label="FiyatRadar"
         android:name="${applicationName}"

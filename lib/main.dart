@@ -135,8 +135,7 @@ class _AuthGate extends StatelessWidget {
     if (state.isBanned) {
       return _BannedScreen(reason: state.banReason);
     }
-    final securityEnabled = state.twoFactorEnabled || state.biometricEnabled;
-    if (securityEnabled && !state.securitySessionUnlocked) {
+    if (_securityGateRequired(state) && !state.securitySessionUnlocked) {
       return _SecurityGateScreen(state: state);
     }
     return const MainScreen();
@@ -146,11 +145,16 @@ class _AuthGate extends StatelessWidget {
     if (user == null) return 'login';
     if (user.isAnonymous && !state.guestAcknowledged) return 'login';
     if (state.isBanned) return 'banned:${user.uid}';
-    if ((state.twoFactorEnabled || state.biometricEnabled) &&
-        !state.securitySessionUnlocked) {
+    if (_securityGateRequired(state) && !state.securitySessionUnlocked) {
       return 'security:${user.uid}';
     }
     return 'main:${user.uid}';
+  }
+
+  bool _securityGateRequired(AppState state) {
+    final hasPin = (state.twoFactorPin ?? '').trim().length >= 4;
+    final pinGate = state.twoFactorEnabled && hasPin;
+    return state.biometricEnabled || pinGate;
   }
 }
 
@@ -265,9 +269,8 @@ class _SecurityGateScreenState extends State<_SecurityGateScreen> {
       _error = null;
     });
     try {
-      final canCheck = await _localAuth.canCheckBiometrics;
       final isSupported = await _localAuth.isDeviceSupported();
-      if (!canCheck && !isSupported) {
+      if (!isSupported) {
         setState(() => _error = 'Bu cihazda biyometri kullanılamıyor.');
         return;
       }
@@ -281,10 +284,10 @@ class _SecurityGateScreenState extends State<_SecurityGateScreen> {
       if (ok) {
         widget.state.markSecuritySessionUnlocked(true);
       } else {
-        setState(() => _error = 'Doğrulama başarısız.');
+        setState(() => _error = 'Doğrulama iptal edildi.');
       }
-    } catch (_) {
-      setState(() => _error = 'Biyometrik doğrulama yapılamadı.');
+    } catch (e) {
+      setState(() => _error = 'Biyometrik doğrulama yapılamadı: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

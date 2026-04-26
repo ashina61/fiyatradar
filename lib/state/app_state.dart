@@ -125,7 +125,7 @@ class AppState extends ChangeNotifier {
   bool priceAlertsEnabled = true;
   bool weeklySummaryEnabled = true;
   bool twoFactorEnabled = false;
-  bool biometricEnabled = true;
+  bool biometricEnabled = false;
   String? twoFactorPin;
   bool securitySessionUnlocked = false;
 
@@ -159,17 +159,9 @@ class AppState extends ChangeNotifier {
     return 0.3 + 0.7 * ratio;
   }
 
-  /// Categories streamed from Firestore. Falls back to a static list until
-  /// the first snapshot arrives so filters never render empty.
-  List<String> categories = const [
-    'Tümü',
-    'Kahvaltılık',
-    'Meyve & Sebze',
-    'İçecek',
-    'Atıştırmalık',
-    'Süt Ürünleri',
-    'Temizlik',
-  ];
+  /// Categories streamed from Firestore. Empty until the first snapshot
+  /// arrives — the home tab handles the loading state.
+  List<String> categories = const <String>[];
 
   /// Stores streamed from Firestore. Same fallback strategy as categories.
   List<String> stores = const [];
@@ -224,6 +216,32 @@ class AppState extends ChangeNotifier {
     if (buckets.isEmpty) return 0;
     final sum = buckets.reduce((a, b) => a + b);
     return (sum / buckets.length).round();
+  }
+
+  /// Stores ranked by how often they appear in catalog price history.
+  /// Used by the add-price screen to surface "most frequently added" markets
+  /// as quick-pick chips. Falls back to the alphabetical [stores] order when
+  /// no price history exists yet.
+  List<String> topStoresByFrequency({int limit = 5}) {
+    if (limit <= 0) return const <String>[];
+    final counts = <String, int>{};
+    for (final p in products) {
+      for (final e in p.priceHistory) {
+        final name = e.store.trim();
+        if (name.isEmpty) continue;
+        counts[name] = (counts[name] ?? 0) + 1;
+      }
+    }
+    if (counts.isEmpty) {
+      return stores.take(limit).toList();
+    }
+    final ranked = counts.entries.toList()
+      ..sort((a, b) {
+        final byCount = b.value.compareTo(a.value);
+        if (byCount != 0) return byCount;
+        return a.key.toLowerCase().compareTo(b.key.toLowerCase());
+      });
+    return ranked.take(limit).map((e) => e.key).toList();
   }
 
   /// Week-over-week max price drop percentage across products.
@@ -327,7 +345,7 @@ class AppState extends ChangeNotifier {
           .toList();
       final same = names.length == categories.length &&
           names.asMap().entries.every((e) => categories[e.key] == e.value);
-      if (names.isNotEmpty && !same) {
+      if (!same) {
         categories = names;
         notifyListeners();
       }
@@ -469,7 +487,7 @@ class AppState extends ChangeNotifier {
       weeklySummaryEnabled =
           notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
       twoFactorEnabled = securitySettings['twoFactorEnabled'] as bool? ?? false;
-      biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? true;
+      biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? false;
       twoFactorPin = (securitySettings['twoFactorPin'] as String?)?.trim().isNotEmpty == true
           ? (securitySettings['twoFactorPin'] as String)
           : null;
