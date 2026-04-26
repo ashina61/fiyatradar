@@ -212,10 +212,10 @@ class _AddPriceTabState extends State<AddPriceTab> {
                           Text('Bu filtrede market kaydı yok.',
                               style: frText(12, FontWeight.w600, color: FR.ink3)),
                           const SizedBox(height: 10),
-                          FRButton(
+                          FRCta(
                             label: 'Bu marketi öner (pending)',
                             icon: Icons.add_business_rounded,
-                            onPressed: _submitting
+                            onTap: _submitting
                                 ? null
                                 : () => _submitPendingPlaceRequest(state),
                           ),
