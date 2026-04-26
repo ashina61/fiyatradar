@@ -9,7 +9,7 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 const projectId = 'fiyatradar-rules-test';
-const rules = readFileSync('../firestore.rules', 'utf8');
+const rules = readFileSync('./firestore.rules', 'utf8');
 
 let testEnv;
 
