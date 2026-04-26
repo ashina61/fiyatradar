@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 /// Central Firebase access and one-time bootstrap of required collections.
 class FirebaseService {
@@ -105,13 +106,57 @@ class FirebaseService {
     required String email,
     required String password,
     String? displayName,
+    String? username,
   }) async {
     final cred = await auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
-    if (displayName != null && displayName.trim().isNotEmpty) {
-      await cred.user?.updateDisplayName(displayName.trim());
+    final trimmedName = displayName?.trim() ?? '';
+    if (trimmedName.isNotEmpty) {
+      await cred.user?.updateDisplayName(trimmedName);
+    }
+    final uid = cred.user?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      final cleanUsername = (username ?? '').trim();
+      await userDoc(uid).set({
+        if (trimmedName.isNotEmpty) 'displayName': trimmedName,
+        if (cleanUsername.isNotEmpty)
+          'username': cleanUsername.startsWith('@')
+              ? cleanUsername
+              : '@$cleanUsername',
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+    return cred;
+  }
+
+  Future<UserCredential> signInWithGoogle() async {
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      throw FirebaseAuthException(
+        code: 'sign-in-cancelled',
+        message: 'Google girişi iptal edildi.',
+      );
+    }
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    final cred = await auth.signInWithCredential(credential);
+    final uid = cred.user?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      final displayName = cred.user?.displayName?.trim() ?? '';
+      final email = cred.user?.email?.trim() ?? '';
+      final usernameSeed = email.contains('@')
+          ? email.split('@').first
+          : (displayName.isNotEmpty ? displayName : 'fiyatradar_user');
+      await userDoc(uid).set({
+        if (displayName.isNotEmpty) 'displayName': displayName,
+        'username': '@${usernameSeed.replaceAll(RegExp(r'\s+'), '_').toLowerCase()}',
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     }
     return cred;
   }

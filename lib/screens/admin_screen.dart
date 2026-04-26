@@ -1242,7 +1242,18 @@ class _VerificationTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final pending = state.adminPendingEntries.take(20).toList();
     final disputed = state.adminDisputedEntries.take(20).toList();
-    if (pending.isEmpty && disputed.isEmpty) {
+    final verified = <(Product, PriceEntry)>[];
+    for (final p in state.products) {
+      for (final e in p.priceHistory) {
+        if (e.status == PriceStatus.communityVerified) {
+          verified.add((p, e));
+        }
+      }
+    }
+    verified.sort((a, b) => b.$2.date.compareTo(a.$2.date));
+    final verifiedTop = verified.take(10).toList();
+
+    if (pending.isEmpty && disputed.isEmpty && verifiedTop.isEmpty) {
       return _empty('Tüm fiyatlar doğrulanmış.');
     }
     return Column(
@@ -1252,7 +1263,8 @@ class _VerificationTab extends StatelessWidget {
           const FRSectionHead(eyebrow: 'DİKKAT', title: 'İhtilaflı fiyatlar'),
           const SizedBox(height: 10),
           _rowList([
-            for (final r in disputed) _EntryRow(product: r.$1, entry: r.$2),
+            for (final r in disputed)
+              _AdminEntryActionRow(product: r.$1, entry: r.$2, state: state),
           ]),
           const SizedBox(height: 18),
         ],
@@ -1260,10 +1272,193 @@ class _VerificationTab extends StatelessWidget {
           const FRSectionHead(eyebrow: 'BEKLEYEN', title: 'Topluluk oyuna açık'),
           const SizedBox(height: 10),
           _rowList([
-            for (final r in pending) _EntryRow(product: r.$1, entry: r.$2),
+            for (final r in pending)
+              _AdminEntryActionRow(product: r.$1, entry: r.$2, state: state),
+          ]),
+          const SizedBox(height: 18),
+        ],
+        if (verifiedTop.isNotEmpty) ...[
+          const FRSectionHead(
+              eyebrow: 'KATALOG ONAYLI', title: 'Doğrulanmış fiyatlar'),
+          const SizedBox(height: 10),
+          _rowList([
+            for (final r in verifiedTop)
+              _AdminEntryActionRow(product: r.$1, entry: r.$2, state: state),
           ]),
         ],
       ],
+    );
+  }
+}
+
+class _AdminEntryActionRow extends StatelessWidget {
+  const _AdminEntryActionRow({
+    required this.product,
+    required this.entry,
+    required this.state,
+  });
+  final Product product;
+  final PriceEntry entry;
+  final AppState state;
+
+  Future<void> _setStatus(BuildContext context, PriceStatus status) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await state.adminSetPriceEntryStatus(
+        productId: product.id,
+        entryId: entry.id,
+        status: status,
+      );
+      messenger.showSnackBar(
+        SnackBar(content: Text('Durum güncellendi: ${_statusLabel(status)}')),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Durum güncellenemedi.')),
+      );
+    }
+  }
+
+  String _statusLabel(PriceStatus s) {
+    switch (s) {
+      case PriceStatus.communityVerified:
+        return 'Katalog onaylı';
+      case PriceStatus.disputed:
+        return 'İhtilaflı';
+      case PriceStatus.rejected:
+        return 'Reddedildi';
+      case PriceStatus.pending:
+        return 'Beklemede';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isVerified = entry.status == PriceStatus.communityVerified;
+    final isRejected = entry.status == PriceStatus.rejected;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: FR.surfaceHi,
+                  borderRadius: FRRad.all(12),
+                  border: Border.all(color: FR.hairline),
+                ),
+                alignment: Alignment.center,
+                child: Text(product.emoji, style: const TextStyle(fontSize: 19)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${product.name} · ${entry.store}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: frText(13, FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${entry.reportedBy} · ${entry.price.toStringAsFixed(2)} ₺ · '
+                      '↑${entry.upvotes} ↓${entry.downvotes}',
+                      style: frText(11, FontWeight.w600, color: FR.ink3),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              FRVerifyBadge.status(
+                status: statusToString(entry.status),
+                trustPercent: entry.trustPercent,
+                dense: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: isVerified
+                      ? null
+                      : () => _setStatus(context, PriceStatus.communityVerified),
+                  borderRadius: FRRad.all(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: FR.good.withOpacity(isVerified ? .06 : .14),
+                      borderRadius: FRRad.all(999),
+                      border: Border.all(
+                          color: FR.good.withOpacity(isVerified ? .2 : .4)),
+                    ),
+                    child: Text(
+                      isVerified ? 'Onaylı' : 'Katalog onayla',
+                      style: frText(11.5, FontWeight.w800,
+                          color: FR.good.withOpacity(isVerified ? .55 : 1)),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _setStatus(context, PriceStatus.pending),
+                  borderRadius: FRRad.all(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: FR.warn.withOpacity(.14),
+                      borderRadius: FRRad.all(999),
+                      border: Border.all(color: FR.warn.withOpacity(.4)),
+                    ),
+                    child: Text('Beklemeye al',
+                        style: frText(11.5, FontWeight.w800, color: FR.warn)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  onTap: isRejected
+                      ? null
+                      : () => _setStatus(context, PriceStatus.rejected),
+                  borderRadius: FRRad.all(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: FR.bad.withOpacity(isRejected ? .06 : .14),
+                      borderRadius: FRRad.all(999),
+                      border: Border.all(
+                          color: FR.bad.withOpacity(isRejected ? .2 : .4)),
+                    ),
+                    child: Text(
+                      isRejected ? 'Reddedildi' : 'Reddet',
+                      style: frText(11.5, FontWeight.w800,
+                          color: FR.bad.withOpacity(isRejected ? .55 : 1)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -17,6 +17,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
@@ -28,6 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _usernameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -51,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
           email: email,
           password: password,
           displayName: _nameCtrl.text.trim(),
+          username: _usernameCtrl.text.trim(),
         );
         signedUser = cred.user;
       } else {
@@ -101,6 +104,43 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    if (_submitting) return;
+    setState(() => _error = null);
+    final state = AppStateScope.of(context);
+    final svc = FirebaseService.instance;
+    setState(() => _submitting = true);
+    try {
+      final cred = await svc.signInWithGoogle();
+      final current = cred.user ?? svc.auth.currentUser;
+      if (current == null || current.isAnonymous) {
+        throw FirebaseAuthException(
+          code: 'session-invalid',
+          message: 'Google oturumu doğrulanamadı.',
+        );
+      }
+      state.syncUserFromAuthSession();
+      state.setGuestAcknowledged(false);
+      await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+        (_) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'sign-in-cancelled') {
+        return;
+      }
+      setState(() => _error = _mapAuthError(e));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Google ile giriş yapılamadı.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   Future<void> _continueAsGuest() async {
     if (_submitting) return;
     setState(() => _error = null);
@@ -117,6 +157,11 @@ class _LoginScreenState extends State<LoginScreen> {
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(true);
       await state.refreshFromAuthSession(preserveGuestAcknowledged: true);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+        (_) => false,
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
@@ -206,6 +251,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                           ),
                           const SizedBox(height: 10),
+                          _field(
+                            controller: _usernameCtrl,
+                            hint: 'Takma ad (kullanıcı adı)',
+                            icon: Icons.alternate_email_rounded,
+                            validator: (v) {
+                              if (!_registerMode) return null;
+                              final value = v?.trim() ?? '';
+                              if (value.length < 3) {
+                                return 'Takma ad en az 3 karakter olmalı.';
+                              }
+                              if (!RegExp(r'^@?[a-zA-Z0-9_]+$').hasMatch(value)) {
+                                return 'Sadece harf, rakam ve _ kullan.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 10),
                         ],
                         _field(
                           controller: _emailCtrl,
@@ -274,6 +336,29 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? 'Bekle…'
                               : (_registerMode ? 'Hesap Oluştur' : 'Giriş Yap'),
                           onTap: _submitting ? null : _submit,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: FR.hairline, height: 1)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Text(
+                                'veya',
+                                style: frText(11, FontWeight.w700, color: FR.ink3),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: FR.hairline, height: 1)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        FRCta(
+                          label: _registerMode
+                              ? 'Google ile kayıt ol'
+                              : 'Google ile giriş yap',
+                          icon: Icons.g_mobiledata_rounded,
+                          filled: false,
+                          onTap: _submitting ? null : _signInWithGoogle,
                         ),
                         const SizedBox(height: 10),
                         FRCta(

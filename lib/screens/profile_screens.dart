@@ -482,59 +482,6 @@ class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
   }
 }
 
-// ─── Markets ────────────────────────────────────────────────────────────────
-
-class MarketsScreen extends StatelessWidget {
-  const MarketsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
-    final stores = state.stores;
-    return _ProfileSubScaffold(
-      overline: 'PAZAR KAPSAMI',
-      title: 'Marketler',
-      child: stores.isEmpty
-          ? _emptyBlock('Market verisi henüz yüklenmedi.')
-          : ListView.separated(
-              padding: EdgeInsets.fromLTRB(
-                  20, 4, 20, frBottomScrollPadding(context)),
-              itemCount: stores.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => Container(
-                padding: const EdgeInsets.all(14),
-                decoration: frSurface(radius: FRRad.l),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: FR.surfaceHi,
-                        borderRadius: FRRad.all(12),
-                        border: Border.all(color: FR.hairline),
-                      ),
-                      child: Text(
-                        '${i + 1}',
-                        style: frText(12, FontWeight.w800, color: FR.gold),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        stores[i],
-                        style: frText(13.5, FontWeight.w800),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-}
-
 // ─── About & release notes ──────────────────────────────────────────────────
 
 class AboutScreen extends StatelessWidget {
@@ -885,14 +832,6 @@ class SettingsHubScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (_) => const NotificationPrefsScreen())),
-          ),
-          const SizedBox(height: 10),
-          _HubRow(
-            icon: Icons.storefront_outlined,
-            title: 'Marketler',
-            subtitle: 'Aktif market adları',
-            onTap: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const MarketsScreen())),
           ),
           const SizedBox(height: 10),
           _HubRow(
