@@ -9,9 +9,16 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 const projectId = 'fiyatradar-rules-test';
-const rules = readFileSync('../firestore.rules', 'utf8');
+const rules = readFileSync('./firestore.rules', 'utf8');
 
 let testEnv;
+
+
+async function withDisabledRules(run) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await run(ctx.firestore());
+  });
+}
 
 before(async () => {
   testEnv = await initializeTestEnvironment({
@@ -27,7 +34,7 @@ before(async () => {
 });
 
 after(async () => {
-  await testEnv.cleanup();
+  if (testEnv) await testEnv.cleanup();
 });
 
 describe('users rules', () => {
