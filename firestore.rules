@@ -310,6 +310,18 @@ service cloud.firestore {
     }
 
     match /priceReports/{priceId} {
+      function hasOnlyPriceReportOwnerWritableKeys() {
+        return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'price',
+          'storeName',
+          'chainId',
+          'branchStoreId',
+          'branchId',
+          'reporterIsAnonymous',
+          'updatedAt'
+        ]);
+      }
+
       allow get: if isAdmin() ||
         (signedIn() && priceId.matches('^' + request.auth.uid + '_.*'));
       allow list: if isAdmin();
@@ -319,7 +331,18 @@ service cloud.firestore {
         request.resource.data.createdByUid == request.auth.uid &&
         (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
         (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified');
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        signedIn() &&
+        resource.data.createdByUid == request.auth.uid &&
+        request.resource.data.createdByUid == resource.data.createdByUid &&
+        request.resource.data.productId == resource.data.productId &&
+        request.resource.data.entryId == resource.data.entryId &&
+        hasOnlyPriceReportOwnerWritableKeys() &&
+        hasSafePriceReportCreatePayload() &&
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
+        (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == resource.data.verificationStatus)
+      );
+      allow delete: if isAdmin();
 
       // Legacy vote documents.
       match /verifications/{voteUid} {

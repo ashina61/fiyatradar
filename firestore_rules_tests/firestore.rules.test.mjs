@@ -13,6 +13,13 @@ const rules = readFileSync('./firestore.rules', 'utf8');
 
 let testEnv;
 
+
+async function withDisabledRules(run) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await run(ctx.firestore());
+  });
+}
+
 before(async () => {
   testEnv = await initializeTestEnvironment({
     projectId,
