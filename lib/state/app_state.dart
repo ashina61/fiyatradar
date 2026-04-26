@@ -169,6 +169,31 @@ class AppState extends ChangeNotifier {
   /// Pending product requests (admin side).
   List<ProductRequest> productRequests = <ProductRequest>[];
 
+  /// Optional one-shot preset for the Explore tab consumed by banner taps.
+  /// `_explorePresetFilter` matches the index in `ExploreTab._filters`.
+  int? _explorePresetFilter;
+  String? _explorePresetCategory;
+  int? consumeExplorePresetFilter() {
+    final v = _explorePresetFilter;
+    _explorePresetFilter = null;
+    return v;
+  }
+
+  String? consumeExplorePresetCategory() {
+    final v = _explorePresetCategory;
+    _explorePresetCategory = null;
+    return v;
+  }
+
+  void setExplorePresetFilter(int index) {
+    _explorePresetFilter = index;
+  }
+
+  void setExplorePresetCategory(String name) {
+    final trimmed = name.trim();
+    _explorePresetCategory = trimmed.isEmpty ? null : trimmed;
+  }
+
   StreamSubscription? _productsSub;
   StreamSubscription<User?>? _authSub;
   StreamSubscription? _bannersSub;
@@ -290,13 +315,24 @@ class AppState extends ChangeNotifier {
         .listen((snap) {
       final next = snap.docs.map(AppBanner.fromDoc).toList()
         ..sort((a, b) => a.order.compareTo(b.order));
+      int sig(AppBanner b) => Object.hash(
+            b.id,
+            b.title,
+            b.subtitle,
+            b.actionLabel,
+            b.order,
+            b.imageUrl,
+            b.actionType,
+            b.actionTarget,
+            b.contentBlocks.length,
+          );
       final nextSignature = next.fold<int>(
         _bannerVersionSeed,
-        (acc, b) => Object.hash(acc, b.id, b.title, b.subtitle, b.actionLabel, b.order),
+        (acc, b) => Object.hash(acc, sig(b)),
       );
       final prevSignature = banners.fold<int>(
         _bannerVersionSeed,
-        (acc, b) => Object.hash(acc, b.id, b.title, b.subtitle, b.actionLabel, b.order),
+        (acc, b) => Object.hash(acc, sig(b)),
       );
       if (nextSignature == prevSignature) return;
       banners
@@ -1227,16 +1263,16 @@ class AppState extends ChangeNotifier {
     if (user == null) {
       throw StateError('Aktif kullanıcı bulunamadı.');
     }
-    await _svc.userDoc(user!.uid).update({
+    final phoneRaw = phoneNumber?.trim();
+    final hasPhone = phoneRaw != null && phoneRaw.isNotEmpty;
+    await _svc.userDoc(user!.uid).set({
       'displayName': displayName.trim(),
       'username': username.trim(),
-      'phoneNumber': phoneNumber?.trim().isEmpty == true
-          ? FieldValue.delete()
-          : phoneNumber?.trim(),
+      'phoneNumber': hasPhone ? phoneRaw : FieldValue.delete(),
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
       if (profileImagePath != null) 'profileImagePath': profileImagePath,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
   }
 
   Future<void> updateRegionSettings({

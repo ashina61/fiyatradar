@@ -28,6 +28,16 @@ class _ExploreTabState extends State<ExploreTab> {
   static const _filters = ['Hepsi', 'Ucuzlayanlar', 'Yeni', 'Favoriler', 'Yakınımda'];
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final state = AppStateScope.of(context);
+    final presetFilter = state.consumeExplorePresetFilter();
+    final presetCategory = state.consumeExplorePresetCategory();
+    if (presetFilter != null) _filter = presetFilter;
+    if (presetCategory != null) _category = presetCategory;
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -246,6 +256,19 @@ class _ExploreTabState extends State<ExploreTab> {
   }
 }
 
+Widget _exploreCardEmojiFallback(String emoji) {
+  return Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [FR.surfaceHi, FR.surfaceLo],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    ),
+    child: Center(child: Text(emoji, style: const TextStyle(fontSize: 54))),
+  );
+}
+
 class _ExploreCard extends StatelessWidget {
   const _ExploreCard({
     required this.product,
@@ -271,19 +294,24 @@ class _ExploreCard extends StatelessWidget {
           children: [
             Stack(
               children: [
-                Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [FR.surfaceHi, FR.surfaceLo],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(FRRad.xl),
                   ),
-                  child: Center(
-                    child: Text(product.emoji, style: const TextStyle(fontSize: 54)),
+                  child: SizedBox(
+                    height: 120,
+                    width: double.infinity,
+                    child: product.imageUrl != null &&
+                            product.imageUrl!.isNotEmpty
+                        ? Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            cacheWidth: 420,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (_, __, ___) =>
+                                _exploreCardEmojiFallback(product.emoji),
+                          )
+                        : _exploreCardEmojiFallback(product.emoji),
                   ),
                 ),
                 Positioned(

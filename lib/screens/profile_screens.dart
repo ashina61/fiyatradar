@@ -124,11 +124,11 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profil bilgileri güncellendi.')),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil güncellenemedi. Lütfen tekrar dene.'),
+        SnackBar(
+          content: Text('Profil güncellenemedi: $e'),
         ),
       );
     } finally {

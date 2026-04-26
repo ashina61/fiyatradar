@@ -355,27 +355,80 @@ class CartItem {
   CartItem({required this.product, this.quantity = 1});
 }
 
+/// One block of banner content used by the in-app blog-style page.
+/// `type` is one of `heading`, `text`, `image`. The `value` semantics
+/// depend on the type (heading/text → markdown-ish text, image → URL).
+@immutable
+class BannerContentBlock {
+  final String type;
+  final String value;
+  const BannerContentBlock({required this.type, required this.value});
+
+  Map<String, dynamic> toMap() => {'type': type, 'value': value};
+
+  factory BannerContentBlock.fromMap(Map<String, dynamic> m) {
+    return BannerContentBlock(
+      type: (m['type'] ?? 'text') as String,
+      value: (m['value'] ?? '') as String,
+    );
+  }
+}
+
+/// Action target for a banner tap. Either takes the user to an in-app
+/// generated page made of content blocks (`page`) or routes them
+/// somewhere meaningful inside the app (`route`).
 class AppBanner {
   final String id;
   final String title;
   final String subtitle;
   final String actionLabel;
   final int order;
+  final String? imageUrl;
+  final String? imagePath;
+  final String actionType; // 'page' | 'route' | 'none'
+  final String actionTarget; // page id (or banner id) | route key
+  final List<BannerContentBlock> contentBlocks;
   const AppBanner({
     required this.id,
     required this.title,
     required this.subtitle,
     required this.actionLabel,
     required this.order,
+    this.imageUrl,
+    this.imagePath,
+    this.actionType = 'page',
+    this.actionTarget = '',
+    this.contentBlocks = const [],
   });
+
+  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
+
   factory AppBanner.fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data() ?? <String, dynamic>{};
+    final rawBlocks = (m['contentBlocks'] as List?) ?? const [];
+    final blocks = <BannerContentBlock>[];
+    for (final b in rawBlocks) {
+      if (b is Map) {
+        blocks.add(
+          BannerContentBlock.fromMap(Map<String, dynamic>.from(b)),
+        );
+      }
+    }
+    final url = (m['imageUrl'] as String?)?.trim();
+    final path = (m['imagePath'] as String?)?.trim();
     return AppBanner(
       id: d.id,
       title: (m['title'] ?? '') as String,
       subtitle: (m['subtitle'] ?? '') as String,
       actionLabel: (m['actionLabel'] ?? 'Keşfet') as String,
       order: (m['order'] as num?)?.toInt() ?? 0,
+      imageUrl: (url != null && url.isNotEmpty) ? url : null,
+      imagePath: (path != null && path.isNotEmpty) ? path : null,
+      actionType: (m['actionType'] as String?)?.trim().isNotEmpty == true
+          ? (m['actionType'] as String)
+          : 'page',
+      actionTarget: (m['actionTarget'] as String?) ?? '',
+      contentBlocks: blocks,
     );
   }
 }

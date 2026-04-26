@@ -434,52 +434,10 @@ class _ComparePanelState extends State<_ComparePanel> {
       children: [
         if (best != null)
           FRFadeSlideIn(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [FR.surfaceHi, FR.surfaceLo],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: FRRad.all(24),
-                border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-                boxShadow: [BoxShadow(color: FR.gold.withOpacity(.12), blurRadius: 32)],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('EN UCUZ KOMBİNASYON', style: frOverline()),
-                  const SizedBox(height: 10),
-                  Text(best.store, style: frDisplay(28, FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text('${best.items} ürün · ${best.covered}/${cart.length} eşleşti',
-                      style: frText(12, FontWeight.w600, color: FR.ink3)),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      FRPriceText(best.total, size: 38, color: FR.gold),
-                      const SizedBox(width: 12),
-                      if (state.cartSavings > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: FR.good.withOpacity(.14),
-                              borderRadius: FRRad.all(999),
-                              border: Border.all(color: FR.good.withOpacity(.35)),
-                            ),
-                            child: Text(
-                                '-₺${state.cartSavings.toStringAsFixed(0)}',
-                                style: frText(12, FontWeight.w800, color: FR.good)),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+            child: _BestCombinationCard(
+              best: best,
+              cartSize: cart.length,
+              savings: state.cartSavings,
             ),
           ),
         const SizedBox(height: 20),
@@ -532,6 +490,284 @@ class _ComparePanelState extends State<_ComparePanel> {
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+class _BestCombinationCard extends StatelessWidget {
+  const _BestCombinationCard({
+    required this.best,
+    required this.cartSize,
+    required this.savings,
+  });
+  final _StoreGroup best;
+  final int cartSize;
+  final double savings;
+
+  @override
+  Widget build(BuildContext context) {
+    final coverPct = cartSize == 0
+        ? 0.0
+        : (best.covered / cartSize).clamp(0.0, 1.0).toDouble();
+    final fullCover = best.covered >= cartSize;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: FRRad.all(28),
+        border: Border.all(color: FR.goldDeep.withOpacity(.55), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: FR.gold.withOpacity(.18),
+            blurRadius: 36,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: FR.shadowTone.withOpacity(.45),
+            blurRadius: 22,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Layered premium gradient — espresso into deep gold light.
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    FR.surfaceHi,
+                    FR.surfaceLo,
+                    FR.bgElev,
+                  ],
+                  stops: const [0.0, 0.55, 1.0],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -40,
+            top: -50,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    FR.gold.withOpacity(.22),
+                    FR.gold.withOpacity(.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -18,
+            top: -18,
+            child: Icon(
+              Icons.workspace_premium_rounded,
+              size: 180,
+              color: FR.gold.withOpacity(.07),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [FR.goldHi, FR.goldDeep],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: FRRad.all(999),
+                        boxShadow: [
+                          BoxShadow(
+                            color: FR.gold.withOpacity(.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.workspace_premium_rounded,
+                              color: FR.onGold, size: 13),
+                          const SizedBox(width: 6),
+                          Text('PREMIUM SEÇİM',
+                              style: frText(9.5, FontWeight.w800,
+                                  color: FR.onGold, letter: 1.2)),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: FR.bg.withOpacity(.35),
+                        borderRadius: FRRad.all(999),
+                        border: Border.all(color: FR.hairline),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const FRLiveDot(size: 6),
+                          const SizedBox(width: 5),
+                          Text('canlı hesaplama',
+                              style: frText(9.5, FontWeight.w800,
+                                  color: FR.ink3, letter: .6)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text('EN UCUZ KOMBİNASYON',
+                    style: frOverline(color: FR.gold, size: 10)),
+                const SizedBox(height: 8),
+                ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (rect) => LinearGradient(
+                    colors: [FR.goldHi, FR.gold, FR.goldDeep],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(rect),
+                  child: Text(
+                    best.store,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: frDisplay(34, FontWeight.w700, height: 1.05),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${best.items} fiyat noktası tarandı · '
+                  '${best.covered}/$cartSize ürün eşleşti',
+                  style: frText(12, FontWeight.w600, color: FR.ink3),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('TOPLAM',
+                            style: frOverline(color: FR.ink3, size: 9)),
+                        const SizedBox(height: 4),
+                        FRPriceText(best.total, size: 42, color: FR.gold),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (savings > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              FR.good.withOpacity(.22),
+                              FR.good.withOpacity(.10),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: FRRad.all(999),
+                          border: Border.all(color: FR.good.withOpacity(.45)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.savings_rounded,
+                                color: FR.good, size: 14),
+                            const SizedBox(width: 6),
+                            Text('-₺${savings.toStringAsFixed(0)} tasarruf',
+                                style: frText(12, FontWeight.w800,
+                                    color: FR.good)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _CoverageBar(
+                  pct: coverPct,
+                  fullCover: fullCover,
+                  covered: best.covered,
+                  total: cartSize,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoverageBar extends StatelessWidget {
+  const _CoverageBar({
+    required this.pct,
+    required this.fullCover,
+    required this.covered,
+    required this.total,
+  });
+  final double pct;
+  final bool fullCover;
+  final int covered;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = fullCover ? FR.good : FR.gold;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              fullCover ? 'TÜM ÜRÜNLER BU MARKETTE' : 'KAPSAMA',
+              style: frOverline(color: FR.ink3, size: 9.5),
+            ),
+            const Spacer(),
+            Text('$covered / $total',
+                style: frText(11, FontWeight.w800, color: color)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: FRRad.all(999),
+          child: Stack(
+            children: [
+              Container(height: 6, color: FR.bg.withOpacity(.55)),
+              FractionallySizedBox(
+                widthFactor: pct,
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: fullCover
+                          ? [FR.good, FR.good.withOpacity(.6)]
+                          : [FR.goldHi, FR.goldDeep],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
