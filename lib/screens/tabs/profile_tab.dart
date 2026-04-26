@@ -4,6 +4,7 @@ import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../admin_screen.dart';
+import '../login_screen.dart';
 import '../main_screen.dart';
 import '../notifications_screen.dart';
 import '../profile_screens.dart';
@@ -17,6 +18,11 @@ class ProfileTab extends StatelessWidget {
     final state = AppStateScope.of(context);
     final rankPoints = state.points % 1000;
     final rankPct = rankPoints / 1000.0;
+    final isGuest = state.user?.isAnonymous ?? true;
+
+    if (isGuest) {
+      return const _GuestProfile();
+    }
 
     return SafeArea(
       bottom: false,
@@ -513,6 +519,86 @@ class _TrustCard extends StatelessWidget {
                     '${state.contributions} fiyat katkın',
             style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.45),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuestProfile extends StatelessWidget {
+  const _GuestProfile();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
+        children: [
+          const FRPageHeader(
+            overline: 'MİSAFİR',
+            title: 'Misafir oturumu',
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [FR.surfaceHi, FR.surfaceLo],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: FRRad.all(24),
+              border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: FR.gold.withOpacity(.16),
+                        borderRadius: FRRad.all(14),
+                        border: Border.all(color: FR.gold.withOpacity(.35)),
+                      ),
+                      child: Icon(Icons.visibility_outlined,
+                          color: FR.gold, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Misafir olarak geziyorsun',
+                              style: frDisplay(18, FontWeight.w700)),
+                          Text(
+                            'Profil ayarları, favoriler ve katkılar yalnızca kayıtlı hesaplarda kullanılabilir.',
+                            style: frText(12, FontWeight.w600, color: FR.ink3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                FRCta(
+                  label: 'Hesap aç / giriş yap',
+                  icon: Icons.login_rounded,
+                  onTap: () => Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (_) => false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const FRSectionHead(eyebrow: 'GÖRÜNÜM', title: 'Tema'),
+          const SizedBox(height: 10),
+          const _ThemeToggleCard(),
         ],
       ),
     );

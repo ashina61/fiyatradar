@@ -44,13 +44,12 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: FRThemeController.instance,
-      builder: (context, _) {
-        return AppStateScope(
-          key: ValueKey(FRThemeController.instance.mode),
-          state: _state,
-          child: MaterialApp(
+    return AppStateScope(
+      state: _state,
+      child: AnimatedBuilder(
+        animation: FRThemeController.instance,
+        builder: (context, _) {
+          return MaterialApp(
             title: 'FiyatRadar',
             debugShowCheckedModeBanner: false,
             theme: buildFRTheme(palette: FRPalette.light),
@@ -62,9 +61,9 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
               state: _state,
               initFuture: _initFuture,
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

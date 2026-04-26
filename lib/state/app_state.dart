@@ -795,6 +795,36 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Admin override: force a community price entry into a target status
+  /// (e.g. "katalog onaylı" → community_verified). Bypasses voting rules.
+  Future<void> adminSetPriceEntryStatus({
+    required String productId,
+    required String entryId,
+    required PriceStatus status,
+  }) async {
+    final ref = _svc.products.doc(productId);
+    await _svc.db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+      final raw = (snap.data()?['priceHistory'] as List?) ?? [];
+      final history = raw
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final idx = history.indexWhere((e) => e['id'] == entryId);
+      if (idx == -1) return;
+      final current = PriceEntry.fromMap(history[idx]);
+      final updated = current.copyWith(
+        status: status,
+        statusUpdatedAt: DateTime.now(),
+      );
+      history[idx] = updated.toMap();
+      tx.update(ref, {
+        'priceHistory': history,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
   Future<void> adminRejectRequest({
     required ProductRequest req,
     String reason = '',

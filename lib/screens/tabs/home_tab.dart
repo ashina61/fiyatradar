@@ -29,6 +29,13 @@ class HomeTab extends StatelessWidget {
           const SizedBox(height: 18),
           FRFadeSlideIn(delay: nextDelay(), child: _LocationStrip(state: state)),
           const SizedBox(height: 18),
+          if (state.banners.isNotEmpty) ...[
+            FRFadeSlideIn(
+              delay: nextDelay(),
+              child: _BannerCarousel(banners: state.banners),
+            ),
+            const SizedBox(height: 18),
+          ],
           FRFadeSlideIn(
             delay: nextDelay(),
             child: _RadarHero(
@@ -138,6 +145,134 @@ class HomeTab extends StatelessWidget {
 
 // ─── Greet header ────────────────────────────────────────────────────────────
 
+class _BannerCarousel extends StatefulWidget {
+  const _BannerCarousel({required this.banners});
+  final List<AppBanner> banners;
+
+  @override
+  State<_BannerCarousel> createState() => _BannerCarouselState();
+}
+
+class _BannerCarouselState extends State<_BannerCarousel> {
+  final PageController _ctrl = PageController(viewportFraction: .92);
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final banners = widget.banners;
+    if (banners.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: [
+        SizedBox(
+          height: 132,
+          child: PageView.builder(
+            controller: _ctrl,
+            itemCount: banners.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (_, i) {
+              final b = banners[i];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [FR.surfaceHi, FR.surfaceLo],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: FRRad.all(20),
+                    border: Border.all(color: FR.goldDeep.withOpacity(.3)),
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              b.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: frDisplay(15, FontWeight.w700, height: 1.2),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              b.subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: frText(11.5, FontWeight.w600,
+                                  color: FR.ink3, height: 1.4),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: FR.gold.withOpacity(.16),
+                                borderRadius: FRRad.all(999),
+                                border:
+                                    Border.all(color: FR.gold.withOpacity(.4)),
+                              ),
+                              child: Text(
+                                b.actionLabel,
+                                style: frText(10.5, FontWeight.w800,
+                                    color: FR.gold, letter: .4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: FR.gold.withOpacity(.12),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: FR.gold.withOpacity(.3)),
+                        ),
+                        child: Icon(Icons.campaign_rounded,
+                            color: FR.gold, size: 28),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        if (banners.length > 1) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(banners.length, (i) {
+              final active = i == _page;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active ? FR.gold : FR.hairline,
+                  borderRadius: FRRad.all(999),
+                ),
+              );
+            }),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _Greet extends StatelessWidget {
   const _Greet({required this.state});
   final AppState state;
@@ -209,6 +344,22 @@ class _Greet extends StatelessWidget {
   }
 }
 
+/// 81 il of Türkiye, in alphabetical order. Used by the home location picker.
+const List<String> kTurkishCities = [
+  'Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Aksaray', 'Amasya', 'Ankara',
+  'Antalya', 'Ardahan', 'Artvin', 'Aydın', 'Balıkesir', 'Bartın', 'Batman',
+  'Bayburt', 'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa',
+  'Çanakkale', 'Çankırı', 'Çorum', 'Denizli', 'Diyarbakır', 'Düzce', 'Edirne',
+  'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 'Gaziantep', 'Giresun',
+  'Gümüşhane', 'Hakkari', 'Hatay', 'Iğdır', 'Isparta', 'İstanbul', 'İzmir',
+  'Kahramanmaraş', 'Karabük', 'Karaman', 'Kars', 'Kastamonu', 'Kayseri',
+  'Kilis', 'Kırıkkale', 'Kırklareli', 'Kırşehir', 'Kocaeli', 'Konya', 'Kütahya',
+  'Malatya', 'Manisa', 'Mardin', 'Mersin', 'Muğla', 'Muş', 'Nevşehir', 'Niğde',
+  'Ordu', 'Osmaniye', 'Rize', 'Sakarya', 'Samsun', 'Şanlıurfa', 'Siirt', 'Sinop',
+  'Şırnak', 'Sivas', 'Tekirdağ', 'Tokat', 'Trabzon', 'Tunceli', 'Uşak', 'Van',
+  'Yalova', 'Yozgat', 'Zonguldak',
+];
+
 class _LocationStrip extends StatefulWidget {
   const _LocationStrip({required this.state});
   final AppState state;
@@ -219,10 +370,13 @@ class _LocationStrip extends StatefulWidget {
 
 class _LocationStripState extends State<_LocationStrip> {
   Future<void> _editRegion() async {
-    final cityCtrl = TextEditingController(text: widget.state.cityName ?? '');
+    final initialCity = widget.state.cityName?.trim();
     final districtCtrl = TextEditingController(
       text: widget.state.districtName ?? '',
     );
+    String? selectedCity = (initialCity != null && initialCity.isNotEmpty)
+        ? (kTurkishCities.contains(initialCity) ? initialCity : null)
+        : null;
     var saving = false;
     await showModalBottomSheet<void>(
       context: context,
@@ -235,10 +389,10 @@ class _LocationStripState extends State<_LocationStrip> {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             Future<void> save() async {
-              final city = cityCtrl.text.trim();
+              final city = selectedCity?.trim() ?? '';
               if (city.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Lütfen bir şehir gir.')),
+                  const SnackBar(content: Text('Lütfen listeden bir şehir seç.')),
                 );
                 return;
               }
@@ -269,17 +423,43 @@ class _LocationStripState extends State<_LocationStrip> {
                   Text('Bölge tercihi', style: frDisplay(18, FontWeight.w700)),
                   const SizedBox(height: 6),
                   Text(
-                    'Anasayfa bölgeni kaydeder. Şehir ve ilçe bilgini güncelleyebilirsin.',
+                    'Anasayfa bölgeni kaydeder. Listeden şehrini seç ve istersen ilçeni gir.',
                     style: frText(12, FontWeight.w600, color: FR.ink3),
                   ),
                   const SizedBox(height: 14),
-                  TextField(
-                    controller: cityCtrl,
-                    style: frText(14, FontWeight.w700),
-                    cursorColor: FR.gold,
-                    decoration: const InputDecoration(
-                      labelText: 'Şehir',
-                      hintText: 'Örn: İstanbul',
+                  Text('Şehir',
+                      style: frText(11.5, FontWeight.w800,
+                          color: FR.ink3, letter: .4)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: FR.surface,
+                      borderRadius: FRRad.all(FRRad.m),
+                      border: Border.all(color: FR.hairline),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedCity,
+                        hint: Text(
+                          'Şehir seç',
+                          style: frText(13, FontWeight.w600, color: FR.ink3),
+                        ),
+                        icon: Icon(Icons.expand_more_rounded, color: FR.ink3),
+                        dropdownColor: FR.surface,
+                        style: frText(14, FontWeight.w700),
+                        items: [
+                          for (final c in kTurkishCities)
+                            DropdownMenuItem<String>(
+                              value: c,
+                              child: Text(c, style: frText(14, FontWeight.w700)),
+                            ),
+                        ],
+                        onChanged: saving
+                            ? null
+                            : (v) => setSheetState(() => selectedCity = v),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -305,7 +485,6 @@ class _LocationStripState extends State<_LocationStrip> {
         );
       },
     );
-    cityCtrl.dispose();
     districtCtrl.dispose();
   }
 
@@ -316,47 +495,44 @@ class _LocationStripState extends State<_LocationStrip> {
     final hasRegion = city != null && city.isNotEmpty;
     final title = hasRegion
         ? (district != null && district.isNotEmpty ? '$city · $district' : city)
-        : 'Tüm Türkiye';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: frSurface(radius: FRRad.l),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: FR.gold.withOpacity(.12),
-              borderRadius: FRRad.all(12),
-              border: Border.all(color: FR.gold.withOpacity(.3)),
+        : 'Şehir seç';
+    return InkWell(
+      onTap: _editRegion,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: frSurface(radius: FRRad.l),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.12),
+                borderRadius: FRRad.all(12),
+                border: Border.all(color: FR.gold.withOpacity(.3)),
+              ),
+              child: Icon(Icons.my_location_rounded, color: FR.gold, size: 19),
             ),
-            child: Icon(Icons.my_location_rounded, color: FR.gold, size: 19),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  hasRegion ? 'BÖLGE' : 'BÖLGE (VARSAYILAN)',
-                  style: frOverline(color: FR.ink3, size: 9.5),
-                ),
-                const SizedBox(height: 2),
-                Text(title, style: frText(14, FontWeight.w800)),
-                Text('Dokunup bölge tercihini güncelle',
-                    style: frText(11.5, FontWeight.w600, color: FR.ink3)),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasRegion ? 'BÖLGE' : 'BÖLGE (VARSAYILAN)',
+                    style: frOverline(color: FR.ink3, size: 9.5),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(title, style: frText(14, FontWeight.w800)),
+                  Text('Listeden şehir seç, ilçeni iste varsa gir',
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
             ),
-          ),
-          InkWell(
-            onTap: _editRegion,
-            borderRadius: FRRad.all(10),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(Icons.tune_rounded, color: FR.ink3, size: 20),
-            ),
-          ),
-        ],
+            Icon(Icons.expand_more_rounded, color: FR.ink3, size: 22),
+          ],
+        ),
       ),
     );
   }
