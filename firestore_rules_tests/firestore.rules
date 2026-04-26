@@ -102,18 +102,6 @@ service cloud.firestore {
       ]);
     }
 
-    function hasOnlyPriceReportOwnerWritableKeys() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
-        'price',
-        'storeName',
-        'chainId',
-        'branchStoreId',
-        'branchId',
-        'reporterIsAnonymous',
-        'updatedAt'
-      ]);
-    }
-
     function intFieldOrMissing(data, field) {
       return !(field in data) || data[field] is int;
     }
@@ -123,37 +111,23 @@ service cloud.firestore {
     }
 
     function hasSafeUserGamificationMutation() {
-      let oldPoints = intFieldOrZero(resource.data, 'points');
-      let newPoints = intFieldOrZero(request.resource.data, 'points');
-      let oldTrustVotes = intFieldOrZero(resource.data, 'trustTotalVotes');
-      let newTrustVotes = intFieldOrZero(request.resource.data, 'trustTotalVotes');
-      let oldTrustVerified = intFieldOrZero(resource.data, 'trustVerifiedTotal');
-      let newTrustVerified = intFieldOrZero(request.resource.data, 'trustVerifiedTotal');
-      let oldTrustWrong = intFieldOrZero(resource.data, 'trustWrongTotal');
-      let newTrustWrong = intFieldOrZero(request.resource.data, 'trustWrongTotal');
-      let oldContributions = intFieldOrZero(resource.data, 'contributions');
-      let newContributions = intFieldOrZero(request.resource.data, 'contributions');
-      let trustVotesDelta = newTrustVotes - oldTrustVotes;
-      let trustVerifiedDelta = newTrustVerified - oldTrustVerified;
-      let trustWrongDelta = newTrustWrong - oldTrustWrong;
-      let trustEventDelta = trustVerifiedDelta + trustWrongDelta;
-      let contributionsDelta = newContributions - oldContributions;
-
       return intFieldOrMissing(request.resource.data, 'points') &&
         intFieldOrMissing(request.resource.data, 'trustTotalVotes') &&
         intFieldOrMissing(request.resource.data, 'trustVerifiedTotal') &&
         intFieldOrMissing(request.resource.data, 'trustWrongTotal') &&
         intFieldOrMissing(request.resource.data, 'contributions') &&
-        newPoints >= 0 &&
-        trustVotesDelta >= 0 &&
-        trustVotesDelta <= 1 &&
-        trustVerifiedDelta >= 0 &&
-        trustVerifiedDelta <= 1 &&
-        trustWrongDelta >= 0 &&
-        trustWrongDelta <= 1 &&
-        trustEventDelta == trustVotesDelta &&
-        contributionsDelta >= 0 &&
-        contributionsDelta <= 1;
+        intFieldOrZero(request.resource.data, 'points') >= 0 &&
+        intFieldOrZero(request.resource.data, 'points') >= intFieldOrZero(resource.data, 'points') &&
+        intFieldOrZero(request.resource.data, 'trustTotalVotes') >= intFieldOrZero(resource.data, 'trustTotalVotes') &&
+        intFieldOrZero(request.resource.data, 'trustTotalVotes') <= intFieldOrZero(resource.data, 'trustTotalVotes') + 1 &&
+        intFieldOrZero(request.resource.data, 'trustVerifiedTotal') >= intFieldOrZero(resource.data, 'trustVerifiedTotal') &&
+        intFieldOrZero(request.resource.data, 'trustVerifiedTotal') <= intFieldOrZero(resource.data, 'trustVerifiedTotal') + 1 &&
+        intFieldOrZero(request.resource.data, 'trustWrongTotal') >= intFieldOrZero(resource.data, 'trustWrongTotal') &&
+        intFieldOrZero(request.resource.data, 'trustWrongTotal') <= intFieldOrZero(resource.data, 'trustWrongTotal') + 1 &&
+        intFieldOrZero(request.resource.data, 'trustVerifiedTotal') + intFieldOrZero(request.resource.data, 'trustWrongTotal') ==
+          intFieldOrZero(request.resource.data, 'trustTotalVotes') &&
+        intFieldOrZero(request.resource.data, 'contributions') >= intFieldOrZero(resource.data, 'contributions') &&
+        intFieldOrZero(request.resource.data, 'contributions') <= intFieldOrZero(resource.data, 'contributions') + 1;
     }
 
     function hasSafePriceHistoryMutation() {
