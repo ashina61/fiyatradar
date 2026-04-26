@@ -120,7 +120,7 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                   child: FRPageHeader(
                     overline: 'KATALOĞA KATKI',
                     title: 'Ürün',
