@@ -608,18 +608,24 @@ class FRProductThumb extends StatelessWidget {
   const FRProductThumb({
     super.key,
     required this.emoji,
+    this.imageUrl,
     this.size = 120,
     this.radius = FRRad.l,
+    this.cacheWidth,
   });
   final String emoji;
+  final String? imageUrl;
   final double size;
   final double radius;
+  final int? cacheWidth;
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
     return Container(
       width: size,
       height: size,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
@@ -630,7 +636,18 @@ class FRProductThumb extends StatelessWidget {
         border: Border.all(color: FR.hairline),
       ),
       alignment: Alignment.center,
-      child: Text(emoji, style: TextStyle(fontSize: size * 0.5)),
+      child: hasImage
+          ? Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+              cacheWidth: cacheWidth ?? (size * 2).round(),
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, __, ___) =>
+                  Text(emoji, style: TextStyle(fontSize: size * 0.5)),
+            )
+          : Text(emoji, style: TextStyle(fontSize: size * 0.5)),
     );
   }
 }

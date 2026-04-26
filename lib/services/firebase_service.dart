@@ -20,34 +20,100 @@ class FirebaseService {
   Future<({String url, String path})> uploadProductImage({
     required String productId,
     required Uint8List bytes,
-    String contentType = 'image/jpeg',
+    String? contentType,
   }) async {
+    final detected = _detectImageType(bytes, fallback: contentType);
     final ts = DateTime.now().millisecondsSinceEpoch;
-    final path = 'product_images/$productId/$ts.jpg';
+    final path = 'product_images/$productId/$ts.${detected.extension}';
     final ref = storage.ref(path);
     final snap = await ref.putData(
       bytes,
-      SettableMetadata(contentType: contentType),
+      SettableMetadata(
+        contentType: detected.contentType,
+        cacheControl: 'public, max-age=86400',
+      ),
     );
     final url = await snap.ref.getDownloadURL();
     return (url: url, path: path);
   }
 
   /// Upload a user profile image under `user_profiles/{uid}/…`.
+  ///
+  /// The image bytes can be JPEG / PNG / WEBP — the actual format is detected
+  /// from the magic bytes so the wrong `Content-Type` (which used to break
+  /// uploads on iOS HEIC pickers) doesn't reach Storage.
   Future<({String url, String path})> uploadUserProfileImage({
     required String uid,
     required Uint8List bytes,
-    String contentType = 'image/jpeg',
+    String? contentType,
   }) async {
+    final detected = _detectImageType(bytes, fallback: contentType);
     final ts = DateTime.now().millisecondsSinceEpoch;
-    final path = 'user_profiles/$uid/$ts.jpg';
+    final path = 'user_profiles/$uid/$ts.${detected.extension}';
     final ref = storage.ref(path);
     final snap = await ref.putData(
       bytes,
-      SettableMetadata(contentType: contentType),
+      SettableMetadata(
+        contentType: detected.contentType,
+        cacheControl: 'public, max-age=86400',
+      ),
     );
     final url = await snap.ref.getDownloadURL();
     return (url: url, path: path);
+  }
+
+  /// Upload a banner hero image under `banner_images/{bannerId}/…`.
+  Future<({String url, String path})> uploadBannerImage({
+    required String bannerId,
+    required Uint8List bytes,
+    String? contentType,
+  }) async {
+    final detected = _detectImageType(bytes, fallback: contentType);
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path = 'banner_images/$bannerId/$ts.${detected.extension}';
+    final ref = storage.ref(path);
+    final snap = await ref.putData(
+      bytes,
+      SettableMetadata(
+        contentType: detected.contentType,
+        cacheControl: 'public, max-age=86400',
+      ),
+    );
+    final url = await snap.ref.getDownloadURL();
+    return (url: url, path: path);
+  }
+
+  ({String contentType, String extension}) _detectImageType(
+    Uint8List bytes, {
+    String? fallback,
+  }) {
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xFF &&
+        bytes[1] == 0xD8 &&
+        bytes[2] == 0xFF) {
+      return (contentType: 'image/jpeg', extension: 'jpg');
+    }
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return (contentType: 'image/png', extension: 'png');
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return (contentType: 'image/webp', extension: 'webp');
+    }
+    if (fallback == 'image/png') return (contentType: 'image/png', extension: 'png');
+    if (fallback == 'image/webp') return (contentType: 'image/webp', extension: 'webp');
+    return (contentType: 'image/jpeg', extension: 'jpg');
   }
 
   Future<void> deleteStorageFile(String path) async {

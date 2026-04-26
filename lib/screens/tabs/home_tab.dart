@@ -4,6 +4,7 @@ import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
+import '../banner_page_screen.dart';
 import '../main_screen.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
@@ -179,72 +180,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
               final b = banners[i];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [FR.surfaceHi, FR.surfaceLo],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: FRRad.all(20),
-                    border: Border.all(color: FR.goldDeep.withOpacity(.3)),
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              b.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: frDisplay(15, FontWeight.w700, height: 1.2),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              b.subtitle,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: frText(11.5, FontWeight.w600,
-                                  color: FR.ink3, height: 1.4),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: FR.gold.withOpacity(.16),
-                                borderRadius: FRRad.all(999),
-                                border:
-                                    Border.all(color: FR.gold.withOpacity(.4)),
-                              ),
-                              child: Text(
-                                b.actionLabel,
-                                style: frText(10.5, FontWeight.w800,
-                                    color: FR.gold, letter: .4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        width: 64,
-                        height: 64,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: FR.gold.withOpacity(.12),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: FR.gold.withOpacity(.3)),
-                        ),
-                        child: Icon(Icons.campaign_rounded,
-                            color: FR.gold, size: 28),
-                      ),
-                    ],
-                  ),
-                ),
+                child: _BannerCard(banner: b),
               );
             },
           ),
@@ -269,6 +205,135 @@ class _BannerCarouselState extends State<_BannerCarousel> {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _BannerCard extends StatelessWidget {
+  const _BannerCard({required this.banner});
+  final AppBanner banner;
+
+  void _onTap(BuildContext context) {
+    final state = AppStateScope.of(context);
+    if (banner.actionType == 'route' && banner.actionTarget.trim().isNotEmpty) {
+      runBannerRoute(context, state, banner.actionTarget);
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => BannerPageScreen(banner: banner)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _onTap(context),
+      borderRadius: FRRad.all(20),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [FR.surfaceHi, FR.surfaceLo],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: FRRad.all(20),
+          border: Border.all(color: FR.goldDeep.withOpacity(.3)),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (banner.hasImage)
+              Image.network(
+                banner.imageUrl!,
+                fit: BoxFit.cover,
+                cacheWidth: 1200,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            if (banner.hasImage)
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      FR.bg.withOpacity(.55),
+                      FR.bg.withOpacity(.86),
+                    ],
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          banner.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: frDisplay(15, FontWeight.w700, height: 1.2),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          banner.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: frText(11.5, FontWeight.w600,
+                              color: FR.ink3, height: 1.4),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: FR.gold.withOpacity(.16),
+                            borderRadius: FRRad.all(999),
+                            border: Border.all(color: FR.gold.withOpacity(.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                banner.actionLabel,
+                                style: frText(10.5, FontWeight.w800,
+                                    color: FR.gold, letter: .4),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(Icons.arrow_forward_rounded,
+                                  size: 12, color: FR.gold),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!banner.hasImage) ...[
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 64,
+                      height: 64,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: FR.gold.withOpacity(.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: FR.gold.withOpacity(.3)),
+                      ),
+                      child: Icon(Icons.campaign_rounded,
+                          color: FR.gold, size: 28),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -730,17 +795,25 @@ class _TrendCard extends StatelessWidget {
           children: [
             Stack(
               children: [
-                Container(
-                  height: 136,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [FR.surfaceHi, FR.surfaceLo],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(FRRad.xl),
                   ),
-                  child: Center(child: Text(product.emoji, style: const TextStyle(fontSize: 66))),
+                  child: SizedBox(
+                    height: 136,
+                    width: double.infinity,
+                    child: product.imageUrl != null &&
+                            product.imageUrl!.isNotEmpty
+                        ? Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            cacheWidth: 480,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (_, __, ___) =>
+                                _trendCardEmojiFallback(product.emoji),
+                          )
+                        : _trendCardEmojiFallback(product.emoji),
+                  ),
                 ),
                 Positioned(
                   top: 10,
@@ -826,6 +899,19 @@ class _TrendCard extends StatelessWidget {
   }
 }
 
+Widget _trendCardEmojiFallback(String emoji) {
+  return Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [FR.surfaceHi, FR.surfaceLo],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    ),
+    child: Center(child: Text(emoji, style: const TextStyle(fontSize: 66))),
+  );
+}
+
 class _FeedRow extends StatelessWidget {
   const _FeedRow({
     required this.product,
@@ -848,16 +934,12 @@ class _FeedRow extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: FR.surfaceHi,
-                borderRadius: FRRad.all(12),
-                border: Border.all(color: FR.hairline),
-              ),
-              alignment: Alignment.center,
-              child: Text(product.emoji, style: const TextStyle(fontSize: 22)),
+            FRProductThumb(
+              emoji: product.emoji,
+              imageUrl: product.imageUrl,
+              size: 48,
+              radius: 12,
+              cacheWidth: 192,
             ),
             const SizedBox(width: 12),
             Expanded(
