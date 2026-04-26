@@ -228,7 +228,7 @@ class _LocationStripState extends State<_LocationStrip> {
       context: context,
       isScrollControlled: true,
       backgroundColor: FR.bgElev,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
       ),
       builder: (ctx) {
