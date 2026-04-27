@@ -9,7 +9,6 @@ import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
-import 'banner_page_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
