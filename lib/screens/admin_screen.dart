@@ -2108,38 +2108,42 @@ class _VerificationSectionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: FRRad.all(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? FR.gold : FR.surface,
-          borderRadius: FRRad.all(999),
-          border: Border.all(color: active ? FR.gold : FR.hairline),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: active ? FR.bg : FR.ink2),
-            const SizedBox(width: 6),
-            Text(label,
-                style: frText(12, FontWeight.w800,
-                    color: active ? FR.bg : FR.ink2, letter: .2)),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: active
-                    ? FR.bg.withOpacity(.18)
-                    : FR.bgElev,
-                borderRadius: FRRad.all(8),
+    final radius = FRRad.all(999);
+    return Material(
+      color: active ? FR.gold : FR.surface,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: active ? FR.gold : FR.hairline),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: active ? FR.bg : FR.ink2),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: frText(12, FontWeight.w800,
+                      color: active ? FR.bg : FR.ink2, letter: .2)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: active
+                      ? FR.bg.withOpacity(.18)
+                      : FR.bgElev,
+                  borderRadius: FRRad.all(8),
+                ),
+                child: Text('$count',
+                    style: frText(10, FontWeight.w800,
+                        color: active ? FR.bg : FR.ink3)),
               ),
-              child: Text('$count',
-                  style: frText(10, FontWeight.w800,
-                      color: active ? FR.bg : FR.ink3)),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2246,73 +2250,77 @@ class _AdminEntryActionRow extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: InkWell(
+                child: _ActionPill(
+                  label: isVerified ? 'Onaylı' : 'Katalog onayla',
+                  color: FR.good,
+                  dimmed: isVerified,
                   onTap: isVerified
                       ? null
                       : () => _setStatus(context, PriceStatus.communityVerified),
-                  borderRadius: FRRad.all(999),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: FR.good.withOpacity(isVerified ? .06 : .14),
-                      borderRadius: FRRad.all(999),
-                      border: Border.all(
-                          color: FR.good.withOpacity(isVerified ? .2 : .4)),
-                    ),
-                    child: Text(
-                      isVerified ? 'Onaylı' : 'Katalog onayla',
-                      style: frText(11.5, FontWeight.w800,
-                          color: FR.good.withOpacity(isVerified ? .55 : 1)),
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: InkWell(
+                child: _ActionPill(
+                  label: 'Beklemeye al',
+                  color: FR.warn,
+                  dimmed: false,
                   onTap: () => _setStatus(context, PriceStatus.pending),
-                  borderRadius: FRRad.all(999),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: FR.warn.withOpacity(.14),
-                      borderRadius: FRRad.all(999),
-                      border: Border.all(color: FR.warn.withOpacity(.4)),
-                    ),
-                    child: Text('Beklemeye al',
-                        style: frText(11.5, FontWeight.w800, color: FR.warn)),
-                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: InkWell(
+                child: _ActionPill(
+                  label: isRejected ? 'Reddedildi' : 'Reddet',
+                  color: FR.bad,
+                  dimmed: isRejected,
                   onTap: isRejected
                       ? null
                       : () => _setStatus(context, PriceStatus.rejected),
-                  borderRadius: FRRad.all(999),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: FR.bad.withOpacity(isRejected ? .06 : .14),
-                      borderRadius: FRRad.all(999),
-                      border: Border.all(
-                          color: FR.bad.withOpacity(isRejected ? .2 : .4)),
-                    ),
-                    child: Text(
-                      isRejected ? 'Reddedildi' : 'Reddet',
-                      style: frText(11.5, FontWeight.w800,
-                          color: FR.bad.withOpacity(isRejected ? .55 : 1)),
-                    ),
-                  ),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActionPill extends StatelessWidget {
+  const _ActionPill({
+    required this.label,
+    required this.color,
+    required this.onTap,
+    required this.dimmed,
+  });
+  final String label;
+  final Color color;
+  final bool dimmed;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = FRRad.all(999);
+    return Material(
+      color: color.withOpacity(dimmed ? .06 : .14),
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: color.withOpacity(dimmed ? .2 : .4)),
+          ),
+          child: Text(
+            label,
+            style: frText(11.5, FontWeight.w800,
+                color: color.withOpacity(dimmed ? .55 : 1)),
+          ),
+        ),
       ),
     );
   }
@@ -2516,7 +2524,7 @@ class AdminStoreCrudScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stores = FirebaseService.instance.stores.orderBy('order').snapshots();
+    final stores = FirebaseService.instance.stores.snapshots();
     return _AdminCrudScaffold(
       title: 'Market yönetimi',
       onAdd: () => _showTextEditSheet(
@@ -2531,7 +2539,15 @@ class AdminStoreCrudScreen extends StatelessWidget {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final docs = snap.data?.docs ?? const [];
+          final docs = [...?snap.data?.docs]
+            ..sort((a, b) {
+              final ao = (a.data()['order'] as num?)?.toDouble() ?? double.infinity;
+              final bo = (b.data()['order'] as num?)?.toDouble() ?? double.infinity;
+              if (ao != bo) return ao.compareTo(bo);
+              final an = (a.data()['name'] ?? '').toString().toLowerCase();
+              final bn = (b.data()['name'] ?? '').toString().toLowerCase();
+              return an.compareTo(bn);
+            });
           if (docs.isEmpty) return _empty('Market kaydı yok.');
           return _rowList([
             for (final d in docs)
@@ -2598,8 +2614,7 @@ class AdminCategoryCrudScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categories =
-        FirebaseService.instance.categories.orderBy('order').snapshots();
+    final categories = FirebaseService.instance.categories.snapshots();
     return _AdminCrudScaffold(
       title: 'Kategori yönetimi',
       onAdd: () => _showTextEditSheet(
@@ -2618,7 +2633,15 @@ class AdminCategoryCrudScreen extends StatelessWidget {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final docs = snap.data?.docs ?? const [];
+          final docs = [...?snap.data?.docs]
+            ..sort((a, b) {
+              final ao = (a.data()['order'] as num?)?.toDouble() ?? double.infinity;
+              final bo = (b.data()['order'] as num?)?.toDouble() ?? double.infinity;
+              if (ao != bo) return ao.compareTo(bo);
+              final an = (a.data()['name'] ?? '').toString().toLowerCase();
+              final bn = (b.data()['name'] ?? '').toString().toLowerCase();
+              return an.compareTo(bn);
+            });
           if (docs.isEmpty) return _empty('Kategori kaydı yok.');
           return _rowList([
             for (final d in docs)

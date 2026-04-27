@@ -507,10 +507,6 @@ class _BestCombinationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coverPct = cartSize == 0
-        ? 0.0
-        : (best.covered / cartSize).clamp(0.0, 1.0).toDouble();
-    final fullCover = best.covered >= cartSize;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -581,37 +577,6 @@ class _BestCombinationCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [FR.goldHi, FR.goldDeep],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: FRRad.all(999),
-                        boxShadow: [
-                          BoxShadow(
-                            color: FR.gold.withOpacity(.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.workspace_premium_rounded,
-                              color: FR.onGold, size: 13),
-                          const SizedBox(width: 6),
-                          Text('PREMIUM SEÇİM',
-                              style: frText(9.5, FontWeight.w800,
-                                  color: FR.onGold, letter: 1.2)),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 9, vertical: 4),
@@ -701,74 +666,11 @@ class _BestCombinationCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                _CoverageBar(
-                  pct: coverPct,
-                  fullCover: fullCover,
-                  covered: best.covered,
-                  total: cartSize,
-                ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _CoverageBar extends StatelessWidget {
-  const _CoverageBar({
-    required this.pct,
-    required this.fullCover,
-    required this.covered,
-    required this.total,
-  });
-  final double pct;
-  final bool fullCover;
-  final int covered;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = fullCover ? FR.good : FR.gold;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              fullCover ? 'TÜM ÜRÜNLER BU MARKETTE' : 'KAPSAMA',
-              style: frOverline(color: FR.ink3, size: 9.5),
-            ),
-            const Spacer(),
-            Text('$covered / $total',
-                style: frText(11, FontWeight.w800, color: color)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: FRRad.all(999),
-          child: Stack(
-            children: [
-              Container(height: 6, color: FR.bg.withOpacity(.55)),
-              FractionallySizedBox(
-                widthFactor: pct,
-                child: Container(
-                  height: 6,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: fullCover
-                          ? [FR.good, FR.good.withOpacity(.6)]
-                          : [FR.goldHi, FR.goldDeep],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

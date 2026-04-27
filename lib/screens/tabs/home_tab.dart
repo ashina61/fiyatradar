@@ -28,8 +28,6 @@ class HomeTab extends StatelessWidget {
         children: [
           FRFadeSlideIn(delay: nextDelay(), child: _Greet(state: state)),
           const SizedBox(height: 18),
-          FRFadeSlideIn(delay: nextDelay(), child: _LocationStrip(state: state)),
-          const SizedBox(height: 18),
           if (state.banners.isNotEmpty) ...[
             FRFadeSlideIn(
               delay: nextDelay(),
@@ -409,200 +407,6 @@ class _Greet extends StatelessWidget {
   }
 }
 
-/// 81 il of Türkiye, in alphabetical order. Used by the home location picker.
-const List<String> kTurkishCities = [
-  'Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Aksaray', 'Amasya', 'Ankara',
-  'Antalya', 'Ardahan', 'Artvin', 'Aydın', 'Balıkesir', 'Bartın', 'Batman',
-  'Bayburt', 'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa',
-  'Çanakkale', 'Çankırı', 'Çorum', 'Denizli', 'Diyarbakır', 'Düzce', 'Edirne',
-  'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 'Gaziantep', 'Giresun',
-  'Gümüşhane', 'Hakkari', 'Hatay', 'Iğdır', 'Isparta', 'İstanbul', 'İzmir',
-  'Kahramanmaraş', 'Karabük', 'Karaman', 'Kars', 'Kastamonu', 'Kayseri',
-  'Kilis', 'Kırıkkale', 'Kırklareli', 'Kırşehir', 'Kocaeli', 'Konya', 'Kütahya',
-  'Malatya', 'Manisa', 'Mardin', 'Mersin', 'Muğla', 'Muş', 'Nevşehir', 'Niğde',
-  'Ordu', 'Osmaniye', 'Rize', 'Sakarya', 'Samsun', 'Şanlıurfa', 'Siirt', 'Sinop',
-  'Şırnak', 'Sivas', 'Tekirdağ', 'Tokat', 'Trabzon', 'Tunceli', 'Uşak', 'Van',
-  'Yalova', 'Yozgat', 'Zonguldak',
-];
-
-class _LocationStrip extends StatefulWidget {
-  const _LocationStrip({required this.state});
-  final AppState state;
-
-  @override
-  State<_LocationStrip> createState() => _LocationStripState();
-}
-
-class _LocationStripState extends State<_LocationStrip> {
-  Future<void> _editRegion() async {
-    final initialCity = widget.state.cityName?.trim();
-    final districtCtrl = TextEditingController(
-      text: widget.state.districtName ?? '',
-    );
-    String? selectedCity = (initialCity != null && initialCity.isNotEmpty)
-        ? (kTurkishCities.contains(initialCity) ? initialCity : null)
-        : null;
-    var saving = false;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: FR.bgElev,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            Future<void> save() async {
-              final city = selectedCity?.trim() ?? '';
-              if (city.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Lütfen listeden bir şehir seç.')),
-                );
-                return;
-              }
-              setSheetState(() => saving = true);
-              try {
-                await widget.state.updateRegionSettings(
-                  cityName: city,
-                  districtName: districtCtrl.text,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
-              } catch (_) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Bölge güncellenemedi.')),
-                );
-              } finally {
-                if (ctx.mounted) setSheetState(() => saving = false);
-              }
-            }
-
-            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-            return Padding(
-              padding: EdgeInsets.fromLTRB(18, 18, 18, bottomInset + 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Bölge tercihi', style: frDisplay(18, FontWeight.w700)),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Anasayfa bölgeni kaydeder. Listeden şehrini seç ve istersen ilçeni gir.',
-                    style: frText(12, FontWeight.w600, color: FR.ink3),
-                  ),
-                  const SizedBox(height: 14),
-                  Text('Şehir',
-                      style: frText(11.5, FontWeight.w800,
-                          color: FR.ink3, letter: .4)),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: FR.surface,
-                      borderRadius: FRRad.all(FRRad.m),
-                      border: Border.all(color: FR.hairline),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        isExpanded: true,
-                        value: selectedCity,
-                        hint: Text(
-                          'Şehir seç',
-                          style: frText(13, FontWeight.w600, color: FR.ink3),
-                        ),
-                        icon: Icon(Icons.expand_more_rounded, color: FR.ink3),
-                        dropdownColor: FR.surface,
-                        style: frText(14, FontWeight.w700),
-                        items: [
-                          for (final c in kTurkishCities)
-                            DropdownMenuItem<String>(
-                              value: c,
-                              child: Text(c, style: frText(14, FontWeight.w700)),
-                            ),
-                        ],
-                        onChanged: saving
-                            ? null
-                            : (v) => setSheetState(() => selectedCity = v),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: districtCtrl,
-                    style: frText(14, FontWeight.w700),
-                    cursorColor: FR.gold,
-                    decoration: const InputDecoration(
-                      labelText: 'İlçe (opsiyonel)',
-                      hintText: 'Örn: Kadıköy',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FRCta(
-                    label: saving ? 'Kaydediliyor…' : 'Bölgeyi kaydet',
-                    icon: Icons.check_rounded,
-                    onTap: saving ? null : save,
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-    districtCtrl.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final city = widget.state.cityName;
-    final district = widget.state.districtName;
-    final hasRegion = city != null && city.isNotEmpty;
-    final title = hasRegion
-        ? (district != null && district.isNotEmpty ? '$city · $district' : city)
-        : 'Şehir seç';
-    return InkWell(
-      onTap: _editRegion,
-      borderRadius: FRRad.all(FRRad.l),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: frSurface(radius: FRRad.l),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: FR.gold.withOpacity(.12),
-                borderRadius: FRRad.all(12),
-                border: Border.all(color: FR.gold.withOpacity(.3)),
-              ),
-              child: Icon(Icons.my_location_rounded, color: FR.gold, size: 19),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasRegion ? 'BÖLGE' : 'BÖLGE (VARSAYILAN)',
-                    style: frOverline(color: FR.ink3, size: 9.5),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(title, style: frText(14, FontWeight.w800)),
-                  Text('Listeden şehir seç, ilçeni iste varsa gir',
-                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
-                ],
-              ),
-            ),
-            Icon(Icons.expand_more_rounded, color: FR.ink3, size: 22),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _RadarHero extends StatelessWidget {
   const _RadarHero({required this.state, required this.onInspect});
   final AppState state;
@@ -761,6 +565,15 @@ class _CategoryStrip extends StatelessWidget {
             c,
             active: i == 0,
             leading: Icon(icon, size: 14, color: i == 0 ? FR.bg : FR.ink2),
+            onTap: () {
+              final state = AppStateScope.of(context);
+              state.setExplorePresetCategory(c);
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => const MainScreen(initialIndex: 1),
+                ),
+              );
+            },
           );
         },
       ),

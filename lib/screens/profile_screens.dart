@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
@@ -128,12 +129,29 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Profil güncellenemedi: $e'),
+          content: Text(_describeProfileError(e)),
         ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _describeProfileError(Object e) {
+    if (e is FirebaseException && e.plugin == 'firebase_storage') {
+      switch (e.code) {
+        case 'unauthenticated':
+          return 'Profil güncellenemedi: tekrar giriş yapman gerekiyor.';
+        case 'unauthorized':
+          return 'Profil güncellenemedi: bu fotoğrafı yüklemeye yetkin yok.';
+        case 'canceled':
+          return 'Yükleme iptal edildi.';
+        case 'retry-limit-exceeded':
+        case 'unknown':
+          return 'Profil fotoğrafı yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.';
+      }
+    }
+    return 'Profil güncellenemedi: $e';
   }
 
   Future<void> _pickProfileImage() async {

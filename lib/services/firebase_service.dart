@@ -41,12 +41,27 @@ class FirebaseService {
   ///
   /// The image bytes can be JPEG / PNG / WEBP — the actual format is detected
   /// from the magic bytes so the wrong `Content-Type` (which used to break
-  /// uploads on iOS HEIC pickers) doesn't reach Storage.
+  /// uploads on iOS HEIC pickers) doesn't reach Storage. The auth token is
+  /// refreshed first so a stale anonymous-→-Google upgrade doesn't surface
+  /// as `[firebase_storage/unknown]`.
   Future<({String url, String path})> uploadUserProfileImage({
     required String uid,
     required Uint8List bytes,
     String? contentType,
   }) async {
+    final current = auth.currentUser;
+    if (current == null || current.uid != uid) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'unauthenticated',
+        message: 'Yükleme için tekrar giriş yapman gerekiyor.',
+      );
+    }
+    try {
+      await current.getIdToken(true);
+    } catch (_) {
+      // Token refresh is best-effort; upload will surface a clearer error.
+    }
     final detected = _detectImageType(bytes, fallback: contentType);
     final ts = DateTime.now().millisecondsSinceEpoch;
     final path = 'user_profiles/$uid/$ts.${detected.extension}';
@@ -232,12 +247,22 @@ class FirebaseService {
   }
 
   /// Seeds Firestore collections on first launch so the app is never empty.
-  /// After first run, all data is sourced from Firestore.
+  /// After first run, all data is sourced from Firestore. Each seed runs
+  /// independently so a permission-denied (non-admin) write on one collection
+  /// doesn't block the rest of the bootstrap.
   Future<void> bootstrap() async {
-    await _seedProducts();
-    await _seedBanners();
-    await _seedStores();
-    await _seedCategories();
+    await _runSeed(_seedProducts);
+    await _runSeed(_seedBanners);
+    await _runSeed(_seedStores);
+    await _runSeed(_seedCategories);
+  }
+
+  Future<void> _runSeed(Future<void> Function() seed) async {
+    try {
+      await seed();
+    } catch (_) {
+      // Non-admin sessions can't seed; swallow so bootstrap finishes.
+    }
   }
 
   Future<void> _seedStores() async {

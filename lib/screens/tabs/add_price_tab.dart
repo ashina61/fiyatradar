@@ -171,7 +171,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   ),
                 ),
                 _TopStoresStrip(
-                  topStores: state.topStoresByFrequency(),
+                  topStores: state.topStoresByFrequency(limit: 10),
                   selected: _store,
                   onPick: (s) => setState(() => _store = s),
                 ),
