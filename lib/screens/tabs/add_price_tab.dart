@@ -195,11 +195,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     ),
                   ),
                 ),
-                _TopStoresStrip(
-                  topStores: state.topStoresByFrequency(limit: 10),
-                  selected: _store,
-                  onPick: (s) => setState(() => _store = s),
-                ),
                 const SizedBox(height: 10),
                 StreamBuilder(
                   stream: query.snapshots(),
