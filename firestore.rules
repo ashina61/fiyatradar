@@ -270,6 +270,7 @@ service cloud.firestore {
           'status',
           'isActive',
           'usageCount',
+          'legacyStoreId',
           'createdByUid',
           'createdAt',
           'updatedAt'

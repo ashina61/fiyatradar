@@ -40,6 +40,7 @@ class VerificationRules {
 /// Vote on a single price entry. Returns the updated verification summary
 /// that was committed to Firestore.
 enum VoteKind { up, down }
+enum HomePriceScope { nearby, city, online, turkeyWide }
 
 /// Result of a community verification vote.
 class VoteResult {
@@ -121,6 +122,7 @@ class AppState extends ChangeNotifier {
   String? districtName;
   String? profileImageUrl;
   String? profileImagePath;
+  HomePriceScope activeHomeScope = HomePriceScope.nearby;
 
   bool pushNotificationsEnabled = true;
   bool priceAlertsEnabled = true;
@@ -343,7 +345,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     });
 
-    _storesSub = _svc.stores.snapshots().listen((snap) {
+    _storesSub = _svc.stores.limit(200).snapshots().listen((snap) {
       final docs = snap.docs
           .map((d) => d.data())
           .where((m) => m['isActive'] != false)
@@ -477,6 +479,7 @@ class AppState extends ChangeNotifier {
       final prevIsAdmin = _isAdmin;
       final prevIsBanned = _isBanned;
       final prevBanReason = banReason;
+      final prevHomeScope = activeHomeScope;
       final prevCartSignature = cart
           .map((c) => '${c.product.id}:${c.quantity}')
           .join('|');
@@ -506,6 +509,13 @@ class AppState extends ChangeNotifier {
       trustWrongTotal = (m['trustWrongTotal'] as num?)?.toInt() ?? 0;
       trustTotalVotes = (m['trustTotalVotes'] as num?)?.toInt() ?? 0;
       contributions = (m['contributions'] as num?)?.toInt() ?? 0;
+      final homeScopeRaw = (m['homeScope'] as String?)?.trim();
+      activeHomeScope = switch (homeScopeRaw) {
+        'city' => HomePriceScope.city,
+        'online' => HomePriceScope.online,
+        'turkey_wide' => HomePriceScope.turkeyWide,
+        _ => HomePriceScope.nearby,
+      };
       favorites = ((m['favorites'] as List?) ?? [])
           .map((e) => e.toString())
           .toSet();
@@ -581,8 +591,11 @@ class AppState extends ChangeNotifier {
           prevIsAdmin != _isAdmin ||
           prevIsBanned != _isBanned ||
           prevBanReason != banReason ||
+          prevHomeScope != activeHomeScope ||
           prevCartSignature != nextCartSignature;
-      if (prevCity != cityName || prevDistrict != districtName) {
+      if (prevCity != cityName ||
+          prevDistrict != districtName ||
+          prevHomeScope != activeHomeScope) {
         _bindRegionalPriceFeed();
       }
       if (changed) notifyListeners();
@@ -668,16 +681,33 @@ class AppState extends ChangeNotifier {
     _regionalPriceEntriesSub?.cancel();
     final city = (cityName ?? '').trim();
     final district = (districtName ?? '').trim();
-    if (city.isEmpty || district.isEmpty) return;
-    _regionalPriceEntriesSub = _svc.priceEntries
-        .where('scope', whereIn: const ['local', 'bazaar'])
-        .where('city', isEqualTo: city)
-        .where('district', isEqualTo: district)
-        .where('status', whereIn: const ['pending', 'community_verified', 'disputed'])
-        .orderBy('createdAt', descending: true)
-        .limit(300)
-        .snapshots()
-        .listen((snap) {
+    Query<Map<String, dynamic>> q = _svc.priceEntries.where(
+      'status',
+      whereIn: const ['pending', 'community_verified', 'disputed'],
+    );
+    switch (activeHomeScope) {
+      case HomePriceScope.nearby:
+        if (city.isEmpty || district.isEmpty) return;
+        q = q
+            .where('scope', whereIn: const ['local', 'bazaar'])
+            .where('city', isEqualTo: city)
+            .where('district', isEqualTo: district);
+        break;
+      case HomePriceScope.city:
+        if (city.isEmpty) return;
+        q = q
+            .where('scope', whereIn: const ['local', 'bazaar'])
+            .where('city', isEqualTo: city);
+        break;
+      case HomePriceScope.online:
+        q = q.where('scope', isEqualTo: 'online');
+        break;
+      case HomePriceScope.turkeyWide:
+        q = q.where('scope', whereIn: const ['local', 'bazaar']);
+        break;
+    }
+    _regionalPriceEntriesSub =
+        q.orderBy('createdAt', descending: true).limit(300).snapshots().listen((snap) {
       final next = <String, PriceEntry?>{};
       for (final d in snap.docs) {
         final m = d.data();
@@ -700,10 +730,29 @@ class AppState extends ChangeNotifier {
           },
         );
       }
-      if (next.isEmpty) return;
-      _latestPriceEntryByProduct.addAll(next);
+      _latestPriceEntryByProduct
+        ..clear()
+        ..addAll(next);
       notifyListeners();
     });
+  }
+
+  Future<void> setHomePriceScope(HomePriceScope scope) async {
+    if (activeHomeScope == scope) return;
+    activeHomeScope = scope;
+    _bindRegionalPriceFeed();
+    notifyListeners();
+    final uid = user?.uid;
+    if (uid != null && uid.isNotEmpty) {
+      await _svc.userDoc(uid).set({
+        'homeScope': switch (scope) {
+          HomePriceScope.nearby => 'nearby',
+          HomePriceScope.city => 'city',
+          HomePriceScope.online => 'online',
+          HomePriceScope.turkeyWide => 'turkey_wide',
+        },
+      }, SetOptions(merge: true));
+    }
   }
 
   @override
@@ -1549,6 +1598,7 @@ class AppState extends ChangeNotifier {
     phoneNumber = null;
     cityName = null;
     districtName = null;
+    activeHomeScope = HomePriceScope.nearby;
     profileImageUrl = null;
     profileImagePath = null;
     trustVerifiedTotal = 0;
@@ -1601,6 +1651,7 @@ class AppState extends ChangeNotifier {
     phoneNumber = null;
     cityName = null;
     districtName = null;
+    activeHomeScope = HomePriceScope.nearby;
     profileImageUrl = null;
     profileImagePath = null;
     trustVerifiedTotal = 0;

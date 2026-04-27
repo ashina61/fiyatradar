@@ -5,6 +5,32 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../models/price_v1.dart';
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
+}
+
+class LegacyStoreMigrationResult {
+  final int processed;
+  final int migrated;
+  final int updated;
+  final int skippedMissingRegion;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> missingRegionDocs;
+  final QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
+  final bool hasMore;
+
+  const LegacyStoreMigrationResult({
+    required this.processed,
+    required this.migrated,
+    required this.updated,
+    required this.skippedMissingRegion,
+    required this.missingRegionDocs,
+    required this.lastDoc,
+    required this.hasMore,
+  });
+}
+
 /// Central Firebase access and one-time bootstrap of required collections.
 class FirebaseService {
   FirebaseService._();
@@ -333,6 +359,137 @@ class FirebaseService {
       });
     }
     await batch.commit();
+  }
+
+  String normalizePlaceName(String value) =>
+      value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+  Future<LegacyStoreMigrationResult> migrateLegacyStoresToStorePlaces({
+    int limit = 50,
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+  }) async {
+    var q = stores.orderBy(FieldPath.documentId).limit(limit);
+    if (startAfter != null) {
+      q = q.startAfterDocument(startAfter);
+    }
+    final snap = await q.get();
+    var migrated = 0;
+    var updated = 0;
+    var skippedMissingRegion = 0;
+    final missingRegionDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final name = ((data['name'] ?? data['displayName']) as String? ?? '')
+          .trim()
+          .replaceAll(RegExp(r'\s+'), ' ');
+      if (name.isEmpty) continue;
+      final city = (data['city'] as String? ?? '').trim();
+      final district = (data['district'] as String? ?? '').trim();
+      if (city.isEmpty || district.isEmpty) {
+        skippedMissingRegion++;
+        missingRegionDocs.add(doc);
+        continue;
+      }
+      final rawType = (data['type'] as String? ?? 'local_market').trim();
+      final type = switch (rawType) {
+        'chain_market' || 'local_market' || 'online_market' || 'bazaar' => rawType,
+        _ => 'local_market',
+      };
+      final normalized = ((data['nameNormalized'] ?? data['normalizedName']) as String? ?? '')
+              .trim()
+              .toLowerCase()
+              .replaceAll(RegExp(r'\s+'), ' ')
+          .ifEmpty(normalizePlaceName(name));
+      final existing = await storePlaces
+          .where('type', isEqualTo: type)
+          .where('city', isEqualTo: city)
+          .where('district', isEqualTo: district)
+          .where('normalizedName', isEqualTo: normalized)
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) {
+        updated++;
+        await existing.docs.first.reference.set({
+          'displayName': name,
+          'isActive': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'legacyStoreId': doc.id,
+        }, SetOptions(merge: true));
+        continue;
+      }
+      await storePlaces.add({
+        'chainId': null,
+        'chainName': null,
+        'type': type,
+        'displayName': name,
+        'normalizedName': normalized,
+        'city': city,
+        'district': district,
+        'status': 'pending',
+        'isActive': true,
+        'usageCount': 0,
+        'legacyStoreId': doc.id,
+        'createdByUid': 'legacy_migration',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      migrated++;
+    }
+    return LegacyStoreMigrationResult(
+      processed: snap.docs.length,
+      migrated: migrated,
+      updated: updated,
+      skippedMissingRegion: skippedMissingRegion,
+      missingRegionDocs: missingRegionDocs,
+      lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
+      hasMore: snap.docs.length == limit,
+    );
+  }
+
+  Future<StorePlace?> migrateSingleLegacyStoreToStorePlace({
+    required QueryDocumentSnapshot<Map<String, dynamic>> legacyStoreDoc,
+    required String city,
+    required String district,
+    required String type,
+    required String createdByUid,
+  }) async {
+    final data = legacyStoreDoc.data();
+    final name = ((data['name'] ?? data['displayName']) as String? ?? '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) return null;
+    final normalized = ((data['nameNormalized'] ?? data['normalizedName']) as String? ?? '')
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'\s+'), ' ')
+        .ifEmpty(normalizePlaceName(name));
+    final existing = await storePlaces
+        .where('type', isEqualTo: type)
+        .where('city', isEqualTo: city)
+        .where('district', isEqualTo: district)
+        .where('normalizedName', isEqualTo: normalized)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) {
+      return StorePlace.fromDoc(existing.docs.first);
+    }
+    final ref = await storePlaces.add({
+      'chainId': null,
+      'chainName': null,
+      'type': type,
+      'displayName': name,
+      'normalizedName': normalized,
+      'city': city,
+      'district': district,
+      'status': 'pending',
+      'isActive': true,
+      'usageCount': 0,
+      'legacyStoreId': legacyStoreDoc.id,
+      'createdByUid': createdByUid,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return StorePlace.fromDoc(await ref.get());
   }
   Future<void> _seedCategories() async {
     final coll = db.collection('categories');

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../models/product.dart';
 import '../../state/app_state.dart';
@@ -27,6 +29,8 @@ class HomeTab extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(20, 10, 20, frBottomScrollPadding(context)),
         children: [
           FRFadeSlideIn(delay: nextDelay(), child: _Greet(state: state)),
+          const SizedBox(height: 12),
+          FRFadeSlideIn(delay: nextDelay(), child: const _HomeScopeStrip()),
           const SizedBox(height: 18),
           if (state.banners.isNotEmpty) ...[
             FRFadeSlideIn(
@@ -150,6 +154,136 @@ class _BannerCarousel extends StatefulWidget {
 
   @override
   State<_BannerCarousel> createState() => _BannerCarouselState();
+}
+
+class _HomeScopeStrip extends StatefulWidget {
+  const _HomeScopeStrip();
+
+  @override
+  State<_HomeScopeStrip> createState() => _HomeScopeStripState();
+}
+
+class _HomeScopeStripState extends State<_HomeScopeStrip> {
+  bool _locating = false;
+
+  Future<void> _pickManual(AppState state) async {
+    final cityCtrl = TextEditingController(text: state.cityName ?? '');
+    final districtCtrl = TextEditingController(text: state.districtName ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('İl / ilçe seç'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'İl')),
+            TextField(controller: districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kaydet')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (cityCtrl.text.trim().isEmpty || districtCtrl.text.trim().isEmpty) return;
+    await state.updateRegionSettings(
+      cityName: cityCtrl.text.trim(),
+      districtName: districtCtrl.text.trim(),
+    );
+  }
+
+  Future<void> _useLocation(AppState state) async {
+    setState(() => _locating = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        await _pickManual(state);
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition();
+      final marks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final mark = marks.isNotEmpty ? marks.first : null;
+      final city = (mark?.administrativeArea ?? mark?.locality ?? '').trim();
+      final district = (mark?.subAdministrativeArea ?? mark?.subLocality ?? '').trim();
+      if (city.isEmpty || district.isEmpty) {
+        await _pickManual(state);
+        return;
+      }
+      await state.updateRegionSettings(cityName: city, districtName: district);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final city = (state.cityName ?? '').trim();
+    final district = (state.districtName ?? '').trim();
+    final scope = state.activeHomeScope;
+    return Container(
+      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      decoration: frSurface(radius: FRRad.m),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.location_on_outlined, size: 16, color: FR.gold),
+              const SizedBox(width: 6),
+              Text(
+                city.isNotEmpty && district.isNotEmpty ? '$city / $district' : 'Bölgeni seç',
+                style: frText(12, FontWeight.w800),
+              ),
+              const Spacer(),
+              if (city.isEmpty || district.isEmpty)
+                TextButton(onPressed: () => _pickManual(state), child: const Text('Bölgeni seç'))
+            ],
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FRFilterChip('Yakınımda / Bölgemde',
+                  active: scope == HomePriceScope.nearby,
+                  onTap: () => state.setHomePriceScope(HomePriceScope.nearby)),
+              FRFilterChip('Şehrimde',
+                  active: scope == HomePriceScope.city,
+                  onTap: () => state.setHomePriceScope(HomePriceScope.city)),
+              FRFilterChip('Online',
+                  active: scope == HomePriceScope.online,
+                  onTap: () => state.setHomePriceScope(HomePriceScope.online)),
+              FRFilterChip('Türkiye geneli',
+                  active: scope == HomePriceScope.turkeyWide,
+                  onTap: () => state.setHomePriceScope(HomePriceScope.turkeyWide)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              FRCta(
+                label: _locating ? 'Konum alınıyor…' : 'Konumumu kullan',
+                icon: Icons.my_location_rounded,
+                onTap: _locating ? null : () => _useLocation(state),
+              ),
+              FRCta(
+                label: 'İl / ilçe seç',
+                icon: Icons.map_outlined,
+                onTap: () => _pickManual(state),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _BannerCarouselState extends State<_BannerCarousel> {
@@ -789,7 +923,7 @@ class _FeedRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                FRPriceText(product.lowestPrice, size: 16, color: FR.ink),
+                FRPriceText(latestEntry?.price ?? product.lowestPrice, size: 16, color: FR.ink),
                 if (pct != null) ...[
                   const SizedBox(height: 4),
                   FRTrendPill(pct: pct, dense: true),

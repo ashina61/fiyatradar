@@ -183,7 +183,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final coll = FirebaseService.instance.storePlaces;
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
-    final uid = state.user?.uid;
 
     Query<Map<String, dynamic>> q = coll.where('isActive', isEqualTo: true);
 

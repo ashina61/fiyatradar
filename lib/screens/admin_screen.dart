@@ -2429,8 +2429,36 @@ class _SettingsTab extends StatelessWidget {
   }
 }
 
-class AdminStoreCrudScreen extends StatelessWidget {
+class AdminStoreCrudScreen extends StatefulWidget {
   const AdminStoreCrudScreen({super.key});
+
+  @override
+  State<AdminStoreCrudScreen> createState() => _AdminStoreCrudScreenState();
+}
+
+class _AdminStoreCrudScreenState extends State<AdminStoreCrudScreen> {
+  static const _pageSize = 50;
+  final _searchCtrl = TextEditingController();
+  QueryDocumentSnapshot<Map<String, dynamic>>? _lastDoc;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> _docs = [];
+  bool _loading = false;
+  bool _hasMore = true;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _initialized || _loading) return;
+      _load(reset: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   static String _normalizeName(String value) =>
       value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
@@ -2439,17 +2467,13 @@ class AdminStoreCrudScreen extends StatelessWidget {
     String normalized, {
     String? excludingDocId,
   }) async {
-    final docs = await FirebaseService.instance.stores.get();
+    final docs = await FirebaseService.instance.stores
+        .where('nameNormalized', isEqualTo: normalized)
+        .limit(2)
+        .get();
     for (final doc in docs.docs) {
       if (excludingDocId != null && doc.id == excludingDocId) continue;
-      final data = doc.data();
-      final docNormalized = ((data['nameNormalized'] ?? '') as String).trim();
-      final docNameNormalized = docNormalized.isNotEmpty
-          ? docNormalized.toLowerCase()
-          : _normalizeName((data['name'] ?? '').toString());
-      if (docNameNormalized == normalized) {
-        return doc;
-      }
+      return doc;
     }
     return null;
   }
@@ -2532,51 +2556,117 @@ class AdminStoreCrudScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _load({bool reset = false}) async {
+    if (_loading) return;
+    if (!reset && !_hasMore) return;
+    setState(() => _loading = true);
+    try {
+      Query<Map<String, dynamic>> q = FirebaseService.instance.stores
+          .orderBy(FieldPath.documentId)
+          .limit(_pageSize);
+      if (!reset && _lastDoc != null) {
+        q = q.startAfterDocument(_lastDoc!);
+      }
+      final snap = await q.get();
+      if (!mounted) return;
+      setState(() {
+        if (reset) _docs.clear();
+        _docs.addAll(snap.docs);
+        _lastDoc = snap.docs.isNotEmpty ? snap.docs.last : _lastDoc;
+        _hasMore = snap.docs.length == _pageSize;
+        _initialized = true;
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> get _filteredDocs {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    final items = [..._docs]
+      ..sort((a, b) {
+        final ao = (a.data()['order'] as num?)?.toDouble() ?? double.infinity;
+        final bo = (b.data()['order'] as num?)?.toDouble() ?? double.infinity;
+        if (ao != bo) return ao.compareTo(bo);
+        final an = (a.data()['name'] ?? '').toString().toLowerCase();
+        final bn = (b.data()['name'] ?? '').toString().toLowerCase();
+        return an.compareTo(bn);
+      });
+    if (q.isEmpty) return items;
+    return items.where((d) {
+      final name = (d.data()['name'] ?? '').toString().toLowerCase();
+      final normalized = (d.data()['nameNormalized'] ?? '').toString().toLowerCase();
+      return name.contains(q) || normalized.contains(q);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final stores = FirebaseService.instance.stores.snapshots();
     return _AdminCrudScaffold(
-      title: 'Market yönetimi',
+      title: 'Market yönetimi (legacy)',
       onAdd: () => _showTextEditSheet(
         context,
         title: 'Market ekle',
         onSave: _createStore,
       ),
-      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: stores,
-        builder: (_, snap) {
-          if (snap.hasError) return _empty('Market verisi yüklenemedi.');
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final docs = [...?snap.data?.docs]
-            ..sort((a, b) {
-              final ao = (a.data()['order'] as num?)?.toDouble() ?? double.infinity;
-              final bo = (b.data()['order'] as num?)?.toDouble() ?? double.infinity;
-              if (ao != bo) return ao.compareTo(bo);
-              final an = (a.data()['name'] ?? '').toString().toLowerCase();
-              final bn = (b.data()['name'] ?? '').toString().toLowerCase();
-              return an.compareTo(bn);
-            });
-          if (docs.isEmpty) return _empty('Market kaydı yok.');
-          return _rowList([
-            for (final d in docs)
-              _CrudRow(
-                title: (d.data()['name'] ?? '').toString(),
-                subtitle: (d.data()['isActive'] ?? true) ? 'Aktif' : 'Pasif',
-                onEdit: () => _showTextEditSheet(
-                  context,
-                  title: 'Market düzenle',
-                  initial: (d.data()['name'] ?? '').toString(),
-                  onSave: (name) => _renameStore(d, name),
-                ),
-                onDelete: () => d.reference.delete(),
-                onToggleActive: () => d.reference.update({
-                  'isActive': !((d.data()['isActive'] as bool?) ?? true),
-                }),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+            decoration: frSurface(radius: FRRad.m),
+            child: Text(
+              'Legacy "stores" koleksiyonu yalnızca geriye uyumluluk içindir. '
+              'Birincil yönetim: Bölgesel mağaza yönetimi > store_places.',
+              style: frText(11.5, FontWeight.w700, color: FR.ink3),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+            decoration: frSurface(radius: FRRad.m),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Legacy market ara',
               ),
-          ]);
-        },
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (!_initialized && _loading)
+            const Center(child: CircularProgressIndicator())
+          else if (_filteredDocs.isEmpty)
+            _empty('Legacy market kaydı yok.')
+          else
+            _rowList([
+              for (final d in _filteredDocs)
+                _CrudRow(
+                  title: (d.data()['name'] ?? '').toString(),
+                  subtitle: (d.data()['isActive'] ?? true) ? 'Aktif' : 'Pasif',
+                  onEdit: () => _showTextEditSheet(
+                    context,
+                    title: 'Market düzenle',
+                    initial: (d.data()['name'] ?? '').toString(),
+                    onSave: (name) => _renameStore(d, name),
+                  ),
+                  onDelete: () => d.reference.delete(),
+                  onToggleActive: () => d.reference.update({
+                    'isActive': !((d.data()['isActive'] as bool?) ?? true),
+                  }),
+                ),
+            ]),
+          if (_hasMore) ...[
+            const SizedBox(height: 10),
+            Center(
+              child: FRCta(
+                label: _loading ? 'Yükleniyor…' : 'Daha fazla yükle',
+                onTap: _loading ? null : () => _load(),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -3366,12 +3456,30 @@ class AdminRegionalStoreManagementScreen extends StatefulWidget {
 }
 
 class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreManagementScreen> {
+  static const _pageSize = 50;
   int _tab = 0;
   final _cityCtrl = TextEditingController();
   final _districtCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   String _type = 'all';
   String _status = 'all';
+  String _mode = 'pending';
+  QueryDocumentSnapshot<Map<String, dynamic>>? _placesLastDoc;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> _placeDocs = [];
+  bool _loadingPlaces = false;
+  bool _hasMorePlaces = false;
+  LegacyStoreMigrationResult? _legacyMigration;
+  QueryDocumentSnapshot<Map<String, dynamic>>? _legacyCursor;
+  bool _legacyBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _loadingPlaces) return;
+      _loadPlaces(reset: true);
+    });
+  }
 
   @override
   void dispose() {
@@ -3381,30 +3489,157 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
     super.dispose();
   }
 
-  Query<Map<String, dynamic>> _placesQuery({bool pendingOnly = false}) {
-    Query<Map<String, dynamic>> q = FirebaseService.instance.storePlaces.where('isActive', isEqualTo: true);
-    if (pendingOnly) {
+  bool get _hasSearchFilter => _searchCtrl.text.trim().isNotEmpty;
+  bool get _hasCityFilter => _cityCtrl.text.trim().isNotEmpty;
+  bool get _canRunFilteredQuery => _hasSearchFilter || _hasCityFilter;
+
+  Query<Map<String, dynamic>> _placesQuery() {
+    Query<Map<String, dynamic>> q =
+        FirebaseService.instance.storePlaces.where('isActive', isEqualTo: true);
+    if (_mode == 'pending') {
       q = q.where('status', isEqualTo: 'pending');
-    } else if (_status != 'all') {
-      q = q.where('status', isEqualTo: _status);
+      return q.orderBy('updatedAt', descending: true).limit(_pageSize);
     }
-    if (_type != 'all') {
-      q = q.where('type', isEqualTo: _type);
+    if (_mode == 'recent') {
+      return q.orderBy('updatedAt', descending: true).limit(_pageSize);
+    }
+    if (!_canRunFilteredQuery) {
+      return q.limit(0);
+    }
+    if (_hasSearchFilter) {
+      final search = _searchCtrl.text.trim().toLowerCase();
+      return q
+          .orderBy('normalizedName')
+          .startAt([search])
+          .endAt(['$search\uf8ff'])
+          .limit(_pageSize);
     }
     final city = _cityCtrl.text.trim();
     final district = _districtCtrl.text.trim();
-    if (city.isNotEmpty) q = q.where('city', isEqualTo: city);
-    if (district.isNotEmpty) q = q.where('district', isEqualTo: district);
-    final search = _searchCtrl.text.trim().toLowerCase();
-    if (search.isNotEmpty) {
-      return q.orderBy('normalizedName').startAt([search]).endAt(['$search']).limit(40);
+    q = q.where('city', isEqualTo: city);
+    if (district.isNotEmpty) {
+      q = q.where('district', isEqualTo: district);
     }
-    return q.orderBy('updatedAt', descending: true).limit(40);
+    return q.orderBy('updatedAt', descending: true).limit(_pageSize);
+  }
+
+  Future<void> _loadPlaces({bool reset = false}) async {
+    if (_loadingPlaces || (_mode == 'filtered' && !_canRunFilteredQuery)) return;
+    setState(() => _loadingPlaces = true);
+    try {
+      var q = _placesQuery();
+      if (!reset && _placesLastDoc != null) {
+        q = q.startAfterDocument(_placesLastDoc!);
+      }
+      final snap = await q.get();
+      if (!mounted) return;
+      setState(() {
+        if (reset) _placeDocs.clear();
+        _placeDocs.addAll(snap.docs);
+        _placesLastDoc = snap.docs.isNotEmpty ? snap.docs.last : _placesLastDoc;
+        _hasMorePlaces = snap.docs.length == _pageSize;
+      });
+    } finally {
+      if (mounted) setState(() => _loadingPlaces = false);
+    }
+  }
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> get _filteredPlaceDocs {
+    final search = _searchCtrl.text.trim().toLowerCase();
+    return _placeDocs.where((d) {
+      final m = d.data();
+      final city = _cityCtrl.text.trim().toLowerCase();
+      final district = _districtCtrl.text.trim().toLowerCase();
+      if (city.isNotEmpty &&
+          (m['city'] ?? '').toString().toLowerCase() != city) return false;
+      if (district.isNotEmpty &&
+          (m['district'] ?? '').toString().toLowerCase() != district) return false;
+      if (_status != 'all' && (m['status'] ?? '').toString() != _status) return false;
+      if (_type != 'all' && (m['type'] ?? '').toString() != _type) return false;
+      if (search.isNotEmpty) {
+        final normalized = (m['normalizedName'] ?? '').toString().toLowerCase();
+        final display = (m['displayName'] ?? '').toString().toLowerCase();
+        if (!normalized.contains(search) && !display.contains(search)) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  Future<void> _runLegacyMigrationBatch() async {
+    if (_legacyBusy) return;
+    setState(() => _legacyBusy = true);
+    try {
+      final res = await FirebaseService.instance.migrateLegacyStoresToStorePlaces(
+        limit: 50,
+        startAfter: _legacyCursor,
+      );
+      if (!mounted) return;
+      setState(() {
+        _legacyMigration = res;
+        _legacyCursor = res.lastDoc;
+      });
+    } finally {
+      if (mounted) setState(() => _legacyBusy = false);
+    }
+  }
+
+  Future<void> _migrateMissingRegion(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final uid = AppStateScope.of(context).user?.uid;
+    if (uid == null || uid.isEmpty) return;
+    final cityCtrl = TextEditingController();
+    final districtCtrl = TextEditingController();
+    String type = 'local_market';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bölge ata ve taşı'),
+        content: StatefulBuilder(
+          builder: (ctx, setInner) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'Şehir')),
+              TextField(controller: districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
+              DropdownButton<String>(
+                value: type,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(value: 'local_market', child: Text('Local Market')),
+                  DropdownMenuItem(value: 'chain_market', child: Text('Chain Market')),
+                  DropdownMenuItem(value: 'bazaar', child: Text('Bazaar')),
+                ],
+                onChanged: (v) => setInner(() => type = v ?? 'local_market'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Taşı')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final city = cityCtrl.text.trim();
+    final district = districtCtrl.text.trim();
+    if (city.isEmpty || district.isEmpty) return;
+    await FirebaseService.instance.migrateSingleLegacyStoreToStorePlace(
+      legacyStoreDoc: doc,
+      city: city,
+      district: district,
+      type: type,
+      createdByUid: uid,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Kayıt store_place olarak taşındı.')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final tabs = ['Store Chains', 'Store Places', 'Pending Places'];
+    final tabs = ['Store Chains', 'Store Places', 'Pending Places', 'Legacy Köprü'];
     return Scaffold(
       backgroundColor: FR.bg,
       appBar: AppBar(title: const Text('Bölgesel mağaza yönetimi')),
@@ -3423,7 +3658,11 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: _tab == 0 ? _buildChains() : (_tab == 1 ? _buildPlaces() : _buildPending()),
+          child: _tab == 0
+              ? _buildChains()
+              : (_tab == 1
+                  ? _buildPlaces()
+                  : (_tab == 2 ? _buildPending() : _buildLegacyBridge())),
         )
       ]),
       floatingActionButton: FloatingActionButton(
@@ -3487,6 +3726,29 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
       Padding(
         padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Column(children: [
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButton<String>(
+                  value: _mode,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(value: 'pending', child: Text('Pending (50)')),
+                    DropdownMenuItem(value: 'recent', child: Text('Son güncellenen (50)')),
+                    DropdownMenuItem(value: 'filtered', child: Text('Filtreli')),
+                  ],
+                  onChanged: (v) {
+                    setState(() {
+                      _mode = v ?? 'pending';
+                      _placesLastDoc = null;
+                      _placeDocs.clear();
+                    });
+                    _loadPlaces(reset: true);
+                  },
+                ),
+              ),
+            ],
+          ),
           Row(children: [
             Expanded(child: TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'Şehir'))),
             const SizedBox(width: 8),
@@ -3512,38 +3774,64 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
               DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
             ], onChanged: (v) => setState(() => _status = v ?? 'all'))),
           ]),
-          Align(alignment: Alignment.centerRight, child: TextButton(onPressed: ()=>setState((){}), child: const Text('Filtrele'))),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  _mode = 'filtered';
+                  _placesLastDoc = null;
+                  _placeDocs.clear();
+                });
+                _loadPlaces(reset: true);
+              },
+              child: const Text('Filtrele'),
+            ),
+          ),
         ]),
       ),
       Expanded(
-        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: _placesQuery().snapshots(),
-          builder: (_, snap) {
-            final docs = snap.data?.docs ?? const [];
-            return ListView.builder(
-              itemCount: docs.length,
-              itemBuilder: (_, i) {
-                final d = docs[i];
-                final m = d.data();
-                return ListTile(
-                  title: Text((m['displayName'] ?? '').toString()),
-                  subtitle: Text('${m['type'] ?? ''} · ${m['city'] ?? ''}/${m['district'] ?? ''} · ${m['status'] ?? ''}'),
-                  trailing: IconButton(
-                    icon: Icon((m['isActive'] as bool? ?? true) ? Icons.toggle_on_rounded : Icons.toggle_off_rounded),
-                    onPressed: () => d.reference.update({'isActive': !((m['isActive'] as bool?) ?? true), 'updatedAt': FieldValue.serverTimestamp()}),
-                  ),
-                );
-              },
-            );
-          },
-        ),
+        child: _mode == 'filtered' && !_canRunFilteredQuery
+            ? _empty('Şehir/ilçe veya arama girerek filtrele')
+            : ListView.builder(
+                itemCount: _filteredPlaceDocs.length + 1,
+                itemBuilder: (_, i) {
+                  if (i == _filteredPlaceDocs.length) {
+                    if (!_hasMorePlaces) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                      child: Center(
+                        child: FRCta(
+                          label: _loadingPlaces ? 'Yükleniyor…' : 'Daha fazla yükle',
+                          onTap: _loadingPlaces ? null : () => _loadPlaces(),
+                        ),
+                      ),
+                    );
+                  }
+                  final d = _filteredPlaceDocs[i];
+                  final m = d.data();
+                  return ListTile(
+                    title: Text((m['displayName'] ?? '').toString()),
+                    subtitle: Text('${m['type'] ?? ''} · ${m['city'] ?? ''}/${m['district'] ?? ''} · ${m['status'] ?? ''}'),
+                    trailing: IconButton(
+                      icon: Icon((m['isActive'] as bool? ?? true) ? Icons.toggle_on_rounded : Icons.toggle_off_rounded),
+                      onPressed: () => d.reference.update({'isActive': !((m['isActive'] as bool?) ?? true), 'updatedAt': FieldValue.serverTimestamp()}),
+                    ),
+                  );
+                },
+              ),
       ),
     ]);
   }
 
   Widget _buildPending() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _placesQuery(pendingOnly: true).snapshots(),
+      stream: FirebaseService.instance.storePlaces
+          .where('isActive', isEqualTo: true)
+          .where('status', isEqualTo: 'pending')
+          .orderBy('updatedAt', descending: true)
+          .limit(50)
+          .snapshots(),
       builder: (_, snap) {
         final docs = snap.data?.docs ?? const [];
         return ListView.builder(
@@ -3565,6 +3853,61 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
           },
         );
       },
+    );
+  }
+
+  Widget _buildLegacyBridge() {
+    final res = _legacyMigration;
+    final missing = res?.missingRegionDocs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    return ListView(
+      padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+          decoration: frSurface(radius: FRRad.m),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Eski market kayıtlarını kontrol et', style: frText(13, FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text(
+                'Bu eski market kayıtlarında bölge yok. Fiyat eklemede görünmeleri için şehir/ilçe atanmalı.',
+                style: frText(11.5, FontWeight.w600, color: FR.ink3),
+              ),
+              const SizedBox(height: 10),
+              FRCta(
+                label: _legacyBusy ? 'Çalışıyor…' : '50 kayıt migrate et',
+                onTap: _legacyBusy ? null : _runLegacyMigrationBatch,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (res != null) ...[
+          Text(
+            'İşlenen: ${res.processed} · Yeni: ${res.migrated} · Güncellendi: ${res.updated} · Eksik bölge: ${res.skippedMissingRegion}',
+            style: frText(11.5, FontWeight.w700, color: FR.ink3),
+          ),
+          const SizedBox(height: 10),
+        ],
+        Text('Bölgesi eksik kayıtlar', style: frText(12.5, FontWeight.w800)),
+        const SizedBox(height: 8),
+        if (missing.isEmpty)
+          _empty('Eksik bölge kaydı yok (son batch için).')
+        else
+          ...missing.map((d) {
+            final name = (d.data()['name'] ?? d.data()['displayName'] ?? '').toString();
+            return ListTile(
+              tileColor: FR.surface,
+              title: Text(name),
+              subtitle: const Text('Bölge eksik'),
+              trailing: TextButton(
+                onPressed: () => _migrateMissingRegion(d),
+                child: const Text('Store_place olarak taşı'),
+              ),
+            );
+          }),
+      ],
     );
   }
 }
