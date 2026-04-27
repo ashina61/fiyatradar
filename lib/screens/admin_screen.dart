@@ -2376,23 +2376,13 @@ class _SettingsTab extends StatelessWidget {
         withActions: false,
       ),
       _GenericRow(
-        title: 'Bölgesel mağaza yönetimi',
-        subtitle: 'Store chains · places · pending',
+        title: 'Mağaza Yönetimi',
+        subtitle: 'Zincirler · mağazalar · pending · eski kayıtlar',
         icon: Icons.domain_add_rounded,
         withActions: true,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const AdminRegionalStoreManagementScreen()),
-        ),
-      ),
-      _GenericRow(
-        title: 'Market yönetimi',
-        subtitle: 'Ekle · düzenle · sil',
-        icon: Icons.storefront_outlined,
-        withActions: true,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminStoreCrudScreen()),
+          MaterialPageRoute(builder: (_) => const AdminStoreManagementScreen()),
         ),
       ),
       _GenericRow(
@@ -2617,7 +2607,7 @@ class _AdminStoreCrudScreenState extends State<AdminStoreCrudScreen> {
             decoration: frSurface(radius: FRRad.m),
             child: Text(
               'Legacy "stores" koleksiyonu yalnızca geriye uyumluluk içindir. '
-              'Birincil yönetim: Bölgesel mağaza yönetimi > store_places.',
+              'Birincil yönetim: Mağaza Yönetimi > Mağazalar / Noktalar.',
               style: frText(11.5, FontWeight.w700, color: FR.ink3),
             ),
           ),
@@ -3448,14 +3438,14 @@ class _GenericRow extends StatelessWidget {
 }
 
 
-class AdminRegionalStoreManagementScreen extends StatefulWidget {
-  const AdminRegionalStoreManagementScreen({super.key});
+class AdminStoreManagementScreen extends StatefulWidget {
+  const AdminStoreManagementScreen({super.key});
 
   @override
-  State<AdminRegionalStoreManagementScreen> createState() => _AdminRegionalStoreManagementScreenState();
+  State<AdminStoreManagementScreen> createState() => _AdminStoreManagementScreenState();
 }
 
-class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreManagementScreen> {
+class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen> {
   static const _pageSize = 50;
   int _tab = 0;
   final _cityCtrl = TextEditingController();
@@ -3506,16 +3496,26 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
     if (!_canRunFilteredQuery) {
       return q.limit(0);
     }
-    if (_hasSearchFilter) {
+
+    final city = _cityCtrl.text.trim();
+    final district = _districtCtrl.text.trim();
+    final hasSearch = _hasSearchFilter;
+
+    if (hasSearch) {
       final search = _searchCtrl.text.trim().toLowerCase();
+      if (city.isNotEmpty) {
+        q = q.where('city', isEqualTo: city);
+        if (district.isNotEmpty) {
+          q = q.where('district', isEqualTo: district);
+        }
+      }
       return q
           .orderBy('normalizedName')
           .startAt([search])
           .endAt(['$search\uf8ff'])
           .limit(_pageSize);
     }
-    final city = _cityCtrl.text.trim();
-    final district = _districtCtrl.text.trim();
+
     q = q.where('city', isEqualTo: city);
     if (district.isNotEmpty) {
       q = q.where('district', isEqualTo: district);
@@ -3639,10 +3639,10 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
 
   @override
   Widget build(BuildContext context) {
-    final tabs = ['Store Chains', 'Store Places', 'Pending Places', 'Legacy Köprü'];
+    final tabs = ['Zincirler', 'Mağazalar / Noktalar', 'Onay Bekleyenler', 'Eski Kayıtları Taşı'];
     return Scaffold(
       backgroundColor: FR.bg,
-      appBar: AppBar(title: const Text('Bölgesel mağaza yönetimi')),
+      appBar: AppBar(title: const Text('Mağaza Yönetimi')),
       body: Column(children: [
         SizedBox(
           height: 40,
@@ -3733,7 +3733,7 @@ class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreM
                   value: _mode,
                   isExpanded: true,
                   items: const [
-                    DropdownMenuItem(value: 'pending', child: Text('Pending (50)')),
+                    DropdownMenuItem(value: 'pending', child: Text('Onay bekleyen (50)')),
                     DropdownMenuItem(value: 'recent', child: Text('Son güncellenen (50)')),
                     DropdownMenuItem(value: 'filtered', child: Text('Filtreli')),
                   ],
