@@ -44,7 +44,7 @@ class _AdminScreenState extends State<AdminScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: Row(
                 children: [
                   FRIconChip(
@@ -54,7 +54,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   const Spacer(),
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                     decoration: BoxDecoration(
                       color: FR.gold.withOpacity(.14),
                       borderRadius: FRRad.all(999),
@@ -75,7 +75,7 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             const SizedBox(height: 14),
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: FRPageHeader(
                 overline: 'FİYATRADAR KONTROL MERKEZİ',
                 title: 'Admin',
@@ -86,7 +86,7 @@ class _AdminScreenState extends State<AdminScreen> {
             SizedBox(
               height: 42,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 scrollDirection: Axis.horizontal,
                 itemCount: tabs.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
@@ -99,7 +99,7 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 28), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 children: [_buildTab(state)],
               ),
             ),
@@ -208,7 +208,7 @@ class _TabChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: FRRad.all(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: active ? FR.gold : FR.surface,
           borderRadius: FRRad.all(999),
@@ -342,7 +342,7 @@ class _ProductAdminRow extends StatelessWidget {
       ),
       borderRadius: FRRad.all(FRRad.l),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: FR.surface,
           borderRadius: FRRad.all(FRRad.l),
@@ -414,7 +414,7 @@ class _BannersTab extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
           decoration: BoxDecoration(
             color: FR.gold.withOpacity(.08),
             borderRadius: FRRad.all(FRRad.m),
@@ -513,7 +513,7 @@ class _BannerAdminRow extends StatelessWidget {
       ),
       borderRadius: FRRad.all(FRRad.l),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: FR.surface,
           borderRadius: FRRad.all(FRRad.l),
@@ -565,7 +565,7 @@ class _BannerAdminRow extends StatelessWidget {
               onPressed: () => _delete(context),
               icon: Icon(Icons.delete_outline_rounded,
                   color: FR.bad, size: 18),
-              padding: EdgeInsets.zero,
+              padding: EdgeInsets.zero, // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
           ],
@@ -738,7 +738,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: Row(
                 children: [
                   FRIconChip(
@@ -749,7 +749,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: FRPageHeader(
                 overline: isEdit ? 'DÜZENLE' : 'YENİ BANNER',
                 title: 'Banner',
@@ -758,7 +758,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
             ),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                   20,
                   18,
                   20,
@@ -834,7 +834,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
                   ] else ...[
                     _label('İçerik blokları (yazı / görsel / başlık)'),
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                       decoration: frSurface(radius: FRRad.m),
                       child: Column(
                         children: [
@@ -854,7 +854,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
                             ),
                           if (_blocks.isEmpty)
                             Padding(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                               child: Text(
                                 'Boş içerik. Aşağıdaki butonlardan blok ekle.',
                                 style: frText(12, FontWeight.w600, color: FR.ink3),
@@ -971,7 +971,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
               right: 10,
               bottom: 10,
               child: Container(
-                padding: const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                     horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: FR.bg.withOpacity(.7),
@@ -996,7 +996,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6, top: 4),
+        padding: const EdgeInsets.only(bottom: 6, top: 4), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Text(text,
             style: frText(11.5, FontWeight.w800, color: FR.ink3, letter: .4)),
       );
@@ -1021,7 +1021,7 @@ class _BannerFormScreenState extends State<BannerFormScreen> {
       onTap: onTap,
       borderRadius: FRRad.all(FRRad.m),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: active ? FR.gold.withOpacity(.16) : FR.surfaceHi,
           borderRadius: FRRad.all(FRRad.m),
@@ -1093,8 +1093,8 @@ class _BlockEditorState extends State<_BlockEditor> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      padding: const EdgeInsets.all(10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.bgElev,
         borderRadius: FRRad.all(FRRad.m),
@@ -1113,7 +1113,7 @@ class _BlockEditorState extends State<_BlockEditor> {
                 icon: Icon(Icons.arrow_upward_rounded,
                     size: 16,
                     color: widget.onMoveUp == null ? FR.ink3 : FR.ink2),
-                padding: EdgeInsets.zero,
+                padding: EdgeInsets.zero, // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 constraints:
                     const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
@@ -1122,7 +1122,7 @@ class _BlockEditorState extends State<_BlockEditor> {
                 icon: Icon(Icons.arrow_downward_rounded,
                     size: 16,
                     color: widget.onMoveDown == null ? FR.ink3 : FR.ink2),
-                padding: EdgeInsets.zero,
+                padding: EdgeInsets.zero, // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 constraints:
                     const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
@@ -1130,7 +1130,7 @@ class _BlockEditorState extends State<_BlockEditor> {
                 onPressed: widget.onRemove,
                 icon: Icon(Icons.delete_outline_rounded,
                     size: 16, color: FR.bad),
-                padding: EdgeInsets.zero,
+                padding: EdgeInsets.zero, // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 constraints:
                     const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
@@ -1297,7 +1297,7 @@ class _RequestRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
@@ -1344,7 +1344,7 @@ class _RequestRow extends StatelessWidget {
               const SizedBox(width: 8),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 decoration: BoxDecoration(
                   color: _statusColor.withOpacity(.14),
                   borderRadius: FRRad.all(999),
@@ -1369,7 +1369,7 @@ class _RequestRow extends StatelessWidget {
                     onTap: () => _approve(context),
                     borderRadius: FRRad.all(999),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(vertical: 9), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: FR.good.withOpacity(.14),
@@ -1387,7 +1387,7 @@ class _RequestRow extends StatelessWidget {
                     onTap: () => _convert(context),
                     borderRadius: FRRad.all(999),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(vertical: 9), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: FR.gold.withOpacity(.14),
@@ -1405,7 +1405,7 @@ class _RequestRow extends StatelessWidget {
                     onTap: () => _reject(context),
                     borderRadius: FRRad.all(999),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(vertical: 9), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: FR.bad.withOpacity(.14),
@@ -1660,7 +1660,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                   child: Row(
                     children: [
                       FRIconChip(
@@ -1673,7 +1673,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           onTap: _deleting ? null : () => _delete(state),
                           borderRadius: FRRad.all(14),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                                 horizontal: 12, vertical: 9),
                             decoration: BoxDecoration(
                               color: FR.bad.withOpacity(.1),
@@ -1696,7 +1696,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                   child: FRPageHeader(
                     overline: isEdit ? 'DÜZENLE' : 'YENİ ÜRÜN',
                     title: isEdit ? 'Ürün' : 'Ürün',
@@ -1705,7 +1705,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 ),
                 Expanded(
                   child: ListView(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                       20,
                       18,
                       20,
@@ -1740,7 +1740,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                               onTap: () => setState(() => _category = c),
                               borderRadius: FRRad.all(999),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
+                                padding: const EdgeInsets.symmetric( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                                     horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: _category == c ? FR.gold : FR.surface,
@@ -1791,7 +1791,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       ),
                       const SizedBox(height: 14),
                       Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                         decoration: frSurface(radius: FRRad.l),
                         child: Row(
                           children: [
@@ -1845,7 +1845,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               right: 0,
               bottom: 0,
               child: Container(
-                padding: EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                   20,
                   12,
                   20,
@@ -1928,7 +1928,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               bottom: 10,
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 decoration: BoxDecoration(
                   color: FR.surface.withOpacity(FR.isDark ? .78 : .92),
                   borderRadius: FRRad.all(999),
@@ -1959,7 +1959,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(bottom: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Row(
           children: [
             Container(width: 3, height: 14, color: FR.gold),
@@ -1973,7 +1973,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Widget _input(TextEditingController c, String hint,
       {TextInputType? keyboard}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: frSurface(radius: FRRad.m),
       child: TextField(
         controller: c,
@@ -2196,7 +2196,7 @@ class _AdminEntryActionRow extends StatelessWidget {
     final isVerified = entry.status == PriceStatus.communityVerified;
     final isRejected = entry.status == PriceStatus.rejected;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
@@ -2374,6 +2374,16 @@ class _SettingsTab extends StatelessWidget {
             '%${state.trustScorePercent} güven · oyun ${state.voteWeight.toStringAsFixed(2)}x ağırlıkta',
         icon: Icons.shield_moon_outlined,
         withActions: false,
+      ),
+      _GenericRow(
+        title: 'Bölgesel mağaza yönetimi',
+        subtitle: 'Store chains · places · pending',
+        icon: Icons.domain_add_rounded,
+        withActions: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminRegionalStoreManagementScreen()),
+        ),
       ),
       _GenericRow(
         title: 'Market yönetimi',
@@ -2822,7 +2832,7 @@ class _AdminCrudScaffold extends StatelessWidget {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: Row(
                 children: [
                   FRIconChip(
@@ -2836,13 +2846,13 @@ class _AdminCrudScaffold extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: FRPageHeader(overline: 'ADMIN', title: title),
             ),
             const SizedBox(height: 16),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 children: [child],
               ),
             ),
@@ -2874,7 +2884,7 @@ class _CrudRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
@@ -3027,7 +3037,7 @@ class _UserEditRowState extends State<_UserEditRow> {
         (widget.data['role'] as String?) == 'admin';
     final isBanned = (widget.data['isBanned'] as bool?) == true;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
@@ -3157,7 +3167,7 @@ Future<void> _showTextEditSheet(
 
 Widget _empty(String label) {
   return Container(
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
     decoration: frSurface(radius: FRRad.l),
     alignment: Alignment.center,
     child: Text(label, style: frText(12.5, FontWeight.w600, color: FR.ink3)),
@@ -3191,7 +3201,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final deltaColor = deltaGood ? FR.good : FR.warn;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
@@ -3209,7 +3219,7 @@ class _StatCard extends StatelessWidget {
           Text(value, style: frDisplay(28, FontWeight.w700)),
           const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
             decoration: BoxDecoration(
               color: deltaColor.withOpacity(.14),
               borderRadius: FRRad.all(999),
@@ -3232,7 +3242,7 @@ class _EntryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
@@ -3303,7 +3313,7 @@ class _GenericRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: FRRad.all(FRRad.l),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: FR.surface,
           borderRadius: FRRad.all(FRRad.l),
@@ -3343,6 +3353,218 @@ class _GenericRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+class AdminRegionalStoreManagementScreen extends StatefulWidget {
+  const AdminRegionalStoreManagementScreen({super.key});
+
+  @override
+  State<AdminRegionalStoreManagementScreen> createState() => _AdminRegionalStoreManagementScreenState();
+}
+
+class _AdminRegionalStoreManagementScreenState extends State<AdminRegionalStoreManagementScreen> {
+  int _tab = 0;
+  final _cityCtrl = TextEditingController();
+  final _districtCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
+  String _type = 'all';
+  String _status = 'all';
+
+  @override
+  void dispose() {
+    _cityCtrl.dispose();
+    _districtCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Query<Map<String, dynamic>> _placesQuery({bool pendingOnly = false}) {
+    Query<Map<String, dynamic>> q = FirebaseService.instance.storePlaces.where('isActive', isEqualTo: true);
+    if (pendingOnly) {
+      q = q.where('status', isEqualTo: 'pending');
+    } else if (_status != 'all') {
+      q = q.where('status', isEqualTo: _status);
+    }
+    if (_type != 'all') {
+      q = q.where('type', isEqualTo: _type);
+    }
+    final city = _cityCtrl.text.trim();
+    final district = _districtCtrl.text.trim();
+    if (city.isNotEmpty) q = q.where('city', isEqualTo: city);
+    if (district.isNotEmpty) q = q.where('district', isEqualTo: district);
+    final search = _searchCtrl.text.trim().toLowerCase();
+    if (search.isNotEmpty) {
+      return q.orderBy('normalizedName').startAt([search]).endAt(['$search']).limit(40);
+    }
+    return q.orderBy('updatedAt', descending: true).limit(40);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = ['Store Chains', 'Store Places', 'Pending Places'];
+    return Scaffold(
+      backgroundColor: FR.bg,
+      appBar: AppBar(title: const Text('Bölgesel mağaza yönetimi')),
+      body: Column(children: [
+        SizedBox(
+          height: 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+            itemCount: tabs.length,
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.only(right: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+              child: FRFilterChip(tabs[i], active: _tab == i, onTap: () => setState(() => _tab = i)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: _tab == 0 ? _buildChains() : (_tab == 1 ? _buildPlaces() : _buildPending()),
+        )
+      ]),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          if (_tab == 0) {
+            await FirebaseService.instance.storeChains.add({
+              'name': 'Yeni Zincir',
+              'normalizedName': 'yeni zincir',
+              'isActive': true,
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          } else {
+            await FirebaseService.instance.storePlaces.add({
+              'displayName': 'Yeni Yer',
+              'normalizedName': 'yeni yer',
+              'type': 'local_market',
+              'city': _cityCtrl.text.trim(),
+              'district': _districtCtrl.text.trim(),
+              'status': 'pending',
+              'isActive': true,
+              'usageCount': 0,
+              'createdByUid': AppStateScope.of(context).user?.uid,
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildChains() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseService.instance.storeChains.orderBy('updatedAt', descending: true).limit(60).snapshots(),
+      builder: (_, snap) {
+        final docs = snap.data?.docs ?? const [];
+        return ListView(
+          padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+          children: docs.map((d) {
+            final data = d.data();
+            return ListTile(
+              tileColor: FR.surface,
+              title: Text((data['name'] ?? '').toString()),
+              subtitle: Text(((data['isActive'] ?? true) ? 'Aktif' : 'Pasif').toString()),
+              trailing: Switch(
+                value: (data['isActive'] as bool?) ?? true,
+                onChanged: (v) => d.reference.update({'isActive': v, 'updatedAt': FieldValue.serverTimestamp()}),
+              ),
+              onTap: () => d.reference.update({'updatedAt': FieldValue.serverTimestamp()}),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaces() {
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+        child: Column(children: [
+          Row(children: [
+            Expanded(child: TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'Şehir'))),
+            const SizedBox(width: 8),
+            Expanded(child: TextField(controller: _districtCtrl, decoration: const InputDecoration(labelText: 'İlçe'))),
+          ]),
+          const SizedBox(height: 8),
+          TextField(controller: _searchCtrl, decoration: const InputDecoration(labelText: 'Arama'), onChanged: (_) => setState(() {})),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: DropdownButton<String>(value: _type, isExpanded: true, items: const [
+              DropdownMenuItem(value: 'all', child: Text('Tüm türler')),
+              DropdownMenuItem(value: 'chain_market', child: Text('Chain Market')),
+              DropdownMenuItem(value: 'local_market', child: Text('Local Market')),
+              DropdownMenuItem(value: 'online_market', child: Text('Online')),
+              DropdownMenuItem(value: 'bazaar', child: Text('Bazaar')),
+            ], onChanged: (v) => setState(() => _type = v ?? 'all'))),
+            const SizedBox(width: 8),
+            Expanded(child: DropdownButton<String>(value: _status, isExpanded: true, items: const [
+              DropdownMenuItem(value: 'all', child: Text('Tüm statüler')),
+              DropdownMenuItem(value: 'verified', child: Text('Verified')),
+              DropdownMenuItem(value: 'trusted', child: Text('Trusted')),
+              DropdownMenuItem(value: 'pending', child: Text('Pending')),
+              DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
+            ], onChanged: (v) => setState(() => _status = v ?? 'all'))),
+          ]),
+          Align(alignment: Alignment.centerRight, child: TextButton(onPressed: ()=>setState((){}), child: const Text('Filtrele'))),
+        ]),
+      ),
+      Expanded(
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _placesQuery().snapshots(),
+          builder: (_, snap) {
+            final docs = snap.data?.docs ?? const [];
+            return ListView.builder(
+              itemCount: docs.length,
+              itemBuilder: (_, i) {
+                final d = docs[i];
+                final m = d.data();
+                return ListTile(
+                  title: Text((m['displayName'] ?? '').toString()),
+                  subtitle: Text('${m['type'] ?? ''} · ${m['city'] ?? ''}/${m['district'] ?? ''} · ${m['status'] ?? ''}'),
+                  trailing: IconButton(
+                    icon: Icon((m['isActive'] as bool? ?? true) ? Icons.toggle_on_rounded : Icons.toggle_off_rounded),
+                    onPressed: () => d.reference.update({'isActive': !((m['isActive'] as bool?) ?? true), 'updatedAt': FieldValue.serverTimestamp()}),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildPending() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _placesQuery(pendingOnly: true).snapshots(),
+      builder: (_, snap) {
+        final docs = snap.data?.docs ?? const [];
+        return ListView.builder(
+          padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+          itemCount: docs.length,
+          itemBuilder: (_, i) {
+            final d = docs[i];
+            final m = d.data();
+            return Card(
+              child: ListTile(
+                title: Text((m['displayName'] ?? '').toString()),
+                subtitle: Text('${m['type'] ?? ''} · ${m['city'] ?? ''}/${m['district'] ?? ''}'),
+                trailing: Wrap(spacing: 4, children: [
+                  IconButton(onPressed: () => d.reference.update({'status': 'verified', 'updatedAt': FieldValue.serverTimestamp()}), icon: const Icon(Icons.check_circle_outline_rounded)),
+                  IconButton(onPressed: () => d.reference.update({'status': 'rejected', 'isActive': false, 'updatedAt': FieldValue.serverTimestamp()}), icon: const Icon(Icons.cancel_outlined)),
+                ]),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
