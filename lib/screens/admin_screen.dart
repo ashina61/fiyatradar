@@ -2116,7 +2116,7 @@ class _VerificationSectionChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
           decoration: BoxDecoration(
             borderRadius: radius,
             border: Border.all(color: active ? FR.gold : FR.hairline),
@@ -2131,7 +2131,7 @@ class _VerificationSectionChip extends StatelessWidget {
                       color: active ? FR.bg : FR.ink2, letter: .2)),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsetsDirectional.fromSTEB(6, 2, 6, 2),
                 decoration: BoxDecoration(
                   color: active
                       ? FR.bg.withOpacity(.18)
@@ -2309,7 +2309,7 @@ class _ActionPill extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          padding: const EdgeInsetsDirectional.fromSTEB(0, 9, 0, 9),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: radius,
