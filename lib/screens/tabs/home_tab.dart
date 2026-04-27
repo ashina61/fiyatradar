@@ -18,7 +18,16 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final topDrops = state.homeTopDrops;
-    final feedItems = state.homeFeed;
+    final scopedProductIds = state.homeScopedProductIds;
+    final scopedFeedItems = scopedProductIds
+        .map(state.findById)
+        .whereType<Product>()
+        .take(6)
+        .toList();
+    final usesLegacyFallback =
+        scopedFeedItems.isEmpty && state.homeFeed.isNotEmpty;
+    final feedItems =
+        usesLegacyFallback ? state.homeFeed.take(6).toList() : scopedFeedItems;
 
     var step = 0;
     Duration nextDelay() => Duration(milliseconds: 60 * step++);
@@ -106,7 +115,7 @@ class HomeTab extends StatelessWidget {
             delay: nextDelay(),
             child: FRSectionHead(
               eyebrow: 'TOPLULUK AKIŞI',
-              title: 'Canlı fiyat akışı',
+              title: state.homeScopeTitle,
               action: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -117,13 +126,34 @@ class HomeTab extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 4),
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: Text(
+              state.homeScopeSubtitle,
+              style: frText(11.5, FontWeight.w600, color: FR.ink3),
+            ),
+          ),
           const SizedBox(height: 12),
+          if (usesLegacyFallback)
+            FRFadeSlideIn(
+              delay: nextDelay(),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                child: Text(
+                  'Legacy/global fallback · scope verisi gelmedi.',
+                  style: frText(11.5, FontWeight.w700, color: FR.goldDeep),
+                ),
+              ),
+            ),
           if (feedItems.isEmpty)
             FRFadeSlideIn(
               delay: nextDelay(),
-              child: const _EmptyBlock(
+              child: _EmptyBlock(
                 height: 120,
-                text: 'Topluluktan fiyat gelince burada görünür.',
+                text: usesLegacyFallback
+                    ? 'Scope için price_entries bulunamadı. Legacy/global akış gösteriliyor.'
+                    : state.homeScopeEmptyMessage,
               ),
             )
           else
@@ -132,7 +162,9 @@ class HomeTab extends StatelessWidget {
                 delay: nextDelay(),
                 child: _FeedRow(
                   product: p,
-                  latest: state.latestEntryForProduct(p.id),
+                  latest: usesLegacyFallback
+                      ? state.latestEntryForProduct(p.id)
+                      : state.homeScopedEntryForProduct(p.id),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
@@ -267,19 +299,24 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
                 FRFilterChip('Yakınımda',
                     active: scope == HomePriceScope.nearby,
                     onTap: () => state.setHomePriceScope(HomePriceScope.nearby)),
+                const SizedBox(width: 8),
                 FRFilterChip('Şehrimde',
                     active: scope == HomePriceScope.city,
                     onTap: () => state.setHomePriceScope(HomePriceScope.city)),
+                const SizedBox(width: 8),
                 FRFilterChip('Online',
                     active: scope == HomePriceScope.online,
                     onTap: () => state.setHomePriceScope(HomePriceScope.online)),
+                const SizedBox(width: 8),
                 FRFilterChip('Türkiye geneli',
                     active: scope == HomePriceScope.turkeyWide,
                     onTap: () => state.setHomePriceScope(HomePriceScope.turkeyWide)),
               ],
             ),
           ),
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 0,
             children: [
               TextButton.icon(
                 onPressed: _locating ? null : () => _useLocation(state),
@@ -293,7 +330,6 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
                   visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
                 ),
               ),
-              const SizedBox(width: 6),
               TextButton.icon(
                 onPressed: () => _pickManual(state),
                 icon: Icon(Icons.map_outlined, size: 14, color: FR.gold),

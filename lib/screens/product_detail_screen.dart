@@ -1,8 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/product.dart';
-import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -310,39 +308,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 }
 
 
-class _RegionalPriceDoc {
-  final String place;
-  final double price;
-  final DateTime createdAt;
-  final String status;
-  final String scope;
-  final String city;
-  final String district;
-  const _RegionalPriceDoc({
-    required this.place,
-    required this.price,
-    required this.createdAt,
-    required this.status,
-    required this.scope,
-    required this.city,
-    required this.district,
-  });
-
-  factory _RegionalPriceDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final m = doc.data() ?? <String, dynamic>{};
-    final ts = m['createdAt'];
-    return _RegionalPriceDoc(
-      place: (m['placeDisplayName'] ?? '—').toString(),
-      price: (m['price'] as num?)?.toDouble() ?? 0,
-      createdAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
-      status: (m['status'] ?? 'pending').toString(),
-      scope: (m['scope'] ?? '').toString(),
-      city: (m['city'] ?? '').toString(),
-      district: (m['district'] ?? '').toString(),
-    );
-  }
-}
-
 class _RegionalPriceSections extends StatelessWidget {
   const _RegionalPriceSections({
     required this.product,
@@ -358,62 +323,94 @@ class _RegionalPriceSections extends StatelessWidget {
   Widget build(BuildContext context) {
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
-    final q = FirebaseService.instance.priceEntries
-        .where('productId', isEqualTo: product.id)
-        .where('status', whereIn: const ['pending', 'community_verified', 'disputed'])
-        .orderBy('createdAt', descending: true)
-        .limit(120);
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: q.snapshots(),
+    final hasRegion = city.isNotEmpty && district.isNotEmpty;
+    return StreamBuilder<List<PriceEntry>>(
+      stream: hasRegion
+          ? state.watchProductLocalEntries(
+              productId: product.id,
+              city: city,
+              district: district,
+            )
+          : const Stream<List<PriceEntry>>.empty(),
       builder: (context, snap) {
-        final docs = (snap.data?.docs ?? const [])
-            .map(_RegionalPriceDoc.fromDoc)
-            .where((e) => e.status != 'rejected')
-            .toList();
-        final local = docs.where((e) => (e.scope == 'local' || e.scope == 'bazaar') && e.city == city && e.district == district).toList();
-        final online = docs.where((e) => e.scope == 'online').toList();
-        final other = docs.where((e) => (e.scope == 'local' || e.scope == 'bazaar') && !(e.city == city && e.district == district)).toList();
+        final local = snap.data ?? const <PriceEntry>[];
+        return StreamBuilder<List<PriceEntry>>(
+          stream: state.watchProductOnlineEntries(productId: product.id),
+          builder: (context, onlineSnap) {
+            final online = onlineSnap.data ?? const <PriceEntry>[];
+            return StreamBuilder<List<PriceEntry>>(
+              stream: state.watchProductTurkeyEntries(productId: product.id),
+              builder: (context, turkeySnap) {
+                final allTurkey = turkeySnap.data ?? const <PriceEntry>[];
+                final others = allTurkey;
 
-        _RegionalPriceDoc? bestOf(List<_RegionalPriceDoc> list) {
-          if (list.isEmpty) return null;
-          list.sort((a, b) => a.price.compareTo(b.price));
-          return list.first;
-        }
+                PriceEntry? bestOf(List<PriceEntry> list) {
+                  if (list.isEmpty) return null;
+                  final sorted = [...list]..sort((a, b) => a.price.compareTo(b.price));
+                  return sorted.first;
+                }
 
-        final localBest = bestOf(local);
-        final onlineBest = bestOf(online);
-        final otherBest = bestOf(other);
+                final localBest = bestOf(local);
+                final onlineBest = bestOf(online);
+                final otherBest = bestOf(others);
+                final anyScoped = localBest != null || onlineBest != null || otherBest != null;
 
-        Widget line(String label, _RegionalPriceDoc? entry, {String fallback = 'Henüz veri yok'}) {
-          if (entry == null) {
-            return Row(children: [
-              Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
-              Text(fallback, style: frText(11.5, FontWeight.w600, color: FR.ink3)),
-            ]);
-          }
-          return Row(children: [
-            Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
-            Text('₺${entry.price.toStringAsFixed(2)} · ${entry.place}', style: frText(11.5, FontWeight.w700, color: FR.gold)),
-          ]);
-        }
+                Widget line(String label, PriceEntry? entry, {required String fallback}) {
+                  if (entry == null) {
+                    return Row(children: [
+                      Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
+                      Text(fallback, style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                    ]);
+                  }
+                  return Row(children: [
+                    Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
+                    Text('₺${entry.price.toStringAsFixed(2)} · ${entry.store}',
+                        style: frText(11.5, FontWeight.w700, color: FR.gold)),
+                  ]);
+                }
 
-        return Container(
-          padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [FR.surfaceHi, FR.surface], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: FRRad.all(22),
-            border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-            boxShadow: [BoxShadow(color: FR.gold.withOpacity(.1), blurRadius: 28)],
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('BÖLGESEL FİYAT ÖZETİ', style: frOverline()),
-            const SizedBox(height: 8),
-            line('Yakınımda / Bölgem', localBest, fallback: legacyBest == null ? 'Bölge seçili değil veya veri yok' : 'Legacy: ₺${legacyBest!.price.toStringAsFixed(2)}'),
-            const SizedBox(height: 8),
-            line('Online', onlineBest),
-            const SizedBox(height: 8),
-            line('Türkiye geneli / Diğer bölgeler', otherBest),
-          ]),
+                return Container(
+                  padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [FR.surfaceHi, FR.surface], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    borderRadius: FRRad.all(22),
+                    border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+                    boxShadow: [BoxShadow(color: FR.gold.withOpacity(.1), blurRadius: 28)],
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('BÖLGESEL FİYAT ÖZETİ', style: frOverline()),
+                    if (!anyScoped && legacyBest != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Legacy/global fallback kullanılıyor',
+                        style: frText(11, FontWeight.w700, color: FR.goldDeep),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    line(
+                      'Bölgen',
+                      localBest,
+                      fallback: hasRegion
+                          ? 'Bu bölgede kayıt yok'
+                          : 'Bölgeni seç',
+                    ),
+                    const SizedBox(height: 8),
+                    line('Online', onlineBest, fallback: 'Online fiyat yok'),
+                    const SizedBox(height: 8),
+                    line(
+                      'Diğer bölgeler / Türkiye geneli',
+                      otherBest,
+                      fallback: anyScoped
+                          ? 'Diğer bölgelerde kayıt yok'
+                          : (legacyBest == null
+                              ? 'Henüz veri yok'
+                              : 'Legacy: ₺${legacyBest!.price.toStringAsFixed(2)}'),
+                    ),
+                  ]),
+                );
+              },
+            );
+          },
         );
       },
     );

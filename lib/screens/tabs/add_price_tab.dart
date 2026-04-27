@@ -216,7 +216,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
     }
 
     final ownUid = state.user?.uid;
-    final normalQuery = _basePlaceQuery(state, search: true);
+    final hasSearch = _storeQueryCtrl.text.trim().isNotEmpty;
+    final normalQuery = _basePlaceQuery(state, search: hasSearch);
     final normalSnap = await normalQuery.get();
     final all = <String, StorePlace>{
       for (final d in normalSnap.docs) d.id: StorePlace.fromDoc(d),
@@ -519,9 +520,17 @@ class _AddPriceTabState extends State<AddPriceTab> {
   Widget _placesEmpty(AppState state) {
     final hasSearch = _storeQueryCtrl.text.trim().isNotEmpty;
     final isOnline = _sourceType == PriceSourceType.online;
+    final isBazaar = _sourceType == PriceSourceType.bazaar;
     final title = isOnline
         ? 'Online market kaydı yok.'
-        : (hasSearch ? 'Arama ile eşleşen kayıt yok.' : 'Bu bölgede kayıtlı market/pazar yok.');
+        : isBazaar
+            ? (hasSearch
+                ? 'Arama ile eşleşen pazar yok.'
+                : 'Bu bölgede kayıtlı pazar yok.')
+            : (hasSearch
+                ? 'Arama ile eşleşen market yok.'
+                : 'Bu bölgede kayıtlı market yok.');
+    final suggestLabel = isBazaar ? 'Bu pazarı öner' : 'Bu marketi öner';
     return Container(
       padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: frSurface(radius: FRRad.m),
@@ -530,7 +539,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
         const SizedBox(height: 10),
         if (!isOnline || state.isAdmin)
           FRCta(
-            label: 'Bu marketi/pazarı öner',
+            label: suggestLabel,
             icon: Icons.add_business_rounded,
             onTap: _submitting ? null : () => _openSuggestPlaceSheet(state),
           )
