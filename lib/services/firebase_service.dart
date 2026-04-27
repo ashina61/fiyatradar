@@ -296,6 +296,44 @@ class FirebaseService {
     await batch.commit();
   }
 
+
+  Future<void> seedDefaultOnlinePlaces() async {
+    const names = [
+      'Migros Online',
+      'CarrefourSA Online',
+      'Getir',
+      'Trendyol Market',
+      'Yemeksepeti Market',
+    ];
+    final coll = storePlaces;
+    final existing = await coll
+        .where('type', isEqualTo: 'online_market')
+        .where('isActive', isEqualTo: true)
+        .limit(10)
+        .get();
+    if (existing.docs.isNotEmpty) return;
+    final batch = db.batch();
+    for (final name in names) {
+      final norm = name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      final ref = coll.doc();
+      batch.set(ref, {
+        'chainId': null,
+        'chainName': null,
+        'type': 'online_market',
+        'displayName': name,
+        'normalizedName': norm,
+        'city': '',
+        'district': '',
+        'status': 'verified',
+        'isActive': true,
+        'usageCount': 0,
+        'createdByUid': 'system_bootstrap',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
   Future<void> _seedCategories() async {
     final coll = db.collection('categories');
     final snap = await coll.limit(1).get();

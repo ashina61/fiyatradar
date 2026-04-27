@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/product.dart';
+import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -87,7 +89,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             // Top nav
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: Row(
                 children: [
                   FRIconChip(
@@ -106,7 +108,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                 children: [
                   // Hero image
                   Container(
@@ -148,7 +150,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           top: 14,
                           left: 14,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                             decoration: BoxDecoration(
                               color: FR.gold.withOpacity(.16),
                               borderRadius: FRRad.all(999),
@@ -177,7 +179,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Text(product.unit,
                       style: frText(13, FontWeight.w600, color: FR.ink3)),
                   const SizedBox(height: 18),
-                  _BestPriceCard(product: product, best: _best),
+                  _RegionalPriceSections(product: product, state: state, legacyBest: _best),
                   const SizedBox(height: 18),
                   if (product.validEntries.length >= 2)
                     _PriceHistoryCard(product: product),
@@ -186,7 +188,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 12),
                   if (_stores.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                       child: Text('Bu ürün için henüz fiyat yok.',
                           style: frText(12.5, FontWeight.w600, color: FR.ink3)),
                     )
@@ -195,7 +197,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       final cheapest = product.lowestPrice ?? e.price;
                       final delta = e.price - cheapest;
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.only(bottom: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                         child: _StoreRow(
                           store: e.store,
                           entry: e,
@@ -217,13 +219,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 10),
                   if (_sorted.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                       child: Text('Henüz katkı yok — ilk fiyatı sen ekle.',
                           style: frText(12, FontWeight.w600, color: FR.ink3)),
                     )
                   else
                     ..._sorted.take(6).map((e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.only(bottom: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                           child: _ContributionRow(
                             product: product,
                             entry: e,
@@ -307,6 +309,117 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 }
 
+
+class _RegionalPriceDoc {
+  final String place;
+  final double price;
+  final DateTime createdAt;
+  final String status;
+  final String scope;
+  final String city;
+  final String district;
+  const _RegionalPriceDoc({
+    required this.place,
+    required this.price,
+    required this.createdAt,
+    required this.status,
+    required this.scope,
+    required this.city,
+    required this.district,
+  });
+
+  factory _RegionalPriceDoc.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final m = doc.data() ?? <String, dynamic>{};
+    final ts = m['createdAt'];
+    return _RegionalPriceDoc(
+      place: (m['placeDisplayName'] ?? '—').toString(),
+      price: (m['price'] as num?)?.toDouble() ?? 0,
+      createdAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
+      status: (m['status'] ?? 'pending').toString(),
+      scope: (m['scope'] ?? '').toString(),
+      city: (m['city'] ?? '').toString(),
+      district: (m['district'] ?? '').toString(),
+    );
+  }
+}
+
+class _RegionalPriceSections extends StatelessWidget {
+  const _RegionalPriceSections({
+    required this.product,
+    required this.state,
+    required this.legacyBest,
+  });
+
+  final Product product;
+  final AppState state;
+  final PriceEntry? legacyBest;
+
+  @override
+  Widget build(BuildContext context) {
+    final city = (state.cityName ?? '').trim();
+    final district = (state.districtName ?? '').trim();
+    final q = FirebaseService.instance.priceEntries
+        .where('productId', isEqualTo: product.id)
+        .where('status', whereIn: const ['pending', 'community_verified', 'disputed'])
+        .orderBy('createdAt', descending: true)
+        .limit(120);
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: q.snapshots(),
+      builder: (context, snap) {
+        final docs = (snap.data?.docs ?? const [])
+            .map(_RegionalPriceDoc.fromDoc)
+            .where((e) => e.status != 'rejected')
+            .toList();
+        final local = docs.where((e) => (e.scope == 'local' || e.scope == 'bazaar') && e.city == city && e.district == district).toList();
+        final online = docs.where((e) => e.scope == 'online').toList();
+        final other = docs.where((e) => (e.scope == 'local' || e.scope == 'bazaar') && !(e.city == city && e.district == district)).toList();
+
+        _RegionalPriceDoc? bestOf(List<_RegionalPriceDoc> list) {
+          if (list.isEmpty) return null;
+          list.sort((a, b) => a.price.compareTo(b.price));
+          return list.first;
+        }
+
+        final localBest = bestOf(local);
+        final onlineBest = bestOf(online);
+        final otherBest = bestOf(other);
+
+        Widget line(String label, _RegionalPriceDoc? entry, {String fallback = 'Henüz veri yok'}) {
+          if (entry == null) {
+            return Row(children: [
+              Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
+              Text(fallback, style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+            ]);
+          }
+          return Row(children: [
+            Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
+            Text('₺${entry.price.toStringAsFixed(2)} · ${entry.place}', style: frText(11.5, FontWeight.w700, color: FR.gold)),
+          ]);
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [FR.surfaceHi, FR.surface], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: FRRad.all(22),
+            border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+            boxShadow: [BoxShadow(color: FR.gold.withOpacity(.1), blurRadius: 28)],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('BÖLGESEL FİYAT ÖZETİ', style: frOverline()),
+            const SizedBox(height: 8),
+            line('Yakınımda / Bölgem', localBest, fallback: legacyBest == null ? 'Bölge seçili değil veya veri yok' : 'Legacy: ₺${legacyBest!.price.toStringAsFixed(2)}'),
+            const SizedBox(height: 8),
+            line('Online', onlineBest),
+            const SizedBox(height: 8),
+            line('Türkiye geneli / Diğer bölgeler', otherBest),
+          ]),
+        );
+      },
+    );
+  }
+}
+
 class _BestPriceCard extends StatelessWidget {
   const _BestPriceCard({required this.product, required this.best});
   final Product product;
@@ -317,7 +430,7 @@ class _BestPriceCard extends StatelessWidget {
     final pct = product.priceChangePct;
     final trustPct = product.aggregateTrustPercent;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surface],
@@ -351,7 +464,7 @@ class _BestPriceCard extends StatelessWidget {
               const SizedBox(width: 12),
               if (pct != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                   child: FRTrendPill(pct: pct),
                 ),
             ],
@@ -395,7 +508,7 @@ class _PriceHistoryCard extends StatelessWidget {
     final high = values.reduce((a, b) => a > b ? a : b);
     final low = values.reduce((a, b) => a < b ? a : b);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: frSurface(radius: FRRad.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,7 +540,7 @@ class _PriceHistoryCard extends StatelessWidget {
 
   Widget _hl(String l, String v, Color c) => Expanded(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
           decoration: BoxDecoration(
             color: FR.bgElev,
             borderRadius: FRRad.all(10),
@@ -465,7 +578,7 @@ class _StoreRow extends StatelessWidget {
     final pct = cheapestPrice <= 0 ? 0.0 : (delta / cheapestPrice) * 100.0;
     final isCheapest = delta.abs() < 0.005;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
@@ -553,7 +666,7 @@ class _DeltaPill extends StatelessWidget {
     if (isCheapest) {
       final c = FR.good;
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: c.withOpacity(.14),
           borderRadius: FRRad.all(999),
@@ -575,7 +688,7 @@ class _DeltaPill extends StatelessWidget {
         ? pct.abs().toStringAsFixed(1)
         : pct.abs().toStringAsFixed(pct.abs() < 10 ? 1 : 0);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: c.withOpacity(.12),
         borderRadius: FRRad.all(999),
@@ -713,7 +826,7 @@ class _ContributionRowState extends State<_ContributionRow> {
     final disabledReason = state.canVoteOn(widget.product, entry);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: frSurface(radius: FRRad.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -837,7 +950,7 @@ class _Actions extends StatelessWidget {
   Widget build(BuildContext context) {
     final safe = MediaQuery.of(context).viewPadding.bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + safe),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + safe), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.bgElev,
         border: Border(top: BorderSide(color: FR.hairline)),

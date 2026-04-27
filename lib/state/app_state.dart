@@ -204,6 +204,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _notificationsSub;
   StreamSubscription? _productAlertsSub;
   StreamSubscription? _productRequestsSub;
+  StreamSubscription? _regionalPriceEntriesSub;
   bool _initialized = false;
   int _productsSignature = 0;
   bool get initialized => _initialized;
@@ -581,8 +582,13 @@ class AppState extends ChangeNotifier {
           prevIsBanned != _isBanned ||
           prevBanReason != banReason ||
           prevCartSignature != nextCartSignature;
+      if (prevCity != cityName || prevDistrict != districtName) {
+        _bindRegionalPriceFeed();
+      }
       if (changed) notifyListeners();
     });
+
+    _bindRegionalPriceFeed();
 
     _notificationsSub = _svc
         .userNotifications(user!.uid)
@@ -657,6 +663,49 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+
+  void _bindRegionalPriceFeed() {
+    _regionalPriceEntriesSub?.cancel();
+    final city = (cityName ?? '').trim();
+    final district = (districtName ?? '').trim();
+    if (city.isEmpty || district.isEmpty) return;
+    _regionalPriceEntriesSub = _svc.priceEntries
+        .where('scope', whereIn: const ['local', 'bazaar'])
+        .where('city', isEqualTo: city)
+        .where('district', isEqualTo: district)
+        .where('status', whereIn: const ['pending', 'community_verified', 'disputed'])
+        .orderBy('createdAt', descending: true)
+        .limit(300)
+        .snapshots()
+        .listen((snap) {
+      final next = <String, PriceEntry?>{};
+      for (final d in snap.docs) {
+        final m = d.data();
+        final pid = (m['productId'] ?? '').toString();
+        if (pid.isEmpty || next.containsKey(pid)) continue;
+        final ts = m['createdAt'];
+        next[pid] = PriceEntry(
+          id: d.id,
+          store: (m['placeDisplayName'] ?? '').toString(),
+          price: (m['price'] as num?)?.toDouble() ?? 0,
+          date: ts is Timestamp ? ts.toDate() : DateTime.now(),
+          reportedBy: (m['reportedByName'] ?? 'Topluluk').toString(),
+          reportedByUid: (m['reportedByUid'] ?? '').toString(),
+          note: (m['note'] ?? '').toString(),
+          status: switch ((m['status'] ?? 'pending').toString()) {
+            'community_verified' => PriceStatus.communityVerified,
+            'disputed' => PriceStatus.disputed,
+            'rejected' => PriceStatus.rejected,
+            _ => PriceStatus.pending,
+          },
+        );
+      }
+      if (next.isEmpty) return;
+      _latestPriceEntryByProduct.addAll(next);
+      notifyListeners();
+    });
+  }
+
   @override
   void dispose() {
     _productsSub?.cancel();
@@ -668,6 +717,7 @@ class AppState extends ChangeNotifier {
     _notificationsSub?.cancel();
     _productAlertsSub?.cancel();
     _productRequestsSub?.cancel();
+    _regionalPriceEntriesSub?.cancel();
     super.dispose();
   }
 
@@ -692,6 +742,8 @@ class AppState extends ChangeNotifier {
     PriceSourceType sourceType = PriceSourceType.physical,
     String? chainId,
     String? chainName,
+    double? lat,
+    double? lng,
   }) async {
     final p = findById(productId);
     if (p == null) return;
@@ -735,8 +787,8 @@ class AppState extends ChangeNotifier {
       'placeDisplayName': store,
       'city': sourceType == PriceSourceType.online ? null : resolvedCity,
       'district': sourceType == PriceSourceType.online ? null : resolvedDistrict,
-      'lat': null,
-      'lng': null,
+      'lat': lat,
+      'lng': lng,
       'createdAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 14))),
       'reportedByUid': uid,
