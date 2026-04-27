@@ -166,6 +166,11 @@ class _HomeScopeStrip extends StatefulWidget {
 class _HomeScopeStripState extends State<_HomeScopeStrip> {
   bool _locating = false;
 
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   Future<void> _pickManual(AppState state) async {
     final cityCtrl = TextEditingController(text: state.cityName ?? '');
     final districtCtrl = TextEditingController(text: state.districtName ?? '');
@@ -187,7 +192,10 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
       ),
     );
     if (ok != true) return;
-    if (cityCtrl.text.trim().isEmpty || districtCtrl.text.trim().isEmpty) return;
+    if (cityCtrl.text.trim().isEmpty || districtCtrl.text.trim().isEmpty) {
+      _snack('İl ve ilçe zorunlu.');
+      return;
+    }
     await state.updateRegionSettings(
       cityName: cityCtrl.text.trim(),
       districtName: districtCtrl.text.trim(),
@@ -203,6 +211,7 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
       }
       if (permission == LocationPermission.deniedForever ||
           permission == LocationPermission.denied) {
+        _snack('Konum izni verilmedi. İl / ilçe seçebilirsin.');
         await _pickManual(state);
         return;
       }
@@ -212,10 +221,15 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
       final city = (mark?.administrativeArea ?? mark?.locality ?? '').trim();
       final district = (mark?.subAdministrativeArea ?? mark?.subLocality ?? '').trim();
       if (city.isEmpty || district.isEmpty) {
+        _snack('Konum bulundu ama il/ilçe çözülemedi. Elle seçebilirsin.');
         await _pickManual(state);
         return;
       }
       await state.updateRegionSettings(cityName: city, districtName: district);
+      _snack('Konum güncellendi: $city / $district');
+    } catch (_) {
+      _snack('Konum alınamadı. İl / ilçe seçebilirsin.');
+      await _pickManual(state);
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -227,56 +241,70 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
     final scope = state.activeHomeScope;
+    final hasRegion = city.isNotEmpty && district.isNotEmpty;
     return Container(
-      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: frSurface(radius: FRRad.m),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.location_on_outlined, size: 16, color: FR.gold),
+              Icon(Icons.location_on_outlined, size: 15, color: FR.gold),
               const SizedBox(width: 6),
               Text(
-                city.isNotEmpty && district.isNotEmpty ? '$city / $district' : 'Bölgeni seç',
+                hasRegion ? '$city / $district' : 'Bölgeni seç',
                 style: frText(12, FontWeight.w800),
               ),
-              const Spacer(),
-              if (city.isEmpty || district.isEmpty)
-                TextButton(onPressed: () => _pickManual(state), child: const Text('Bölgeni seç'))
-            ],
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FRFilterChip('Yakınımda / Bölgemde',
-                  active: scope == HomePriceScope.nearby,
-                  onTap: () => state.setHomePriceScope(HomePriceScope.nearby)),
-              FRFilterChip('Şehrimde',
-                  active: scope == HomePriceScope.city,
-                  onTap: () => state.setHomePriceScope(HomePriceScope.city)),
-              FRFilterChip('Online',
-                  active: scope == HomePriceScope.online,
-                  onTap: () => state.setHomePriceScope(HomePriceScope.online)),
-              FRFilterChip('Türkiye geneli',
-                  active: scope == HomePriceScope.turkeyWide,
-                  onTap: () => state.setHomePriceScope(HomePriceScope.turkeyWide)),
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
+          SizedBox(
+            height: 34,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                FRFilterChip('Yakınımda',
+                    active: scope == HomePriceScope.nearby,
+                    onTap: () => state.setHomePriceScope(HomePriceScope.nearby)),
+                FRFilterChip('Şehrimde',
+                    active: scope == HomePriceScope.city,
+                    onTap: () => state.setHomePriceScope(HomePriceScope.city)),
+                FRFilterChip('Online',
+                    active: scope == HomePriceScope.online,
+                    onTap: () => state.setHomePriceScope(HomePriceScope.online)),
+                FRFilterChip('Türkiye geneli',
+                    active: scope == HomePriceScope.turkeyWide,
+                    onTap: () => state.setHomePriceScope(HomePriceScope.turkeyWide)),
+              ],
+            ),
+          ),
+          Row(
             children: [
-              FRCta(
-                label: _locating ? 'Konum alınıyor…' : 'Konumumu kullan',
-                icon: Icons.my_location_rounded,
-                onTap: _locating ? null : () => _useLocation(state),
+              TextButton.icon(
+                onPressed: _locating ? null : () => _useLocation(state),
+                icon: Icon(Icons.my_location_rounded, size: 14, color: _locating ? FR.ink3 : FR.gold),
+                label: Text(_locating ? 'Konum alınıyor…' : 'Konumumu kullan',
+                    style: frText(11.5, FontWeight.w700, color: _locating ? FR.ink3 : FR.ink)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                  minimumSize: const Size(0, 28),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+                ),
               ),
-              FRCta(
-                label: 'İl / ilçe seç',
-                icon: Icons.map_outlined,
-                onTap: () => _pickManual(state),
+              const SizedBox(width: 6),
+              TextButton.icon(
+                onPressed: () => _pickManual(state),
+                icon: Icon(Icons.map_outlined, size: 14, color: FR.gold),
+                label: Text('İl / ilçe seç',
+                    style: frText(11.5, FontWeight.w700, color: FR.ink)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                  minimumSize: const Size(0, 28),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+                ),
               ),
             ],
           ),
