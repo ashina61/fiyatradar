@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../models/price_v1.dart';
 import '../../models/product.dart';
@@ -24,6 +26,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
   final _noteCtrl = TextEditingController();
   final _storeQueryCtrl = TextEditingController();
   bool _submitting = false;
+  bool _resolvingLocation = false;
+  double? _activeLat;
+  double? _activeLng;
 
   @override
   void dispose() {
@@ -43,13 +48,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
       );
       return;
     }
-    if (_sourceType != PriceSourceType.online &&
-        (place.city.trim().isEmpty || place.district.trim().isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fiziksel/Pazar fiyatı için şehir ve ilçe zorunlu.')),
-      );
-      return;
-    }
     setState(() => _submitting = true);
     try {
       await state.addPrice(
@@ -63,6 +61,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
         sourceType: _sourceType,
         chainId: place.chainId,
         chainName: place.chainName,
+        lat: place.lat ?? _activeLat,
+        lng: place.lng ?? _activeLng,
       );
       if (!mounted) return;
       _priceCtrl.clear();
@@ -70,6 +70,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Fiyatı paylaştın · +10 PT · Topluluk doğrulayacak')),
       );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -91,7 +94,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final query = _buildPlaceQuery(state);
+    final needsRegion = _sourceType != PriceSourceType.online;
+    final hasRegion = _hasActiveRegion(state);
+    final query = (needsRegion && !hasRegion) ? null : _buildPlaceQuery(state);
 
     return SafeArea(
       bottom: false,
@@ -111,7 +116,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 20,
                 18,
                 20,
-                frScrollPaddingWithFooter(context),
+                frScrollPaddingWithFooter(context, footerHeight: 104),
               ),
               children: [
                 _IntroBanner(),
@@ -195,64 +200,54 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     ),
                   ),
                 ),
-                _TopStoresStrip(
-                  topStores: state.topStoresByFrequency(limit: 10),
-                  selected: _store,
-                  onPick: (s) => setState(() => _store = s),
-                ),
                 const SizedBox(height: 10),
-                StreamBuilder(
-                  stream: query.snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Text('Marketler yükleniyor…',
-                          style: frText(12, FontWeight.w600, color: FR.ink3));
-                    }
-                    final docs = snapshot.data?.docs ?? const [];
-                    final places = docs.map(StorePlace.fromDoc).toList();
-                    if (places.isEmpty) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Bu filtrede market kaydı yok.',
-                              style: frText(12, FontWeight.w600, color: FR.ink3)),
-                          const SizedBox(height: 10),
-                          FRCta(
-                            label: 'Bu marketi öner (pending)',
-                            icon: Icons.add_business_rounded,
-                            onTap: _submitting
-                                ? null
-                                : () => _submitPendingPlaceRequest(state),
-                          ),
-                        ],
+                if (needsRegion && !hasRegion)
+                  _buildRegionRequiredState(state)
+                else if (query != null)
+                  StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: query.snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Text('Marketler yükleniyor…',
+                            style: frText(12, FontWeight.w600, color: FR.ink3));
+                      }
+                      final docs = snapshot.data?.docs ?? const [];
+                      final places = docs
+                          .map(StorePlace.fromDoc)
+                          .where((place) => _allowPlaceForCurrentUser(state, place, docs))
+                          .toList();
+                      final search = _storeQueryCtrl.text.trim();
+                      if (places.isEmpty) {
+                        return _buildEmptyStateForPlaces(state, search: search);
+                      }
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: places.map((place) {
+                          final selected = _selectedPlace?.id == place.id;
+                          return InkWell(
+                            onTap: () => setState(() => _selectedPlace = place),
+                            borderRadius: FRRad.all(999),
+                            child: Container(
+                              padding:
+                                  const EdgeInsetsDirectional.fromSTEB(14, 10, 14, 10),
+                              decoration: BoxDecoration(
+                                color: selected ? FR.gold : FR.surface,
+                                borderRadius: FRRad.all(999),
+                                border:
+                                    Border.all(color: selected ? FR.gold : FR.hairline),
+                              ),
+                              child: Text(
+                                place.displayName,
+                                style: frText(12, FontWeight.w800,
+                                    color: selected ? FR.onGold : FR.ink),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       );
-                    }
-                    return Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: places.map((place) {
-                        final selected = _selectedPlace?.id == place.id;
-                        return InkWell(
-                          onTap: () => setState(() => _selectedPlace = place),
-                          borderRadius: FRRad.all(999),
-                          child: Container(
-                            padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 14, 10),
-                            decoration: BoxDecoration(
-                              color: selected ? FR.gold : FR.surface,
-                              borderRadius: FRRad.all(999),
-                              border: Border.all(color: selected ? FR.gold : FR.hairline),
-                            ),
-                            child: Text(
-                              place.displayName,
-                              style: frText(12, FontWeight.w800,
-                                  color: selected ? FR.onGold : FR.ink),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
+                    },
+                  ),
                 const SizedBox(height: 18),
                 _label('Fiyat'),
                 Container(
@@ -348,30 +343,22 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final coll = FirebaseService.instance.storePlaces;
     var q = coll
         .where('isActive', isEqualTo: true)
-        .where('status', whereIn: ['pending', 'verified']);
+        .where('status', whereIn: ['verified', 'trusted', 'pending']);
     switch (_sourceType) {
       case PriceSourceType.physical:
         q = q.where('type', whereIn: ['chain_market', 'local_market']);
-        final city = (state.cityName ?? '').trim();
-        final district = (state.districtName ?? '').trim();
-        if (city.isEmpty || district.isEmpty) {
-          q = q.where('city', isEqualTo: '__missing_region__');
-          break;
-        }
-        q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
+        q = q
+            .where('city', isEqualTo: (state.cityName ?? '').trim())
+            .where('district', isEqualTo: (state.districtName ?? '').trim());
         break;
       case PriceSourceType.online:
         q = q.where('type', isEqualTo: 'online_market');
         break;
       case PriceSourceType.bazaar:
         q = q.where('type', isEqualTo: 'bazaar');
-        final city = (state.cityName ?? '').trim();
-        final district = (state.districtName ?? '').trim();
-        if (city.isEmpty || district.isEmpty) {
-          q = q.where('city', isEqualTo: '__missing_region__');
-          break;
-        }
-        q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
+        q = q
+            .where('city', isEqualTo: (state.cityName ?? '').trim())
+            .where('district', isEqualTo: (state.districtName ?? '').trim());
         break;
     }
     final search = _storeQueryCtrl.text.trim().toLowerCase();
@@ -408,19 +395,49 @@ class _AddPriceTabState extends State<AddPriceTab> {
   }
 
   Future<void> _submitPendingPlaceRequest(AppState state) async {
-    final raw = _storeQueryCtrl.text.trim();
-    if (raw.isEmpty) return;
-    final normalized = raw.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
-    await FirebaseService.instance.storePlaces.add({
+    final suggestion = await showModalBottomSheet<_PendingPlaceSuggestion>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: FR.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _PendingPlaceSheet(
+        initialName: _storeQueryCtrl.text.trim(),
+        sourceType: _sourceType,
+        city: (state.cityName ?? '').trim(),
+        district: (state.districtName ?? '').trim(),
+      ),
+    );
+    if (suggestion == null) return;
+    final exists = await FirebaseService.instance.storePlaces
+        .where('normalizedName', isEqualTo: suggestion.normalizedName)
+        .where('city', isEqualTo: suggestion.city)
+        .where('district', isEqualTo: suggestion.district)
+        .where('type', isEqualTo: suggestion.type)
+        .limit(1)
+        .get();
+    if (exists.docs.isNotEmpty) {
+      final place = StorePlace.fromDoc(exists.docs.first);
+      if (mounted) {
+        setState(() => _selectedPlace = place);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu bölgede aynı kayıt zaten mevcut.')),
+      );
+      return;
+    }
+    final created = await FirebaseService.instance.storePlaces.add({
       'chainId': null,
       'chainName': null,
-      'type': _sourceType == PriceSourceType.online
-          ? 'online_market'
-          : (_sourceType == PriceSourceType.bazaar ? 'bazaar' : 'local_market'),
-      'displayName': raw,
-      'normalizedName': normalized,
-      'city': (state.cityName ?? '').trim(),
-      'district': (state.districtName ?? '').trim(),
+      'type': suggestion.type,
+      'displayName': suggestion.name,
+      'normalizedName': suggestion.normalizedName,
+      'city': suggestion.city,
+      'district': suggestion.district,
+      'neighborhood': suggestion.neighborhood,
+      'lat': suggestion.lat,
+      'lng': suggestion.lng,
       'status': 'pending',
       'isActive': true,
       'usageCount': 0,
@@ -428,9 +445,379 @@ class _AddPriceTabState extends State<AddPriceTab> {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    setState(() {
+      _selectedPlace = StorePlace(
+        id: created.id,
+        type: storePlaceTypeFromString(suggestion.type),
+        displayName: suggestion.name,
+        normalizedName: suggestion.normalizedName,
+        city: suggestion.city,
+        district: suggestion.district,
+        neighborhood: suggestion.neighborhood,
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        status: 'pending',
+        isActive: true,
+      );
+      _activeLat = suggestion.lat ?? _activeLat;
+      _activeLng = suggestion.lng ?? _activeLng;
+    });
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Market önerisi pending olarak gönderildi.')),
+      const SnackBar(content: Text('Market/pazar önerisi eklendi ve seçildi.')),
+    );
+  }
+
+  bool _hasActiveRegion(AppState state) =>
+      (state.cityName ?? '').trim().isNotEmpty &&
+      (state.districtName ?? '').trim().isNotEmpty;
+
+  bool _allowPlaceForCurrentUser(
+    AppState state,
+    StorePlace place,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    if (place.status != 'pending') return true;
+    final raw = docs.firstWhere((d) => d.id == place.id).data();
+    final createdByUid = (raw['createdByUid'] as String?) ?? '';
+    final currentUid = state.user?.uid ?? '';
+    return currentUid.isNotEmpty && createdByUid == currentUid;
+  }
+
+  Widget _buildRegionRequiredState(AppState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Fiziksel/pazar fiyatı eklemek için bölge seçmelisin.',
+            style: frText(12, FontWeight.w700, color: FR.ink3)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FRCta(
+              label: _resolvingLocation ? 'Konum alınıyor…' : 'Konumumu kullan',
+              icon: Icons.my_location_rounded,
+              onTap: _resolvingLocation ? null : () => _resolveLocationAndRegion(state),
+            ),
+            FRCta(
+              label: 'İl / ilçe seç',
+              icon: Icons.map_outlined,
+              onTap: () => _showManualRegionPicker(state),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyStateForPlaces(AppState state, {required String search}) {
+    final hasSearch = search.isNotEmpty;
+    final text = hasSearch
+        ? 'Arama ile eşleşen kayıt yok.'
+        : 'Bu bölgede kayıtlı market/pazar yok.';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(text, style: frText(12, FontWeight.w600, color: FR.ink3)),
+        const SizedBox(height: 10),
+        FRCta(
+          label: 'Bu marketi/pazarı öner',
+          icon: Icons.add_business_rounded,
+          onTap: _submitting ? null : () => _submitPendingPlaceRequest(state),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _resolveLocationAndRegion(AppState state) async {
+    setState(() => _resolvingLocation = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Konum izni verilmedi. İl/ilçe alanını manuel doldur.')),
+        );
+        await _showManualRegionPicker(state);
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition();
+      _activeLat = pos.latitude;
+      _activeLng = pos.longitude;
+      String? city;
+      String? district;
+      try {
+        final placemarks =
+            await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          city = (p.administrativeArea ?? p.locality ?? '').trim();
+          district = (p.subAdministrativeArea ?? p.subLocality ?? '').trim();
+        }
+      } catch (_) {
+        // Falls back to manual region picker below.
+      }
+      if ((city ?? '').isEmpty || (district ?? '').isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bölge otomatik çözülemedi. İl/ilçe seçmelisin.')),
+        );
+        await _showManualRegionPicker(state);
+        return;
+      }
+      await state.updateRegionSettings(cityName: city!, districtName: district);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bölge güncellendi: $city / $district')),
+      );
+    } finally {
+      if (mounted) setState(() => _resolvingLocation = false);
+    }
+  }
+
+  Future<void> _showManualRegionPicker(AppState state) async {
+    final picked = await showModalBottomSheet<({String city, String district})>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: FR.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _ManualRegionSheet(
+        city: (state.cityName ?? '').trim(),
+        district: (state.districtName ?? '').trim(),
+      ),
+    );
+    if (picked == null) return;
+    await state.updateRegionSettings(cityName: picked.city, districtName: picked.district);
+  }
+}
+
+class _PendingPlaceSuggestion {
+  final String name;
+  final String normalizedName;
+  final String type;
+  final String city;
+  final String district;
+  final String? neighborhood;
+  final double? lat;
+  final double? lng;
+
+  const _PendingPlaceSuggestion({
+    required this.name,
+    required this.normalizedName,
+    required this.type,
+    required this.city,
+    required this.district,
+    this.neighborhood,
+    this.lat,
+    this.lng,
+  });
+}
+
+class _ManualRegionSheet extends StatefulWidget {
+  const _ManualRegionSheet({required this.city, required this.district});
+  final String city;
+  final String district;
+
+  @override
+  State<_ManualRegionSheet> createState() => _ManualRegionSheetState();
+}
+
+class _ManualRegionSheetState extends State<_ManualRegionSheet> {
+  late final TextEditingController _cityCtrl;
+  late final TextEditingController _districtCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _cityCtrl = TextEditingController(text: widget.city);
+    _districtCtrl = TextEditingController(text: widget.district);
+  }
+
+  @override
+  void dispose() {
+    _cityCtrl.dispose();
+    _districtCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsetsDirectional.fromSTEB(
+        FRSpace.xl,
+        18,
+        FRSpace.xl,
+        bottom + FRSpace.xl,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _cityCtrl,
+            decoration: const InputDecoration(labelText: 'İl'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _districtCtrl,
+            decoration: const InputDecoration(labelText: 'İlçe'),
+          ),
+          const SizedBox(height: 12),
+          FRCta(
+            label: 'Bölgeyi kaydet',
+            icon: Icons.check_rounded,
+            onTap: () {
+              final city = _cityCtrl.text.trim();
+              final district = _districtCtrl.text.trim();
+              if (city.isEmpty || district.isEmpty) return;
+              Navigator.pop(context, (city: city, district: district));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingPlaceSheet extends StatefulWidget {
+  const _PendingPlaceSheet({
+    required this.initialName,
+    required this.sourceType,
+    required this.city,
+    required this.district,
+  });
+  final String initialName;
+  final PriceSourceType sourceType;
+  final String city;
+  final String district;
+
+  @override
+  State<_PendingPlaceSheet> createState() => _PendingPlaceSheetState();
+}
+
+class _PendingPlaceSheetState extends State<_PendingPlaceSheet> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _cityCtrl;
+  late final TextEditingController _districtCtrl;
+  final TextEditingController _neighborhoodCtrl = TextEditingController();
+  double? _lat;
+  double? _lng;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.initialName);
+    _cityCtrl = TextEditingController(text: widget.city);
+    _districtCtrl = TextEditingController(text: widget.district);
+    _hydrateLocation();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _cityCtrl.dispose();
+    _districtCtrl.dispose();
+    _neighborhoodCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _hydrateLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      final p = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _lat = p.latitude;
+        _lng = p.longitude;
+      });
+    } catch (_) {
+      // Keep lat/lng optional.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final type = widget.sourceType == PriceSourceType.online
+        ? 'online_market'
+        : (widget.sourceType == PriceSourceType.bazaar ? 'bazaar' : 'local_market');
+    return Padding(
+      padding: EdgeInsetsDirectional.fromSTEB(
+        FRSpace.xl,
+        18,
+        FRSpace.xl,
+        bottom + FRSpace.xl,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(labelText: 'Ad'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              readOnly: true,
+              enabled: false,
+              decoration: InputDecoration(labelText: 'Kaynak türü', hintText: type),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _cityCtrl,
+              decoration: const InputDecoration(labelText: 'İl'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _districtCtrl,
+              decoration: const InputDecoration(labelText: 'İlçe'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _neighborhoodCtrl,
+              decoration: const InputDecoration(labelText: 'Mahalle (opsiyonel)'),
+            ),
+            const SizedBox(height: 12),
+            FRCta(
+              label: 'Öneriyi gönder',
+              icon: Icons.add_rounded,
+              onTap: () {
+                final name = _nameCtrl.text.trim();
+                final city = _cityCtrl.text.trim();
+                final district = _districtCtrl.text.trim();
+                if (name.isEmpty || city.isEmpty || district.isEmpty) return;
+                final normalized = name.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+                Navigator.pop(
+                  context,
+                  _PendingPlaceSuggestion(
+                    name: name,
+                    normalizedName: normalized,
+                    type: type,
+                    city: city,
+                    district: district,
+                    neighborhood: _neighborhoodCtrl.text.trim().isEmpty
+                        ? null
+                        : _neighborhoodCtrl.text.trim(),
+                    lat: _lat,
+                    lng: _lng,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

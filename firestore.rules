@@ -264,6 +264,9 @@ service cloud.firestore {
           'normalizedName',
           'city',
           'district',
+          'neighborhood',
+          'lat',
+          'lng',
           'status',
           'isActive',
           'usageCount',
@@ -276,6 +279,9 @@ service cloud.firestore {
         request.resource.data.normalizedName is string &&
         request.resource.data.city is string &&
         request.resource.data.district is string &&
+        (!('neighborhood' in request.resource.data) || request.resource.data.neighborhood is string) &&
+        (!('lat' in request.resource.data) || request.resource.data.lat is number) &&
+        (!('lng' in request.resource.data) || request.resource.data.lng is number) &&
         request.resource.data.usageCount == 0;
       }
 

@@ -692,6 +692,8 @@ class AppState extends ChangeNotifier {
     PriceSourceType sourceType = PriceSourceType.physical,
     String? chainId,
     String? chainName,
+    double? lat,
+    double? lng,
   }) async {
     final p = findById(productId);
     if (p == null) return;
@@ -700,12 +702,19 @@ class AppState extends ChangeNotifier {
     final entryId = '${productId}_${now.millisecondsSinceEpoch}_${_rand4()}';
     final resolvedCity = (city ?? cityName ?? '').trim();
     final resolvedDistrict = (district ?? districtName ?? '').trim();
-    if (sourceType != PriceSourceType.online &&
-        (resolvedCity.isEmpty || resolvedDistrict.isEmpty)) {
-      throw StateError('Physical/Bazaar prices require city and district.');
-    }
     if ((placeId ?? '').trim().isEmpty) {
-      throw StateError('A valid place must be selected before submit.');
+      throw StateError('Market/pazar seçmeden fiyat gönderemezsin.');
+    }
+    if (sourceType == PriceSourceType.physical) {
+      if (resolvedCity.isEmpty || resolvedDistrict.isEmpty) {
+        throw StateError('Fiziksel market fiyatı için il ve ilçe zorunlu.');
+      }
+    } else if (sourceType == PriceSourceType.bazaar) {
+      if (resolvedCity.isEmpty || resolvedDistrict.isEmpty) {
+        throw StateError('Pazar fiyatı için il ve ilçe zorunlu.');
+      }
+    } else if (sourceType == PriceSourceType.online) {
+      // Online prices do not require region.
     }
     final resolvedReporterName = user?.displayName?.trim().isNotEmpty == true
         ? user!.displayName!
@@ -735,8 +744,8 @@ class AppState extends ChangeNotifier {
       'placeDisplayName': store,
       'city': sourceType == PriceSourceType.online ? null : resolvedCity,
       'district': sourceType == PriceSourceType.online ? null : resolvedDistrict,
-      'lat': null,
-      'lng': null,
+      'lat': lat,
+      'lng': lng,
       'createdAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 14))),
       'reportedByUid': uid,
