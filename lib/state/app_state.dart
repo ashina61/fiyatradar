@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 
+import '../models/price_v1.dart';
 import '../models/product.dart';
 import '../services/firebase_service.dart';
 
@@ -685,30 +686,87 @@ class AppState extends ChangeNotifier {
     required double price,
     String note = '',
     String? proofImageUrl,
+    String? placeId,
+    String? city,
+    String? district,
+    PriceSourceType sourceType = PriceSourceType.physical,
+    String? chainId,
+    String? chainName,
   }) async {
     final p = findById(productId);
     if (p == null) return;
     final uid = user?.uid ?? '';
-    final entryId = '${productId}_${DateTime.now().millisecondsSinceEpoch}_${_rand4()}';
+    final now = DateTime.now();
+    final entryId = '${productId}_${now.millisecondsSinceEpoch}_${_rand4()}';
+    final resolvedCity = (city ?? cityName ?? '').trim();
+    final resolvedDistrict = (district ?? districtName ?? '').trim();
+    if (sourceType != PriceSourceType.online &&
+        (resolvedCity.isEmpty || resolvedDistrict.isEmpty)) {
+      throw StateError('Physical/Bazaar prices require city and district.');
+    }
+    if ((placeId ?? '').trim().isEmpty) {
+      throw StateError('A valid place must be selected before submit.');
+    }
+    final resolvedReporterName = user?.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!
+        : displayName;
     final entry = PriceEntry(
       id: entryId,
       store: store,
       price: price,
-      date: DateTime.now(),
-      reportedBy: user?.displayName?.trim().isNotEmpty == true
-          ? user!.displayName!
-          : displayName,
+      date: now,
+      reportedBy: resolvedReporterName,
       reportedByUid: uid,
       note: note,
       proofImageUrl: proofImageUrl,
       status: PriceStatus.pending,
-      statusUpdatedAt: DateTime.now(),
+      statusUpdatedAt: now,
     );
-    final newHist = [
-      ...p.priceHistory.map((e) => e.toMap()),
-      entry.toMap(),
-    ];
-    await _svc.products.doc(productId).update({'priceHistory': newHist});
+    final priceEntryPayload = {
+      'productId': productId,
+      'productNameSnapshot': p.name,
+      'productBrandSnapshot': p.brand,
+      'price': price,
+      'scope': scopeForSourceType(sourceType),
+      'sourceType': priceSourceTypeToString(sourceType),
+      'chainId': (chainId ?? '').trim().isEmpty ? null : chainId!.trim(),
+      'chainName': (chainName ?? '').trim().isEmpty ? null : chainName!.trim(),
+      'placeId': placeId!.trim(),
+      'placeDisplayName': store,
+      'city': sourceType == PriceSourceType.online ? null : resolvedCity,
+      'district': sourceType == PriceSourceType.online ? null : resolvedDistrict,
+      'lat': null,
+      'lng': null,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 14))),
+      'reportedByUid': uid,
+      'reportedByName': resolvedReporterName,
+      'status': 'pending',
+      'upvotes': 0,
+      'downvotes': 0,
+      'voters': <String, String>{},
+      'trustWeightedScore': 0.0,
+      'note': note,
+      'proofImageUrl': proofImageUrl,
+      'legacy': {
+        'compatProductPriceHistory': true,
+      }
+    };
+    final productRef = _svc.products.doc(productId);
+    final priceRef = _svc.priceEntries.doc(entryId);
+    await _svc.db.runTransaction((tx) async {
+      final productSnap = await tx.get(productRef);
+      if (!productSnap.exists) {
+        throw StateError('Product not found during addPrice transaction.');
+      }
+      final rawHistory = (productSnap.data()?['priceHistory'] as List?) ?? const [];
+      final newHist = [
+        ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
+        entry.toMap(),
+      ];
+      tx.set(priceRef, priceEntryPayload);
+      tx.update(productRef, {'priceHistory': newHist});
+    });
     await _addPoints(PointsRules.addPrice);
     if (uid.isNotEmpty) {
       await _svc.userDoc(uid).set({

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../models/price_v1.dart';
 import '../../models/product.dart';
+import '../../services/firebase_service.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
@@ -13,8 +16,10 @@ class AddPriceTab extends StatefulWidget {
 }
 
 class _AddPriceTabState extends State<AddPriceTab> {
+  static const _kStoreResultLimit = 30;
   Product? _selectedProduct;
-  String? _store;
+  StorePlace? _selectedPlace;
+  PriceSourceType _sourceType = PriceSourceType.physical;
   final _priceCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   final _storeQueryCtrl = TextEditingController();
@@ -30,11 +35,18 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
   Future<void> _submit(AppState state) async {
     final pid = _selectedProduct?.id;
-    final store = _store;
+    final place = _selectedPlace;
     final price = double.tryParse(_priceCtrl.text.replaceAll(',', '.'));
-    if (pid == null || store == null || price == null || price <= 0) {
+    if (pid == null || place == null || price == null || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ürün, mağaza ve geçerli bir fiyat gir.')),
+        const SnackBar(content: Text('Ürün, kaynak ve geçerli bir fiyat gir.')),
+      );
+      return;
+    }
+    if (_sourceType != PriceSourceType.online &&
+        (place.city.trim().isEmpty || place.district.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fiziksel/Pazar fiyatı için şehir ve ilçe zorunlu.')),
       );
       return;
     }
@@ -42,9 +54,15 @@ class _AddPriceTabState extends State<AddPriceTab> {
     try {
       await state.addPrice(
         productId: pid,
-        store: store,
+        store: place.displayName,
         price: price,
         note: _noteCtrl.text.trim(),
+        placeId: place.id,
+        city: place.city,
+        district: place.district,
+        sourceType: _sourceType,
+        chainId: place.chainId,
+        chainName: place.chainName,
       );
       if (!mounted) return;
       _priceCtrl.clear();
@@ -73,11 +91,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final storeQuery = _storeQueryCtrl.text.trim().toLowerCase();
-    final stores = state.stores;
-    final filteredStores = storeQuery.isEmpty
-        ? stores
-        : stores.where((s) => s.toLowerCase().contains(storeQuery)).toList();
+    final query = _buildPlaceQuery(state);
 
     return SafeArea(
       bottom: false,
@@ -153,6 +167,17 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   ),
                 ),
                 const SizedBox(height: 18),
+                _label('Kaynak türü'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _sourceChip('Fiziksel Market', PriceSourceType.physical),
+                    _sourceChip('Online Market', PriceSourceType.online),
+                    _sourceChip('Pazar', PriceSourceType.bazaar),
+                  ],
+                ),
+                const SizedBox(height: 18),
                 _label('Mağaza / Market'),
                 Container(
                   padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 2),
@@ -176,46 +201,58 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   onPick: (s) => setState(() => _store = s),
                 ),
                 const SizedBox(height: 10),
-                if (stores.isEmpty)
-                  Text(
-                    'Aktif market bulunamadı. Admin panelden market ekleyin.',
-                    style: frText(12, FontWeight.w600, color: FR.ink3),
-                  )
-                else if (filteredStores.isEmpty)
-                  Text(
-                    'Arama ile eşleşen market yok.',
-                    style: frText(12, FontWeight.w600, color: FR.ink3),
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: filteredStores
-                        .take(24)
-                        .map(
-                          (s) => InkWell(
-                            onTap: () => setState(() => _store = s),
-                            borderRadius: FRRad.all(999),
-                            child: Container(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  14, 10, 14, 10),
-                              decoration: BoxDecoration(
-                                color: _store == s ? FR.gold : FR.surface,
-                                borderRadius: FRRad.all(999),
-                                border: Border.all(
-                                  color: _store == s ? FR.gold : FR.hairline,
-                                ),
-                              ),
-                              child: Text(
-                                s,
-                                style: frText(12, FontWeight.w800,
-                                    color: _store == s ? FR.onGold : FR.ink),
-                              ),
+                StreamBuilder(
+                  stream: query.snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Text('Marketler yükleniyor…',
+                          style: frText(12, FontWeight.w600, color: FR.ink3));
+                    }
+                    final docs = snapshot.data?.docs ?? const [];
+                    final places = docs.map(StorePlace.fromDoc).toList();
+                    if (places.isEmpty) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Bu filtrede market kaydı yok.',
+                              style: frText(12, FontWeight.w600, color: FR.ink3)),
+                          const SizedBox(height: 10),
+                          FRCta(
+                            label: 'Bu marketi öner (pending)',
+                            icon: Icons.add_business_rounded,
+                            onTap: _submitting
+                                ? null
+                                : () => _submitPendingPlaceRequest(state),
+                          ),
+                        ],
+                      );
+                    }
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: places.map((place) {
+                        final selected = _selectedPlace?.id == place.id;
+                        return InkWell(
+                          onTap: () => setState(() => _selectedPlace = place),
+                          borderRadius: FRRad.all(999),
+                          child: Container(
+                            padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 14, 10),
+                            decoration: BoxDecoration(
+                              color: selected ? FR.gold : FR.surface,
+                              borderRadius: FRRad.all(999),
+                              border: Border.all(color: selected ? FR.gold : FR.hairline),
+                            ),
+                            child: Text(
+                              place.displayName,
+                              style: frText(12, FontWeight.w800,
+                                  color: selected ? FR.onGold : FR.ink),
                             ),
                           ),
-                        )
-                        .toList(),
-                  ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
                 const SizedBox(height: 18),
                 _label('Fiyat'),
                 Container(
@@ -306,80 +343,94 @@ class _AddPriceTabState extends State<AddPriceTab> {
           ],
         ),
       );
-}
 
-class _TopStoresStrip extends StatelessWidget {
-  const _TopStoresStrip({
-    required this.topStores,
-    required this.selected,
-    required this.onPick,
-  });
-  final List<String> topStores;
-  final String? selected;
-  final ValueChanged<String> onPick;
+  Query<Map<String, dynamic>> _buildPlaceQuery(AppState state) {
+    final coll = FirebaseService.instance.storePlaces;
+    var q = coll
+        .where('isActive', isEqualTo: true)
+        .where('status', whereIn: ['pending', 'verified']);
+    switch (_sourceType) {
+      case PriceSourceType.physical:
+        q = q.where('type', whereIn: ['chain_market', 'local_market']);
+        final city = (state.cityName ?? '').trim();
+        final district = (state.districtName ?? '').trim();
+        if (city.isEmpty || district.isEmpty) {
+          q = q.where('city', isEqualTo: '__missing_region__');
+          break;
+        }
+        q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
+        break;
+      case PriceSourceType.online:
+        q = q.where('type', isEqualTo: 'online_market');
+        break;
+      case PriceSourceType.bazaar:
+        q = q.where('type', isEqualTo: 'bazaar');
+        final city = (state.cityName ?? '').trim();
+        final district = (state.districtName ?? '').trim();
+        if (city.isEmpty || district.isEmpty) {
+          q = q.where('city', isEqualTo: '__missing_region__');
+          break;
+        }
+        q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
+        break;
+    }
+    final search = _storeQueryCtrl.text.trim().toLowerCase();
+    if (search.isNotEmpty) {
+      q = q
+          .orderBy('normalizedName')
+          .startAt([search]).endAt(['$search\uf8ff']).limit(_kStoreResultLimit);
+      return q;
+    }
+    return q.orderBy('usageCount', descending: true).limit(_kStoreResultLimit);
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    if (topStores.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.local_fire_department_rounded,
-                  size: 14, color: FR.goldDeep),
-              const SizedBox(width: 6),
-              Text(
-                'EN ÇOK PAYLAŞILAN',
-                style: frText(10.5, FontWeight.w800,
-                    color: FR.ink3, letter: 1.2),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: topStores
-                .map(
-                  (s) => InkWell(
-                    onTap: () => onPick(s),
-                    borderRadius: FRRad.all(999),
-                    child: Container(
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                          12, 8, 12, 8),
-                      decoration: BoxDecoration(
-                        color: selected == s ? FR.gold : FR.bgElev,
-                        borderRadius: FRRad.all(999),
-                        border: Border.all(
-                          color: selected == s ? FR.gold : FR.hairline,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.storefront_rounded,
-                            size: 13,
-                            color: selected == s ? FR.onGold : FR.ink2,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            s,
-                            style: frText(12, FontWeight.w800,
-                                color: selected == s ? FR.onGold : FR.ink),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
+  Widget _sourceChip(String label, PriceSourceType type) {
+    final selected = _sourceType == type;
+    return InkWell(
+      onTap: () => setState(() {
+        _sourceType = type;
+        _selectedPlace = null;
+      }),
+      borderRadius: FRRad.all(999),
+      child: Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 14, 10),
+        decoration: BoxDecoration(
+          color: selected ? FR.gold : FR.surface,
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: selected ? FR.gold : FR.hairline),
+        ),
+        child: Text(
+          label,
+          style: frText(12, FontWeight.w800, color: selected ? FR.onGold : FR.ink),
+        ),
       ),
+    );
+  }
+
+  Future<void> _submitPendingPlaceRequest(AppState state) async {
+    final raw = _storeQueryCtrl.text.trim();
+    if (raw.isEmpty) return;
+    final normalized = raw.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+    await FirebaseService.instance.storePlaces.add({
+      'chainId': null,
+      'chainName': null,
+      'type': _sourceType == PriceSourceType.online
+          ? 'online_market'
+          : (_sourceType == PriceSourceType.bazaar ? 'bazaar' : 'local_market'),
+      'displayName': raw,
+      'normalizedName': normalized,
+      'city': (state.cityName ?? '').trim(),
+      'district': (state.districtName ?? '').trim(),
+      'status': 'pending',
+      'isActive': true,
+      'usageCount': 0,
+      'createdByUid': state.user?.uid,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Market önerisi pending olarak gönderildi.')),
     );
   }
 }
