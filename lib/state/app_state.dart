@@ -93,6 +93,7 @@ class AppState extends ChangeNotifier {
   List<Product> _homeTopDrops = const [];
   List<Product> _homeFeed = const [];
   final Map<String, PriceEntry?> _latestPriceEntryByProduct = {};
+  final Map<String, PriceEntry?> _homeScopedEntryByProduct = {};
   List<(Product, PriceEntry)> _adminRecentEntries = const [];
   List<(Product, PriceEntry)> _adminPendingEntries = const [];
   List<(Product, PriceEntry)> _adminDisputedEntries = const [];
@@ -103,6 +104,12 @@ class AppState extends ChangeNotifier {
   List<Product> get homeFeed => _homeFeed;
   PriceEntry? latestEntryForProduct(String productId) =>
       _latestPriceEntryByProduct[productId];
+  PriceEntry? homeScopedEntryForProduct(String productId) =>
+      _homeScopedEntryByProduct[productId];
+  bool get homeUsesScopedEntries => _homeScopedEntryByProduct.isNotEmpty;
+  Set<String> get homeScopedProductIds => _homeScopedEntryByProduct.keys.toSet();
+  List<PriceEntry> get homeScopedEntries =>
+      _homeScopedEntryByProduct.values.whereType<PriceEntry>().toList();
   List<(Product, PriceEntry)> get adminRecentEntries => _adminRecentEntries;
   List<(Product, PriceEntry)> get adminPendingEntries => _adminPendingEntries;
   List<(Product, PriceEntry)> get adminDisputedEntries => _adminDisputedEntries;
@@ -676,25 +683,181 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  static const List<String> _visiblePriceStatuses = <String>[
+    'pending',
+    'community_verified',
+    'disputed',
+  ];
+
+  String get homeScopeLabel {
+    return switch (activeHomeScope) {
+      HomePriceScope.nearby => 'Yakınımda',
+      HomePriceScope.city => 'Şehrimde',
+      HomePriceScope.online => 'Online',
+      HomePriceScope.turkeyWide => 'Türkiye geneli',
+    };
+  }
+
+  String get homeScopeTitle {
+    switch (activeHomeScope) {
+      case HomePriceScope.nearby:
+        final city = (cityName ?? '').trim();
+        final district = (districtName ?? '').trim();
+        if (city.isEmpty || district.isEmpty) return 'Bölgesel akış';
+        return 'Bölgesel akış · $city / $district';
+      case HomePriceScope.city:
+        final city = (cityName ?? '').trim();
+        return city.isEmpty ? 'Şehir akışı' : 'Şehir akışı · $city';
+      case HomePriceScope.online:
+        return 'Online fiyatlar';
+      case HomePriceScope.turkeyWide:
+        return 'Türkiye geneli fiyatlar';
+    }
+  }
+
+  String get homeScopeSubtitle {
+    return switch (activeHomeScope) {
+      HomePriceScope.nearby => 'Yakınındaki market ve pazar katkıları',
+      HomePriceScope.city => 'Şehrinden gelen market ve pazar katkıları',
+      HomePriceScope.online => 'Online marketlerden son fiyat paylaşımları',
+      HomePriceScope.turkeyWide => 'Diğer bölgelerden topluluk fiyatları',
+    };
+  }
+
+  String get homeScopeEmptyMessage {
+    switch (activeHomeScope) {
+      case HomePriceScope.nearby:
+        if ((cityName ?? '').trim().isEmpty || (districtName ?? '').trim().isEmpty) {
+          return 'Bölgeni seç, yakın fiyatları gösterelim.';
+        }
+        return 'Bu bölgede henüz fiyat paylaşımı yok.';
+      case HomePriceScope.city:
+        if ((cityName ?? '').trim().isEmpty) {
+          return 'Şehir akışı için önce bölgeni seç.';
+        }
+        return 'Bu şehirde henüz fiyat paylaşımı yok.';
+      case HomePriceScope.online:
+        return 'Henüz online fiyat paylaşımı yok.';
+      case HomePriceScope.turkeyWide:
+        return 'Türkiye geneli için henüz paylaşım yok.';
+    }
+  }
+
+  Query<Map<String, dynamic>> _baseScopedPriceQuery({required int limit}) {
+    return _svc.priceEntries
+        .where('status', whereIn: _visiblePriceStatuses)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+  }
+
+  PriceEntry _priceEntryFromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final m = doc.data();
+    final ts = m['createdAt'];
+    return PriceEntry(
+      id: doc.id,
+      store: (m['placeDisplayName'] ?? '').toString(),
+      price: (m['price'] as num?)?.toDouble() ?? 0,
+      date: ts is Timestamp ? ts.toDate() : DateTime.now(),
+      reportedBy: (m['reportedByName'] ?? 'Topluluk').toString(),
+      reportedByUid: (m['reportedByUid'] ?? '').toString(),
+      note: (m['note'] ?? '').toString(),
+      status: switch ((m['status'] ?? 'pending').toString()) {
+        'community_verified' => PriceStatus.communityVerified,
+        'disputed' => PriceStatus.disputed,
+        'rejected' => PriceStatus.rejected,
+        _ => PriceStatus.pending,
+      },
+    );
+  }
+
+  Stream<List<PriceEntry>> watchProductLocalEntries({
+    required String productId,
+    required String city,
+    required String district,
+    int limit = 20,
+  }) {
+    return _svc.priceEntries
+        .where('productId', isEqualTo: productId)
+        .where('scope', whereIn: const ['local', 'bazaar'])
+        .where('city', isEqualTo: city)
+        .where('district', isEqualTo: district)
+        .where('status', whereIn: _visiblePriceStatuses)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(_priceEntryFromDoc).toList());
+  }
+
+  Stream<List<PriceEntry>> watchProductCityEntries({
+    required String productId,
+    required String city,
+    int limit = 20,
+  }) {
+    return _svc.priceEntries
+        .where('productId', isEqualTo: productId)
+        .where('scope', whereIn: const ['local', 'bazaar'])
+        .where('city', isEqualTo: city)
+        .where('status', whereIn: _visiblePriceStatuses)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(_priceEntryFromDoc).toList());
+  }
+
+  Stream<List<PriceEntry>> watchProductOnlineEntries({
+    required String productId,
+    int limit = 20,
+  }) {
+    return _svc.priceEntries
+        .where('productId', isEqualTo: productId)
+        .where('scope', isEqualTo: 'online')
+        .where('status', whereIn: _visiblePriceStatuses)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(_priceEntryFromDoc).toList());
+  }
+
+  Stream<List<PriceEntry>> watchProductTurkeyEntries({
+    required String productId,
+    int limit = 30,
+  }) {
+    return _svc.priceEntries
+        .where('productId', isEqualTo: productId)
+        .where('scope', whereIn: const ['local', 'bazaar'])
+        .where('status', whereIn: _visiblePriceStatuses)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(_priceEntryFromDoc).toList());
+  }
+
 
   void _bindRegionalPriceFeed() {
     _regionalPriceEntriesSub?.cancel();
     final city = (cityName ?? '').trim();
     final district = (districtName ?? '').trim();
-    Query<Map<String, dynamic>> q = _svc.priceEntries.where(
-      'status',
-      whereIn: const ['pending', 'community_verified', 'disputed'],
-    );
+    Query<Map<String, dynamic>> q = _baseScopedPriceQuery(limit: 120);
     switch (activeHomeScope) {
       case HomePriceScope.nearby:
-        if (city.isEmpty || district.isEmpty) return;
+        if (city.isEmpty || district.isEmpty) {
+          _homeScopedEntryByProduct.clear();
+          notifyListeners();
+          return;
+        }
         q = q
             .where('scope', whereIn: const ['local', 'bazaar'])
             .where('city', isEqualTo: city)
             .where('district', isEqualTo: district);
         break;
       case HomePriceScope.city:
-        if (city.isEmpty) return;
+        if (city.isEmpty) {
+          _homeScopedEntryByProduct.clear();
+          notifyListeners();
+          return;
+        }
         q = q
             .where('scope', whereIn: const ['local', 'bazaar'])
             .where('city', isEqualTo: city);
@@ -706,31 +869,15 @@ class AppState extends ChangeNotifier {
         q = q.where('scope', whereIn: const ['local', 'bazaar']);
         break;
     }
-    _regionalPriceEntriesSub =
-        q.orderBy('createdAt', descending: true).limit(300).snapshots().listen((snap) {
+    _regionalPriceEntriesSub = q.snapshots().listen((snap) {
       final next = <String, PriceEntry?>{};
       for (final d in snap.docs) {
         final m = d.data();
         final pid = (m['productId'] ?? '').toString();
         if (pid.isEmpty || next.containsKey(pid)) continue;
-        final ts = m['createdAt'];
-        next[pid] = PriceEntry(
-          id: d.id,
-          store: (m['placeDisplayName'] ?? '').toString(),
-          price: (m['price'] as num?)?.toDouble() ?? 0,
-          date: ts is Timestamp ? ts.toDate() : DateTime.now(),
-          reportedBy: (m['reportedByName'] ?? 'Topluluk').toString(),
-          reportedByUid: (m['reportedByUid'] ?? '').toString(),
-          note: (m['note'] ?? '').toString(),
-          status: switch ((m['status'] ?? 'pending').toString()) {
-            'community_verified' => PriceStatus.communityVerified,
-            'disputed' => PriceStatus.disputed,
-            'rejected' => PriceStatus.rejected,
-            _ => PriceStatus.pending,
-          },
-        );
+        next[pid] = _priceEntryFromDoc(d);
       }
-      _latestPriceEntryByProduct
+      _homeScopedEntryByProduct
         ..clear()
         ..addAll(next);
       notifyListeners();
@@ -1578,6 +1725,7 @@ class AppState extends ChangeNotifier {
     await _notificationsSub?.cancel();
     await _productAlertsSub?.cancel();
     await _productRequestsSub?.cancel();
+    await _regionalPriceEntriesSub?.cancel();
     _productsSub = null;
     _authSub = null;
     _bannersSub = null;
@@ -1587,12 +1735,15 @@ class AppState extends ChangeNotifier {
     _notificationsSub = null;
     _productAlertsSub = null;
     _productRequestsSub = null;
+    _regionalPriceEntriesSub = null;
     products.clear();
     banners.clear();
     favorites.clear();
     notifications.clear();
     productAlerts.clear();
     cart.clear();
+    _latestPriceEntryByProduct.clear();
+    _homeScopedEntryByProduct.clear();
     points = 0;
     pointsToRedeem = 0;
     phoneNumber = null;
@@ -1631,6 +1782,7 @@ class AppState extends ChangeNotifier {
     await _notificationsSub?.cancel();
     await _productAlertsSub?.cancel();
     await _productRequestsSub?.cancel();
+    await _regionalPriceEntriesSub?.cancel();
     _productsSub = null;
     _authSub = null;
     _bannersSub = null;
@@ -1640,12 +1792,15 @@ class AppState extends ChangeNotifier {
     _notificationsSub = null;
     _productAlertsSub = null;
     _productRequestsSub = null;
+    _regionalPriceEntriesSub = null;
     products.clear();
     banners.clear();
     favorites.clear();
     notifications.clear();
     productAlerts.clear();
     cart.clear();
+    _latestPriceEntryByProduct.clear();
+    _homeScopedEntryByProduct.clear();
     points = 0;
     pointsToRedeem = 0;
     phoneNumber = null;

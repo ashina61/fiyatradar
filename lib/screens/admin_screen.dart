@@ -9,7 +9,6 @@ import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
-import 'banner_page_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -3453,7 +3452,6 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
   final _searchCtrl = TextEditingController();
   String _type = 'all';
   String _status = 'all';
-  String _mode = 'pending';
   QueryDocumentSnapshot<Map<String, dynamic>>? _placesLastDoc;
   final List<QueryDocumentSnapshot<Map<String, dynamic>>> _placeDocs = [];
   bool _loadingPlaces = false;
@@ -3486,13 +3484,6 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
   Query<Map<String, dynamic>> _placesQuery() {
     Query<Map<String, dynamic>> q =
         FirebaseService.instance.storePlaces.where('isActive', isEqualTo: true);
-    if (_mode == 'pending') {
-      q = q.where('status', isEqualTo: 'pending');
-      return q.orderBy('updatedAt', descending: true).limit(_pageSize);
-    }
-    if (_mode == 'recent') {
-      return q.orderBy('updatedAt', descending: true).limit(_pageSize);
-    }
     if (!_canRunFilteredQuery) {
       return q.limit(0);
     }
@@ -3524,7 +3515,7 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
   }
 
   Future<void> _loadPlaces({bool reset = false}) async {
-    if (_loadingPlaces || (_mode == 'filtered' && !_canRunFilteredQuery)) return;
+    if (_loadingPlaces || !_canRunFilteredQuery) return;
     setState(() => _loadingPlaces = true);
     try {
       var q = _placesQuery();
@@ -3726,29 +3717,6 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
       Padding(
         padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Column(children: [
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButton<String>(
-                  value: _mode,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'pending', child: Text('Onay bekleyen (50)')),
-                    DropdownMenuItem(value: 'recent', child: Text('Son güncellenen (50)')),
-                    DropdownMenuItem(value: 'filtered', child: Text('Filtreli')),
-                  ],
-                  onChanged: (v) {
-                    setState(() {
-                      _mode = v ?? 'pending';
-                      _placesLastDoc = null;
-                      _placeDocs.clear();
-                    });
-                    _loadPlaces(reset: true);
-                  },
-                ),
-              ),
-            ],
-          ),
           Row(children: [
             Expanded(child: TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'Şehir'))),
             const SizedBox(width: 8),
@@ -3779,7 +3747,6 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
             child: TextButton(
               onPressed: () {
                 setState(() {
-                  _mode = 'filtered';
                   _placesLastDoc = null;
                   _placeDocs.clear();
                 });
@@ -3788,10 +3755,26 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
               child: const Text('Filtrele'),
             ),
           ),
+          if (_canRunFilteredQuery)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Filtre: şehir="${_cityCtrl.text.trim().isEmpty ? "-" : _cityCtrl.text.trim()}" · ilçe="${_districtCtrl.text.trim().isEmpty ? "-" : _districtCtrl.text.trim()}" · tür=$_type · durum=$_status',
+                style: frText(11, FontWeight.w700, color: FR.ink3),
+              ),
+            ),
+          if (_canRunFilteredQuery)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Yüklü sonuç: ${_filteredPlaceDocs.length}',
+                style: frText(11, FontWeight.w700, color: FR.ink3),
+              ),
+            ),
         ]),
       ),
       Expanded(
-        child: _mode == 'filtered' && !_canRunFilteredQuery
+        child: !_canRunFilteredQuery
             ? _empty('Şehir/ilçe veya arama girerek filtrele')
             : ListView.builder(
                 itemCount: _filteredPlaceDocs.length + 1,
