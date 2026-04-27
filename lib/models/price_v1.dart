@@ -64,6 +64,8 @@ class StorePlace {
   final String city;
   final String district;
   final String? neighborhood;
+  final double? lat;
+  final double? lng;
   final String status;
   final bool isActive;
 
@@ -79,6 +81,8 @@ class StorePlace {
     this.chainId,
     this.chainName,
     this.neighborhood,
+    this.lat,
+    this.lng,
   });
 
   factory StorePlace.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -97,6 +101,8 @@ class StorePlace {
       city: (m['city'] ?? '') as String,
       district: (m['district'] ?? '') as String,
       neighborhood: m['neighborhood'] as String?,
+      lat: (m['lat'] as num?)?.toDouble(),
+      lng: (m['lng'] as num?)?.toDouble(),
       status: (m['status'] ?? 'pending') as String,
       isActive: (m['isActive'] as bool?) ?? true,
     );
