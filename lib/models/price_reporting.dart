@@ -1,0 +1,132 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+enum PriceReportSourceType { manualRegional, locationSupported, branchNear }
+
+String priceReportSourceTypeToValue(PriceReportSourceType type) {
+  switch (type) {
+    case PriceReportSourceType.manualRegional:
+      return 'manualRegional';
+    case PriceReportSourceType.locationSupported:
+      return 'locationSupported';
+    case PriceReportSourceType.branchNear:
+      return 'branchNear';
+  }
+}
+
+PriceReportSourceType priceReportSourceTypeFromValue(String? raw) {
+  switch (raw) {
+    case 'branchNear':
+      return PriceReportSourceType.branchNear;
+    case 'locationSupported':
+      return PriceReportSourceType.locationSupported;
+    case 'manualRegional':
+    default:
+      return PriceReportSourceType.manualRegional;
+  }
+}
+
+String priceReportSourceTypeLabelTr(PriceReportSourceType type) {
+  switch (type) {
+    case PriceReportSourceType.manualRegional:
+      return 'Bölgesel bildirim';
+    case PriceReportSourceType.locationSupported:
+      return 'Konum destekli';
+    case PriceReportSourceType.branchNear:
+      return 'Şube yakınında bildirildi';
+  }
+}
+
+class RegionModel {
+  final String cityId;
+  final String cityName;
+  final String districtId;
+  final String districtName;
+
+  const RegionModel({
+    required this.cityId,
+    required this.cityName,
+    required this.districtId,
+    required this.districtName,
+  });
+}
+
+class PriceGroupModel {
+  final String id;
+  final String productId;
+  final String productName;
+  final String chainId;
+  final String chainName;
+  final String cityId;
+  final String cityName;
+  final String districtId;
+  final String districtName;
+  final double? latestPrice;
+  final double? trustedPrice;
+  final double? avgPrice;
+  final double? minPrice;
+  final int reportCount;
+  final int verifiedCount;
+  final String confidence;
+  final PriceReportSourceType sourceType;
+  final DateTime? lastReportedAt;
+
+  const PriceGroupModel({
+    required this.id,
+    required this.productId,
+    required this.productName,
+    required this.chainId,
+    required this.chainName,
+    required this.cityId,
+    required this.cityName,
+    required this.districtId,
+    required this.districtName,
+    required this.latestPrice,
+    required this.trustedPrice,
+    required this.avgPrice,
+    required this.minPrice,
+    required this.reportCount,
+    required this.verifiedCount,
+    required this.confidence,
+    required this.sourceType,
+    required this.lastReportedAt,
+  });
+
+  factory PriceGroupModel.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final m = doc.data() ?? <String, dynamic>{};
+    final ts = m['lastReportedAt'];
+    return PriceGroupModel(
+      id: doc.id,
+      productId: (m['productId'] ?? '') as String,
+      productName: (m['productName'] ?? '') as String,
+      chainId: (m['chainId'] ?? '') as String,
+      chainName: ((m['chainName'] ?? '') as String).trim().isEmpty
+          ? ((m['marketName'] ?? '') as String)
+          : (m['chainName'] as String),
+      cityId: (m['cityId'] ?? '') as String,
+      cityName: (m['cityName'] ?? '') as String,
+      districtId: (m['districtId'] ?? '') as String,
+      districtName: (m['districtName'] ?? '') as String,
+      latestPrice: (m['latestPrice'] as num?)?.toDouble(),
+      trustedPrice: (m['trustedPrice'] as num?)?.toDouble(),
+      avgPrice: (m['avgPrice'] as num?)?.toDouble(),
+      minPrice: (m['minPrice'] as num?)?.toDouble(),
+      reportCount: (m['reportCount'] as num?)?.toInt() ?? 0,
+      verifiedCount: (m['verifiedCount'] as num?)?.toInt() ?? 0,
+      confidence: (m['confidence'] ?? 'low') as String,
+      sourceType: priceReportSourceTypeFromValue(m['sourceType'] as String?),
+      lastReportedAt: ts is Timestamp ? ts.toDate() : null,
+    );
+  }
+
+  String get displayTitle => '$chainName · $districtName / $cityName';
+
+  double? get preferredPrice => trustedPrice ?? latestPrice ?? avgPrice ?? minPrice;
+
+  String get preferredPriceSource {
+    if (trustedPrice != null) return 'trustedPrice';
+    if (latestPrice != null) return 'latestPrice';
+    if (avgPrice != null) return 'avgPrice';
+    if (minPrice != null) return 'minPrice';
+    return 'none';
+  }
+}

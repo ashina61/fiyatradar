@@ -184,6 +184,12 @@ class FirebaseService {
       db.collection('price_entries');
   CollectionReference<Map<String, dynamic>> get priceSummaries =>
       db.collection('price_summaries');
+  CollectionReference<Map<String, dynamic>> get priceReports =>
+      db.collection('priceReports');
+  CollectionReference<Map<String, dynamic>> get priceGroups =>
+      db.collection('priceGroups');
+  CollectionReference<Map<String, dynamic>> get priceDedupes =>
+      db.collection('priceReportDedupes');
 
   CollectionReference<Map<String, dynamic>> get categories =>
       db.collection('categories');

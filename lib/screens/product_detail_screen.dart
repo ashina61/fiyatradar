@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/price_reporting.dart';
 import '../models/product.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
@@ -324,95 +325,180 @@ class _RegionalPriceSections extends StatelessWidget {
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
     final hasRegion = city.isNotEmpty && district.isNotEmpty;
-    return StreamBuilder<List<PriceEntry>>(
-      stream: hasRegion
-          ? state.watchProductLocalEntries(
-              productId: product.id,
-              city: city,
-              district: district,
-            )
-          : const Stream<List<PriceEntry>>.empty(),
+    if (!hasRegion) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: frSurface(radius: FRRad.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('BÖLGENDE BİLDİRİLEN FİYATLAR', style: frOverline()),
+            const SizedBox(height: 8),
+            Text('Bölgesel fiyatları görmek için önce il ve ilçe seç.',
+                style: frText(12, FontWeight.w600, color: FR.ink3)),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<List<PriceGroupModel>>(
+      stream: state.watchRegionalPriceGroups(
+        productId: product.id,
+        city: city,
+        district: district,
+      ),
       builder: (context, snap) {
-        final local = snap.data ?? const <PriceEntry>[];
-        return StreamBuilder<List<PriceEntry>>(
-          stream: state.watchProductOnlineEntries(productId: product.id),
-          builder: (context, onlineSnap) {
-            final online = onlineSnap.data ?? const <PriceEntry>[];
-            return StreamBuilder<List<PriceEntry>>(
-              stream: state.watchProductTurkeyEntries(productId: product.id),
-              builder: (context, turkeySnap) {
-                final allTurkey = turkeySnap.data ?? const <PriceEntry>[];
-                final others = allTurkey;
+        final groups = snap.data ?? const <PriceGroupModel>[];
+        if (groups.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: frSurface(radius: FRRad.xl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('BÖLGENDE BİLDİRİLEN FİYATLAR', style: frOverline()),
+                const SizedBox(height: 8),
+                Text(
+                  legacyBest == null
+                      ? '$district / $city için henüz bildirilen fiyat yok.'
+                      : '$district / $city için grup yok, son topluluk fiyatı: ₺${legacyBest!.price.toStringAsFixed(2)}',
+                  style: frText(12, FontWeight.w600, color: FR.ink3),
+                ),
+              ],
+            ),
+          );
+        }
 
-                PriceEntry? bestOf(List<PriceEntry> list) {
-                  if (list.isEmpty) return null;
-                  final sorted = [...list]..sort((a, b) => a.price.compareTo(b.price));
-                  return sorted.first;
-                }
-
-                final localBest = bestOf(local);
-                final onlineBest = bestOf(online);
-                final otherBest = bestOf(others);
-                final anyScoped = localBest != null || onlineBest != null || otherBest != null;
-
-                Widget line(String label, PriceEntry? entry, {required String fallback}) {
-                  if (entry == null) {
-                    return Row(children: [
-                      Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
-                      Text(fallback, style: frText(11.5, FontWeight.w600, color: FR.ink3)),
-                    ]);
-                  }
-                  return Row(children: [
-                    Expanded(child: Text(label, style: frText(12.5, FontWeight.w700))),
-                    Text('₺${entry.price.toStringAsFixed(2)} · ${entry.store}',
-                        style: frText(11.5, FontWeight.w700, color: FR.gold)),
-                  ]);
-                }
-
-                return Container(
-                  padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [FR.surfaceHi, FR.surface], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: FRRad.all(22),
-                    border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-                    boxShadow: [BoxShadow(color: FR.gold.withOpacity(.1), blurRadius: 28)],
-                  ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('BÖLGESEL FİYAT ÖZETİ', style: frOverline()),
-                    if (!anyScoped && legacyBest != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Legacy/global fallback kullanılıyor',
-                        style: frText(11, FontWeight.w700, color: FR.goldDeep),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    line(
-                      'Bölgen',
-                      localBest,
-                      fallback: hasRegion
-                          ? 'Bu bölgede kayıt yok'
-                          : 'Bölgeni seç',
-                    ),
-                    const SizedBox(height: 8),
-                    line('Online', onlineBest, fallback: 'Online fiyat yok'),
-                    const SizedBox(height: 8),
-                    line(
-                      'Diğer bölgeler / Türkiye geneli',
-                      otherBest,
-                      fallback: anyScoped
-                          ? 'Diğer bölgelerde kayıt yok'
-                          : (legacyBest == null
-                              ? 'Henüz veri yok'
-                              : 'Legacy: ₺${legacyBest!.price.toStringAsFixed(2)}'),
-                    ),
-                  ]),
-                );
-              },
-            );
-          },
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: frSurface(radius: FRRad.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('BÖLGENDE BİLDİRİLEN FİYATLAR', style: frOverline()),
+              const SizedBox(height: 8),
+              Text('$district / $city bölgesi', style: frText(12, FontWeight.w700, color: FR.ink3)),
+              const SizedBox(height: 12),
+              ...groups.take(4).map((g) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _RegionalGroupCard(group: g, product: product),
+                  )),
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _RegionalGroupCard extends StatelessWidget {
+  const _RegionalGroupCard({required this.group, required this.product});
+
+  final PriceGroupModel group;
+  final Product product;
+
+  String _relative(DateTime? date) {
+    if (date == null) return 'Tarih yok';
+    final days = DateTime.now().difference(date).inDays;
+    if (days <= 0) return 'Bugün bildirildi';
+    if (days == 1) return 'Dün bildirildi';
+    return '$days gün önce';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FR.surfaceHi,
+        borderRadius: FRRad.all(12),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(group.displayTitle, style: frText(12.5, FontWeight.w800)),
+        const SizedBox(height: 4),
+        FRPriceText(group.preferredPrice ?? group.latestPrice, size: 18, color: FR.gold),
+        const SizedBox(height: 4),
+        Text(
+          '${_relative(group.lastReportedAt)} · ${group.reportCount} bildirim · ${group.verifiedCount} doğrulama · Güven: ${group.confidence}',
+          style: frText(11, FontWeight.w600, color: FR.ink3),
+        ),
+        Text(priceReportSourceTypeLabelTr(group.sourceType),
+            style: frText(11, FontWeight.w700, color: FR.goldDeep)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          _TinyAction(
+            label: 'Ben de gördüm',
+            onTap: () async {
+              final state = AppStateScope.of(context);
+              try {
+                await state.verifyRegionalPriceSeen(
+                  productId: product.id,
+                  chainId: group.chainId,
+                  price: group.preferredPrice ?? group.latestPrice ?? 0,
+                  city: group.cityName,
+                  district: group.districtName,
+                );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Doğrulaman kaydedildi.')),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$e')),
+                );
+              }
+            },
+          ),
+          _TinyAction(
+            label: 'Farklı fiyat bildir',
+            onTap: () {
+              final state = AppStateScope.of(context);
+              state.setAddPricePreset(
+                productId: product.id,
+                chainId: group.chainId,
+                chainName: group.chainName,
+              );
+              state.updateRegionSettings(
+                cityName: group.cityName,
+                districtName: group.districtName,
+              );
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
+              );
+            },
+          ),
+          _TinyAction(
+            label: 'Sepete ekle',
+            onTap: () => AppStateScope.of(context).addToCart(product),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _TinyAction extends StatelessWidget {
+  const _TinyAction({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: FR.bgElev,
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Text(label, style: frText(10.5, FontWeight.w700, color: FR.ink2)),
+      ),
     );
   }
 }

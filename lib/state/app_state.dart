@@ -6,8 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/price_v1.dart';
+import '../models/price_reporting.dart';
 import '../models/product.dart';
+import '../services/basket_pricing_service.dart';
 import '../services/firebase_service.dart';
+import '../services/price_report_service.dart';
 
 /// Points awarded for different actions in the rewards system.
 class PointsRules {
@@ -60,6 +63,8 @@ class AppState extends ChangeNotifier {
   AppState();
 
   final FirebaseService _svc = FirebaseService.instance;
+  late final PriceReportService _priceReportService = PriceReportService(_svc);
+  final BasketPricingService _basketPricingService = const BasketPricingService();
   static const int _bannerVersionSeed = 1000003;
   static const int _notificationVersionSeed = 1000003;
   static const int _alertVersionSeed = 1000003;
@@ -202,6 +207,34 @@ class AppState extends ChangeNotifier {
   void setExplorePresetCategory(String name) {
     final trimmed = name.trim();
     _explorePresetCategory = trimmed.isEmpty ? null : trimmed;
+  }
+
+
+  String? _addPricePresetProductId;
+  String? _addPricePresetChainId;
+  String? _addPricePresetChainName;
+
+  ({String? productId, String? chainId, String? chainName})
+      consumeAddPricePreset() {
+    final out = (
+      productId: _addPricePresetProductId,
+      chainId: _addPricePresetChainId,
+      chainName: _addPricePresetChainName,
+    );
+    _addPricePresetProductId = null;
+    _addPricePresetChainId = null;
+    _addPricePresetChainName = null;
+    return out;
+  }
+
+  void setAddPricePreset({
+    String? productId,
+    String? chainId,
+    String? chainName,
+  }) {
+    _addPricePresetProductId = productId;
+    _addPricePresetChainId = chainId;
+    _addPricePresetChainName = chainName;
   }
 
   StreamSubscription? _productsSub;
@@ -925,6 +958,164 @@ class AppState extends ChangeNotifier {
   }
 
   // --- Catalog mutations --------------------------------------------------
+
+
+  Future<AddPriceSubmitResult> addRegionalPrice({
+    required String productId,
+    required String store,
+    required double price,
+    required String chainId,
+    required String chainName,
+    required String city,
+    required String district,
+    String note = '',
+    String? proofImageUrl,
+    String? barcode,
+    String? placeId,
+    double? lat,
+    double? lng,
+    double? distanceToBranchMeters,
+    double? gpsAccuracyMeters,
+  }) async {
+    final p = findById(productId);
+    if (p == null) throw StateError('Ürün bulunamadı.');
+    final uid = user?.uid ?? '';
+    if (uid.isEmpty) throw StateError('Fiyat eklemek için giriş yapmalısın.');
+    final cityTrim = city.trim();
+    final districtTrim = district.trim();
+    if (cityTrim.isEmpty || districtTrim.isEmpty) {
+      throw StateError('İl ve ilçe bilgisi zorunlu.');
+    }
+    final resolvedChainId = chainId.trim().isEmpty ? store : chainId;
+    final resolvedChainName = chainName.trim().isEmpty ? store : chainName;
+    final result = await _priceReportService.submitRegionalPrice(
+      productId: productId,
+      productName: p.name,
+      chainId: resolvedChainId,
+      chainName: resolvedChainName,
+      cityName: cityTrim,
+      districtName: districtTrim,
+      price: price,
+      userId: uid,
+      userDisplayName:
+          (user?.displayName?.trim().isNotEmpty == true) ? user!.displayName! : displayName,
+      branchId: placeId,
+      branchName: store,
+      distanceToBranchMeters: distanceToBranchMeters,
+      gpsAccuracyMeters: gpsAccuracyMeters,
+      location: (lat != null && lng != null) ? GeoPoint(lat, lng) : null,
+      note: note.trim().isEmpty ? null : note.trim(),
+      photoUrl: proofImageUrl,
+      barcode: barcode,
+    );
+
+    if (result.createdReport) {
+      await addPrice(
+        productId: productId,
+        store: store,
+        price: price,
+        note: note,
+        proofImageUrl: proofImageUrl,
+        placeId: placeId,
+        city: cityTrim,
+        district: districtTrim,
+        sourceType: PriceSourceType.physical,
+        chainId: resolvedChainId,
+        chainName: resolvedChainName,
+        lat: lat,
+        lng: lng,
+      );
+    }
+    return result;
+  }
+
+  Future<void> verifyRegionalPriceSeen({
+    required String productId,
+    required String chainId,
+    required double price,
+    required String city,
+    required String district,
+  }) async {
+    final uid = user?.uid ?? '';
+    if (uid.isEmpty) throw StateError('Doğrulama için giriş yapmalısın.');
+    await _priceReportService.verifySeenToday(
+      productId: productId,
+      chainId: chainId,
+      cityName: city,
+      districtName: district,
+      price: price,
+      userId: uid,
+    );
+  }
+
+  Stream<List<PriceGroupModel>> watchRegionalPriceGroups({
+    required String productId,
+    required String city,
+    required String district,
+    int limit = 20,
+  }) {
+    final cityId = PriceReportService.normalizeId(city);
+    final districtId = PriceReportService.normalizeId(district);
+    return _svc.priceGroups
+        .where('cityId', isEqualTo: cityId)
+        .where('districtId', isEqualTo: districtId)
+        .limit(120)
+        .snapshots()
+        .map((snap) {
+      final all = snap.docs
+          .map(PriceGroupModel.fromDoc)
+          .where((g) => g.productId == productId)
+          .toList()
+        ..sort((a, b) {
+          final ad = a.lastReportedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bd = b.lastReportedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bd.compareTo(ad);
+        });
+      return all.take(limit).toList();
+    });
+  }
+
+  Future<List<PriceGroupModel>> fetchRegionalPriceGroupsForProducts({
+    required List<String> productIds,
+    required String city,
+    required String district,
+  }) async {
+    final cityId = PriceReportService.normalizeId(city);
+    final districtId = PriceReportService.normalizeId(district);
+    final normalized = productIds.toSet().where((e) => e.trim().isNotEmpty).toList();
+    if (normalized.isEmpty) return const <PriceGroupModel>[];
+
+    final snap = await _svc.priceGroups
+        .where('cityId', isEqualTo: cityId)
+        .where('districtId', isEqualTo: districtId)
+        .limit(250)
+        .get();
+    return snap.docs
+        .map(PriceGroupModel.fromDoc)
+        .where((g) => normalized.contains(g.productId))
+        .toList();
+  }
+
+  Future<BasketPricingResult> calculateRegionalBasketPricing() async {
+    final city = (cityName ?? '').trim();
+    final district = (districtName ?? '').trim();
+    if (city.isEmpty || district.isEmpty) {
+      return const BasketPricingResult(
+        singleMarketEstimates: <BasketStoreEstimate>[],
+        cheapestMixed: null,
+        smartSuggestion: null,
+      );
+    }
+    final items = cart
+        .map((c) => (productId: c.product.id, quantity: c.quantity))
+        .toList(growable: false);
+    final groups = await fetchRegionalPriceGroupsForProducts(
+      productIds: items.map((e) => e.productId).toList(),
+      city: city,
+      district: district,
+    );
+    return _basketPricingService.calculate(items: items, groups: groups);
+  }
 
   Future<void> addPrice({
     required String productId,
@@ -1762,6 +1953,9 @@ class AppState extends ChangeNotifier {
     _isAdmin = false;
     _isBanned = false;
     banReason = null;
+    _addPricePresetProductId = null;
+    _addPricePresetChainId = null;
+    _addPricePresetChainName = null;
     _initialized = false;
     _productsSignature = 0;
     notifyListeners();
@@ -1821,6 +2015,9 @@ class AppState extends ChangeNotifier {
     _isAdmin = false;
     _isBanned = false;
     banReason = null;
+    _addPricePresetProductId = null;
+    _addPricePresetChainId = null;
+    _addPricePresetChainName = null;
     _initialized = false;
     _productsSignature = 0;
     notifyListeners();

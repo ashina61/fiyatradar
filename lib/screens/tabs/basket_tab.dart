@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/product.dart';
+import '../../services/basket_pricing_service.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
@@ -44,7 +45,7 @@ class _BasketTabState extends State<BasketTab> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             child: Text(
-              'Ürünleri ekle — hangi marketin hangi kombinasyonda en ucuz olduğunu gör.',
+              'Bölgende bildirilen fiyatlara göre tahmini sepet planını karşılaştır.',
               style: frText(13, FontWeight.w500, color: FR.ink3, height: 1.5),
             ),
           ),
@@ -219,7 +220,7 @@ class _EmptyCart extends StatelessWidget {
             Text('Sepetin boş', style: frDisplay(22, FontWeight.w700)),
             const SizedBox(height: 6),
             Text(
-              'Ürün ekle, hangi markette en ucuz olduğunu radar senin için bulsun.',
+              'Ürün ekle, bölgesel fiyat gruplarına göre tahmini sepet toplamlarını gör.',
               textAlign: TextAlign.center,
               style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
             ),
@@ -370,7 +371,7 @@ class _CartFooter extends StatelessWidget {
                 hl: FR.good),
             const SizedBox(height: 12),
             FRCta(
-              label: 'En ucuz sepeti bul',
+              label: 'Tahmini sepeti karşılaştır',
               icon: Icons.bolt_rounded,
               onTap: onCompare,
             ),
@@ -399,98 +400,91 @@ class _ComparePanel extends StatefulWidget {
 }
 
 class _ComparePanelState extends State<_ComparePanel> {
-  String _cacheKey = '';
-  List<_StoreGroup> _cachedGroups = const [];
+  late Future<BasketPricingResult> _future;
 
-  List<_StoreGroup> _groups(AppState state) {
-    final key = state.cart
-        .map((c) {
-          final p = c.product;
-          final histSig = p.priceHistory
-              .map((e) => '${e.store}:${e.price}')
-              .join('|');
-          return '${p.id}:${c.quantity}:$histSig';
-        })
-        .join('||');
-    if (key == _cacheKey && _cachedGroups.isNotEmpty) return _cachedGroups;
-    _cacheKey = key;
-    _cachedGroups = _computeStoreGroups(state);
-    return _cachedGroups;
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.state.calculateRegionalBasketPricing();
   }
 
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    final cart = state.cart;
-    if (cart.isEmpty) {
-      return _EmptyCart();
-    }
-    final groups = _groups(state);
-    final best = groups.isEmpty ? null : groups.first;
-    final bestTotal = best?.total ?? 0;
+    if (state.cart.isEmpty) return _EmptyCart();
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
-      children: [
-        if (best != null)
-          FRFadeSlideIn(
-            child: _BestCombinationCard(
-              best: best,
-              cartSize: cart.length,
-              savings: state.cartSavings,
-            ),
-          ),
-        const SizedBox(height: 20),
-        const FRSectionHead(eyebrow: 'DİĞER MARKETLER', title: 'Zincir karşılaştırması'),
-        const SizedBox(height: 12),
-        for (final entry in groups.skip(1).take(6).toList().asMap().entries)
-          FRFadeSlideIn(
-            delay: Duration(milliseconds: 40 * entry.key),
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _CompareRow(
-                group: entry.value,
-                cartSize: cart.length,
-                bestTotal: bestTotal,
-                bestStore: best?.store ?? '',
-              ),
-            ),
-          ),
-        const SizedBox(height: 20),
-        const FRSectionHead(eyebrow: 'ÜRÜN BAZLI', title: 'Sepet dağılımı'),
-        const SizedBox(height: 12),
-        for (final c in cart)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: frSurface(radius: FRRad.l),
-              child: Row(
-                children: [
-                  Text(c.product.emoji, style: const TextStyle(fontSize: 22)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${c.product.name} × ${c.quantity}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: frText(13, FontWeight.w800)),
-                        Text(c.product.cheapestStore ?? '—',
-                            style: frText(11.5, FontWeight.w700, color: FR.ink3)),
-                      ],
+    return FutureBuilder<BasketPricingResult>(
+      future: _future,
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final result = snap.data!;
+        final singles = result.singleMarketEstimates;
+        final mixed = result.cheapestMixed;
+        final smart = result.smartSuggestion;
+        return ListView(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
+          children: [
+            const FRSectionHead(eyebrow: 'TEK MARKET', title: 'Tahmini toplamlar'),
+            const SizedBox(height: 12),
+            ...singles.take(5).map(
+                  (s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: frSurface(radius: FRRad.l),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(s.chainName, style: frText(13, FontWeight.w800)),
+                          const SizedBox(height: 4),
+                          Text('Tahmini toplam: ₺${s.estimatedTotal.toStringAsFixed(2)}',
+                              style: frText(12, FontWeight.w700, color: FR.goldDeep)),
+                          Text(
+                            'Bulunan: ${s.foundItemCount} · Eksik: ${s.missingItemCount} · Güven: ${s.confidence} · Kaynak: ${s.usedPriceSource}',
+                            style: frText(10.5, FontWeight.w600, color: FR.ink3),
+                          ),
+                          if (s.missingProductIds.isNotEmpty)
+                            Text(
+                              'Eksik ürün id: ${s.missingProductIds.join(', ')}',
+                              style: frText(10.5, FontWeight.w600, color: FR.warn),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  FRPriceText(
-                    (c.product.lowestPrice ?? 0) * c.quantity,
-                    size: 15,
-                  ),
-                ],
+                ),
+            const SizedBox(height: 16),
+            const FRSectionHead(eyebrow: 'KARMA SEPET', title: 'En ucuz tahmini karışım'),
+            const SizedBox(height: 12),
+            if (mixed == null)
+              Text('Karma hesap için yeterli bölgesel fiyat yok.',
+                  style: frText(12, FontWeight.w600, color: FR.ink3))
+            else
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: frSurface(radius: FRRad.l),
+                child: Text(
+                  'Tahmini toplam: ₺${mixed.estimatedTotal.toStringAsFixed(2)} · ${mixed.marketCount} market gerekiyor',
+                  style: frText(12.5, FontWeight.w700),
+                ),
               ),
-            ),
-          ),
-      ],
+            const SizedBox(height: 16),
+            const FRSectionHead(eyebrow: 'ÖNERİ', title: 'En mantıklı seçenek'),
+            const SizedBox(height: 12),
+            if (smart == null)
+              Text('Karşılaştırma için yeterli veri yok.',
+                  style: frText(12, FontWeight.w600, color: FR.ink3))
+            else
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: frSurface(radius: FRRad.l),
+                child: Text(smart.message, style: frText(12, FontWeight.w700)),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -29,6 +29,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
   bool _locating = false;
   double? _regionLat;
   double? _regionLng;
+  double? _gpsAccuracyMeters;
+  bool _presetConsumed = false;
 
   bool get _needsRegion => _sourceType != PriceSourceType.online;
 
@@ -36,6 +38,25 @@ class _AddPriceTabState extends State<AddPriceTab> {
   void initState() {
     super.initState();
     _ensureOnlinePlacesBootstrapped();
+  }
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_presetConsumed) return;
+    _presetConsumed = true;
+    final state = AppStateScope.of(context);
+    final preset = state.consumeAddPricePreset();
+    if (preset.productId != null) {
+      final product = state.findById(preset.productId!);
+      if (product != null) {
+        _selectedProduct = product;
+      }
+    }
+    if ((preset.chainName ?? '').trim().isNotEmpty) {
+      _storeQueryCtrl.text = preset.chainName!.trim();
+    }
   }
 
   @override
@@ -66,34 +87,78 @@ class _AddPriceTabState extends State<AddPriceTab> {
       return;
     }
     if (place == null) {
-      _snack('Fiyatı göndermeden önce bir kaynak seçmelisin.');
+      _snack('Fiyatı göndermeden önce market seçmelisin.');
       return;
     }
     if (_needsRegion && (city.isEmpty || district.isEmpty)) {
-      _snack('Fiziksel/Pazar fiyatı için şehir ve ilçe zorunlu.');
+      _snack('Bölgesel fiyat için il ve ilçe zorunlu.');
+      return;
+    }
+    if (!_needsRegion) {
+      _snack('Bu sürümde fiyat ekleme yalnızca bölgesel bildirim olarak destekleniyor.');
       return;
     }
 
     setState(() => _submitting = true);
     try {
-      await state.addPrice(
+      double? distanceToBranchMeters;
+      if (_regionLat != null &&
+          _regionLng != null &&
+          place.lat != null &&
+          place.lng != null) {
+        distanceToBranchMeters = Geolocator.distanceBetween(
+          _regionLat!,
+          _regionLng!,
+          place.lat!,
+          place.lng!,
+        );
+      }
+      final result = await state.addRegionalPrice(
         productId: pid,
         store: place.displayName,
         price: price,
         note: _noteCtrl.text.trim(),
         placeId: place.id,
-        city: _needsRegion ? city : null,
-        district: _needsRegion ? district : null,
-        sourceType: _sourceType,
-        chainId: place.chainId,
-        chainName: place.chainName,
-        lat: _needsRegion ? _regionLat : null,
-        lng: _needsRegion ? _regionLng : null,
+        city: city,
+        district: district,
+        chainId: place.chainId ?? place.displayName,
+        chainName: place.chainName ?? place.displayName,
+        lat: _regionLat,
+        lng: _regionLng,
+        distanceToBranchMeters: distanceToBranchMeters,
+        gpsAccuracyMeters: _gpsAccuracyMeters,
       );
       if (!mounted) return;
       _priceCtrl.clear();
       _noteCtrl.clear();
-      _snack('Fiyatı paylaştın · +10 PT · Topluluk doğrulayacak');
+      if (result.duplicate != null) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Bu fiyat zaten bildirildi'),
+            content: const Text(
+              'Bu fiyat bugün bu bölgede zaten bildirilmiş. Sen de gördüysen doğrulama olarak ekleyelim mi?',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Evet, ben de gördüm')),
+            ],
+          ),
+        );
+        if (confirm == true) {
+          await state.verifyRegionalPriceSeen(
+            productId: pid,
+            chainId: place.chainId ?? place.displayName,
+            price: price,
+            city: city,
+            district: district,
+          );
+          if (!mounted) return;
+          _snack('Doğrulaman kaydedildi.');
+        }
+      } else {
+        _snack('Fiyat eklendi · ${place.chainName ?? place.displayName} / $district bölgesine işlendi · ${result.sourceLabel}');
+      }
     } catch (e) {
       if (!mounted) return;
       _snack('Fiyat gönderilemedi: $e');
@@ -135,6 +200,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
       final pos = await Geolocator.getCurrentPosition();
       _regionLat = pos.latitude;
       _regionLng = pos.longitude;
+      _gpsAccuracyMeters = pos.accuracy;
       try {
         final places = await placemarkFromCoordinates(pos.latitude, pos.longitude);
         final mark = places.isNotEmpty ? places.first : null;
