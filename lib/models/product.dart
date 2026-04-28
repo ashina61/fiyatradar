@@ -50,6 +50,8 @@ class PriceEntry {
   final String reportedByUid;
   final String note;
   final String? proofImageUrl;
+  final String? city;
+  final String? district;
 
   final int upvotes;
   final int downvotes;
@@ -69,6 +71,8 @@ class PriceEntry {
     this.reportedByUid = '',
     this.note = '',
     this.proofImageUrl,
+    this.city,
+    this.district,
     this.upvotes = 0,
     this.downvotes = 0,
     this.verifiedByCount = 0,
@@ -115,6 +119,8 @@ class PriceEntry {
         'reportedByUid': reportedByUid,
         'note': note,
         if (proofImageUrl != null) 'proofImageUrl': proofImageUrl,
+        if (city != null && city!.trim().isNotEmpty) 'city': city,
+        if (district != null && district!.trim().isNotEmpty) 'district': district,
         'upvotes': upvotes,
         'downvotes': downvotes,
         'verifiedByCount': verifiedByCount,
@@ -145,6 +151,12 @@ class PriceEntry {
       reportedByUid: (m['reportedByUid'] ?? '') as String,
       note: (m['note'] ?? '') as String,
       proofImageUrl: m['proofImageUrl'] as String?,
+      city: (m['city'] as String?)?.trim().isNotEmpty == true
+          ? (m['city'] as String)
+          : null,
+      district: (m['district'] as String?)?.trim().isNotEmpty == true
+          ? (m['district'] as String)
+          : null,
       upvotes: (m['upvotes'] as num?)?.toInt() ?? 0,
       downvotes: (m['downvotes'] as num?)?.toInt() ?? 0,
       verifiedByCount: (m['verifiedByCount'] as num?)?.toInt() ?? 0,
@@ -176,6 +188,8 @@ class PriceEntry {
         reportedByUid: reportedByUid,
         note: note,
         proofImageUrl: proofImageUrl,
+        city: city,
+        district: district,
         upvotes: upvotes ?? this.upvotes,
         downvotes: downvotes ?? this.downvotes,
         verifiedByCount: verifiedByCount ?? this.verifiedByCount,
