@@ -796,6 +796,12 @@ class AppState extends ChangeNotifier {
       reportedBy: (m['reportedByName'] ?? 'Topluluk').toString(),
       reportedByUid: (m['reportedByUid'] ?? '').toString(),
       note: (m['note'] ?? '').toString(),
+      city: (m['city'] as String?)?.trim().isNotEmpty == true
+          ? (m['city'] as String)
+          : null,
+      district: (m['district'] as String?)?.trim().isNotEmpty == true
+          ? (m['district'] as String)
+          : null,
       status: switch ((m['status'] ?? 'pending').toString()) {
         'community_verified' => PriceStatus.communityVerified,
         'disputed' => PriceStatus.disputed,
@@ -1038,6 +1044,17 @@ class AppState extends ChangeNotifier {
   }) async {
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Doğrulama için giriş yapmalısın.');
+    final activeCity = (cityName ?? '').trim();
+    final activeDistrict = (districtName ?? '').trim();
+    if (activeCity.isEmpty || activeDistrict.isEmpty) {
+      throw StateError('Önce kendi bölgeni seçmelisin.');
+    }
+    if (activeCity.toLowerCase() != city.trim().toLowerCase() ||
+        activeDistrict.toLowerCase() != district.trim().toLowerCase()) {
+      throw StateError(
+        'Yalnızca kendi bölgen ($activeDistrict / $activeCity) için doğrulama yapabilirsin.',
+      );
+    }
     await _priceReportService.verifySeenToday(
       productId: productId,
       chainId: chainId,
@@ -1158,6 +1175,8 @@ class AppState extends ChangeNotifier {
       reportedByUid: uid,
       note: note,
       proofImageUrl: proofImageUrl,
+      city: sourceType == PriceSourceType.online ? null : resolvedCity,
+      district: sourceType == PriceSourceType.online ? null : resolvedDistrict,
       status: PriceStatus.pending,
       statusUpdatedAt: now,
     );

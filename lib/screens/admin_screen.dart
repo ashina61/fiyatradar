@@ -3479,43 +3479,39 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
 
   bool get _hasSearchFilter => _searchCtrl.text.trim().isNotEmpty;
   bool get _hasCityFilter => _cityCtrl.text.trim().isNotEmpty;
-  bool get _canRunFilteredQuery => _hasSearchFilter || _hasCityFilter;
+  static String _normalizeName(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[^a-z0-9çğıöşü ]', unicode: true), '')
+      .trim();
 
   Query<Map<String, dynamic>> _placesQuery() {
     Query<Map<String, dynamic>> q =
         FirebaseService.instance.storePlaces.where('isActive', isEqualTo: true);
-    if (!_canRunFilteredQuery) {
-      return q.limit(0);
-    }
-
     final city = _cityCtrl.text.trim();
     final district = _districtCtrl.text.trim();
     final hasSearch = _hasSearchFilter;
+    if (city.isNotEmpty) {
+      q = q.where('city', isEqualTo: city);
+    }
+    if (district.isNotEmpty) {
+      q = q.where('district', isEqualTo: district);
+    }
 
     if (hasSearch) {
       final search = _searchCtrl.text.trim().toLowerCase();
-      if (city.isNotEmpty) {
-        q = q.where('city', isEqualTo: city);
-        if (district.isNotEmpty) {
-          q = q.where('district', isEqualTo: district);
-        }
-      }
       return q
           .orderBy('normalizedName')
           .startAt([search])
           .endAt(['$search\uf8ff'])
           .limit(_pageSize);
     }
-
-    q = q.where('city', isEqualTo: city);
-    if (district.isNotEmpty) {
-      q = q.where('district', isEqualTo: district);
-    }
     return q.orderBy('updatedAt', descending: true).limit(_pageSize);
   }
 
   Future<void> _loadPlaces({bool reset = false}) async {
-    if (_loadingPlaces || !_canRunFilteredQuery) return;
+    if (_loadingPlaces) return;
     setState(() => _loadingPlaces = true);
     try {
       var q = _placesQuery();
@@ -3554,6 +3550,111 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
       }
       return true;
     }).toList();
+  }
+
+  Future<void> _createChainFromDialog() async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Yeni zincir ekle'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Zincir adı'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ekle')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final name = ctrl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) return;
+    await FirebaseService.instance.storeChains.add({
+      'name': name,
+      'normalizedName': _normalizeName(name),
+      'isActive': true,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _createPlaceFromDialog() async {
+    final nameCtrl = TextEditingController();
+    final cityCtrl = TextEditingController(text: _cityCtrl.text.trim());
+    final districtCtrl = TextEditingController(text: _districtCtrl.text.trim());
+    String type = 'local_market';
+    String status = 'pending';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Yeni mağaza / nokta ekle'),
+        content: StatefulBuilder(
+          builder: (_, setInner) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Görünen ad')),
+                TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'Şehir')),
+                TextField(controller: districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
+                DropdownButton<String>(
+                  value: type,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(value: 'chain_market', child: Text('Chain Market')),
+                    DropdownMenuItem(value: 'local_market', child: Text('Local Market')),
+                    DropdownMenuItem(value: 'online_market', child: Text('Online Market')),
+                    DropdownMenuItem(value: 'bazaar', child: Text('Bazaar')),
+                  ],
+                  onChanged: (v) => setInner(() => type = v ?? 'local_market'),
+                ),
+                DropdownButton<String>(
+                  value: status,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                    DropdownMenuItem(value: 'verified', child: Text('Verified')),
+                    DropdownMenuItem(value: 'trusted', child: Text('Trusted')),
+                  ],
+                  onChanged: (v) => setInner(() => status = v ?? 'pending'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kaydet')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final name = nameCtrl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final city = cityCtrl.text.trim();
+    final district = districtCtrl.text.trim();
+    if (name.isEmpty || city.isEmpty || district.isEmpty) return;
+    await FirebaseService.instance.storePlaces.add({
+      'displayName': name,
+      'normalizedName': _normalizeName(name),
+      'type': type,
+      'city': city,
+      'district': district,
+      'status': status,
+      'isActive': true,
+      'usageCount': 0,
+      'createdByUid': AppStateScope.of(context).user?.uid,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (!mounted) return;
+    setState(() {
+      _cityCtrl.text = city;
+      _districtCtrl.text = district;
+      _placesLastDoc = null;
+      _placeDocs.clear();
+    });
+    await _loadPlaces(reset: true);
   }
 
   Future<void> _runLegacyMigrationBatch() async {
@@ -3659,27 +3760,9 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           if (_tab == 0) {
-            await FirebaseService.instance.storeChains.add({
-              'name': 'Yeni Zincir',
-              'normalizedName': 'yeni zincir',
-              'isActive': true,
-              'createdAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+            await _createChainFromDialog();
           } else {
-            await FirebaseService.instance.storePlaces.add({
-              'displayName': 'Yeni Yer',
-              'normalizedName': 'yeni yer',
-              'type': 'local_market',
-              'city': _cityCtrl.text.trim(),
-              'district': _districtCtrl.text.trim(),
-              'status': 'pending',
-              'isActive': true,
-              'usageCount': 0,
-              'createdByUid': AppStateScope.of(context).user?.uid,
-              'createdAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+            await _createPlaceFromDialog();
           }
         },
         child: const Icon(Icons.add),
@@ -3718,12 +3801,46 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
         padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Column(children: [
           Row(children: [
-            Expanded(child: TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'Şehir'))),
+            Expanded(
+              child: TextField(
+                controller: _cityCtrl,
+                decoration: const InputDecoration(labelText: 'Şehir'),
+                onChanged: (_) {
+                  setState(() {
+                    _placesLastDoc = null;
+                    _placeDocs.clear();
+                  });
+                  _loadPlaces(reset: true);
+                },
+              ),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: TextField(controller: _districtCtrl, decoration: const InputDecoration(labelText: 'İlçe'))),
+            Expanded(
+              child: TextField(
+                controller: _districtCtrl,
+                decoration: const InputDecoration(labelText: 'İlçe'),
+                onChanged: (_) {
+                  setState(() {
+                    _placesLastDoc = null;
+                    _placeDocs.clear();
+                  });
+                  _loadPlaces(reset: true);
+                },
+              ),
+            ),
           ]),
           const SizedBox(height: 8),
-          TextField(controller: _searchCtrl, decoration: const InputDecoration(labelText: 'Arama'), onChanged: (_) => setState(() {})),
+          TextField(
+            controller: _searchCtrl,
+            decoration: const InputDecoration(labelText: 'Arama'),
+            onChanged: (_) {
+              setState(() {
+                _placesLastDoc = null;
+                _placeDocs.clear();
+              });
+              _loadPlaces(reset: true);
+            },
+          ),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(child: DropdownButton<String>(value: _type, isExpanded: true, items: const [
@@ -3755,28 +3872,24 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
               child: const Text('Filtrele'),
             ),
           ),
-          if (_canRunFilteredQuery)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Filtre: şehir="${_cityCtrl.text.trim().isEmpty ? "-" : _cityCtrl.text.trim()}" · ilçe="${_districtCtrl.text.trim().isEmpty ? "-" : _districtCtrl.text.trim()}" · tür=$_type · durum=$_status',
-                style: frText(11, FontWeight.w700, color: FR.ink3),
-              ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Filtre: şehir="${_cityCtrl.text.trim().isEmpty ? "-" : _cityCtrl.text.trim()}" · ilçe="${_districtCtrl.text.trim().isEmpty ? "-" : _districtCtrl.text.trim()}" · tür=$_type · durum=$_status',
+              style: frText(11, FontWeight.w700, color: FR.ink3),
             ),
-          if (_canRunFilteredQuery)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Yüklü sonuç: ${_filteredPlaceDocs.length}',
-                style: frText(11, FontWeight.w700, color: FR.ink3),
-              ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Yüklü sonuç: ${_filteredPlaceDocs.length}',
+              style: frText(11, FontWeight.w700, color: FR.ink3),
             ),
+          ),
         ]),
       ),
       Expanded(
-        child: !_canRunFilteredQuery
-            ? _empty('Şehir/ilçe veya arama girerek filtrele')
-            : ListView.builder(
+        child: ListView.builder(
                 itemCount: _filteredPlaceDocs.length + 1,
                 itemBuilder: (_, i) {
                   if (i == _filteredPlaceDocs.length) {

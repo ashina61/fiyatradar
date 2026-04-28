@@ -298,11 +298,15 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
               children: [
                 FRFilterChip('Yakınımda',
                     active: scope == HomePriceScope.nearby,
-                    onTap: () => state.setHomePriceScope(HomePriceScope.nearby)),
+                    onTap: hasRegion
+                        ? () => state.setHomePriceScope(HomePriceScope.nearby)
+                        : null),
                 const SizedBox(width: 8),
                 FRFilterChip('Şehrimde',
                     active: scope == HomePriceScope.city,
-                    onTap: () => state.setHomePriceScope(HomePriceScope.city)),
+                    onTap: hasRegion
+                        ? () => state.setHomePriceScope(HomePriceScope.city)
+                        : null),
                 const SizedBox(width: 8),
                 FRFilterChip('Online',
                     active: scope == HomePriceScope.online,
@@ -344,6 +348,13 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
               ),
             ],
           ),
+          if (!hasRegion) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Yakınımda ve Şehrimde sekmeleri için önce konum seç.',
+              style: frText(11, FontWeight.w700, color: FR.ink3),
+            ),
+          ],
         ],
       ),
     );
@@ -937,6 +948,14 @@ class _FeedRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = product.priceChangePct;
     final latestEntry = latest;
+    final regionLabel = latestEntry == null
+        ? null
+        : () {
+            final city = (latestEntry.city ?? '').trim();
+            final district = (latestEntry.district ?? '').trim();
+            if (city.isEmpty || district.isEmpty) return null;
+            return '$district / $city';
+          }();
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: FRCard(
@@ -981,6 +1000,13 @@ class _FeedRow extends StatelessWidget {
                       ],
                     ],
                   ),
+                  if (regionLabel != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      regionLabel,
+                      style: frText(10.5, FontWeight.w700, color: FR.ink3),
+                    ),
+                  ],
                 ],
               ),
             ),
