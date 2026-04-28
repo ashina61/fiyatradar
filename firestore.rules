@@ -422,6 +422,26 @@ service cloud.firestore {
       (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
     }
 
+
+    function hasSafeRegionalPriceReportCreatePayload() {
+      return request.resource.data.keys().hasAll([
+        'productId',
+        'chainId',
+        'cityId',
+        'districtId',
+        'price',
+        'userId',
+        'localDateKey'
+      ]) &&
+      request.resource.data.productId is string &&
+      request.resource.data.chainId is string &&
+      request.resource.data.cityId is string &&
+      request.resource.data.districtId is string &&
+      ((request.resource.data.price is int) || (request.resource.data.price is float)) &&
+      request.resource.data.userId is string &&
+      request.resource.data.localDateKey is string;
+    }
+
     match /priceReports/{priceId} {
       function hasOnlyPriceReportOwnerWritableKeys() {
         return request.resource.data.diff(resource.data).changedKeys().hasOnly([
@@ -438,22 +458,37 @@ service cloud.firestore {
       allow get: if isAdmin() ||
         (signedIn() && priceId.matches('^' + request.auth.uid + '_.*'));
       allow list: if isAdmin();
-      allow create: if signedIn() &&
-        hasSafePriceReportCreatePayload() &&
-        priceId == (request.auth.uid + '_' + request.resource.data.entryId) &&
-        request.resource.data.createdByUid == request.auth.uid &&
-        (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
-        (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified');
+      allow create: if signedIn() && (
+        (
+          hasSafePriceReportCreatePayload() &&
+          priceId == (request.auth.uid + '_' + request.resource.data.entryId) &&
+          request.resource.data.createdByUid == request.auth.uid &&
+          (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
+          (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified')
+        ) || (
+          hasSafeRegionalPriceReportCreatePayload() &&
+          request.resource.data.userId == request.auth.uid &&
+          (!('status' in request.resource.data) || request.resource.data.status == 'active')
+        )
+      );
       allow update: if isAdmin() || (
         signedIn() &&
-        resource.data.createdByUid == request.auth.uid &&
-        request.resource.data.createdByUid == resource.data.createdByUid &&
-        request.resource.data.productId == resource.data.productId &&
-        request.resource.data.entryId == resource.data.entryId &&
-        hasOnlyPriceReportOwnerWritableKeys() &&
-        hasSafePriceReportCreatePayload() &&
-        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
-        (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == resource.data.verificationStatus)
+        (
+          (
+            resource.data.createdByUid == request.auth.uid &&
+            request.resource.data.createdByUid == resource.data.createdByUid &&
+            request.resource.data.productId == resource.data.productId &&
+            request.resource.data.entryId == resource.data.entryId &&
+            hasOnlyPriceReportOwnerWritableKeys() &&
+            hasSafePriceReportCreatePayload() &&
+            (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
+            (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == resource.data.verificationStatus)
+          ) || (
+            resource.data.userId == request.auth.uid &&
+            request.resource.data.userId == resource.data.userId &&
+            hasSafeRegionalPriceReportCreatePayload()
+          )
+        )
       );
       allow delete: if isAdmin();
 
@@ -462,6 +497,21 @@ service cloud.firestore {
         allow read: if signedIn();
         allow create, update, delete: if isAdmin() || (signedIn() && voteUid == request.auth.uid);
       }
+    }
+
+
+    match /priceGroups/{groupId} {
+      allow read: if true;
+      // Regional aggregation docs are updated by signed-in contributors via
+      // transaction together with priceReports/priceReportDedupes.
+      allow create, update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /priceReportDedupes/{dedupeId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if isAdmin();
     }
 
     match /price_votes/{priceId}/votes/{voteUid} {
