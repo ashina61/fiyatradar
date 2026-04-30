@@ -40,6 +40,8 @@ class HomeTab extends StatelessWidget {
           FRFadeSlideIn(delay: nextDelay(), child: _Greet(state: state)),
           const SizedBox(height: 12),
           FRFadeSlideIn(delay: nextDelay(), child: const _HomeScopeStrip()),
+          const SizedBox(height: 12),
+          FRFadeSlideIn(delay: nextDelay(), child: const _AddPriceCallout()),
           const SizedBox(height: 18),
           if (state.banners.isNotEmpty) ...[
             FRFadeSlideIn(
@@ -356,6 +358,61 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Always-visible call-to-action that drops the user straight into the
+/// add-price flow. Spec calls for: "Fiyat gördün mü? 20 saniyede ekle."
+class _AddPriceCallout extends StatelessWidget {
+  const _AddPriceCallout();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: FRRad.all(FRRad.l),
+      onTap: () => Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [FR.surfaceHi, FR.surfaceLo],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.goldDeep.withOpacity(.32)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                borderRadius: FRRad.all(12),
+              ),
+              child: Icon(Icons.add_rounded, color: FR.onGold, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Fiyat gördün mü?',
+                      style: frText(13.5, FontWeight.w800)),
+                  Text('20 saniyede ekle, bölgendeki kullanıcılar görsün.',
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: FR.ink3),
+          ],
+        ),
       ),
     );
   }

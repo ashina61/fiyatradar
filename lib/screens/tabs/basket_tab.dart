@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/price_reporting.dart';
 import '../../models/product.dart';
 import '../../services/basket_pricing_service.dart';
 import '../../state/app_state.dart';
@@ -431,28 +432,7 @@ class _ComparePanelState extends State<_ComparePanel> {
             ...singles.take(5).map(
                   (s) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: frSurface(radius: FRRad.l),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(s.chainName, style: frText(13, FontWeight.w800)),
-                          const SizedBox(height: 4),
-                          Text('Tahmini toplam: ₺${s.estimatedTotal.toStringAsFixed(2)}',
-                              style: frText(12, FontWeight.w700, color: FR.goldDeep)),
-                          Text(
-                            'Bulunan: ${s.foundItemCount} · Eksik: ${s.missingItemCount} · Güven: ${s.confidence} · Kaynak: ${s.usedPriceSource}',
-                            style: frText(10.5, FontWeight.w600, color: FR.ink3),
-                          ),
-                          if (s.missingProductIds.isNotEmpty)
-                            Text(
-                              'Eksik ürün id: ${s.missingProductIds.join(', ')}',
-                              style: frText(10.5, FontWeight.w600, color: FR.warn),
-                            ),
-                        ],
-                      ),
-                    ),
+                    child: _SingleStoreCard(estimate: s, state: state),
                   ),
                 ),
             const SizedBox(height: 16),
@@ -489,354 +469,89 @@ class _ComparePanelState extends State<_ComparePanel> {
   }
 }
 
-class _BestCombinationCard extends StatelessWidget {
-  const _BestCombinationCard({
-    required this.best,
-    required this.cartSize,
-    required this.savings,
-  });
-  final _StoreGroup best;
-  final int cartSize;
-  final double savings;
+/// One single-market estimate row in the compare panel. Shows the chain,
+/// estimated total, coverage, confidence label (Türkçe), the dominant price
+/// source, and a quick action to add the missing prices into the catalog.
+class _SingleStoreCard extends StatelessWidget {
+  const _SingleStoreCard({required this.estimate, required this.state});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: FRRad.all(28),
-        border: Border.all(color: FR.goldDeep.withOpacity(.55), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: FR.gold.withOpacity(.18),
-            blurRadius: 36,
-            offset: const Offset(0, 12),
-          ),
-          BoxShadow(
-            color: FR.shadowTone.withOpacity(.45),
-            blurRadius: 22,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Layered premium gradient — espresso into deep gold light.
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    FR.surfaceHi,
-                    FR.surfaceLo,
-                    FR.bgElev,
-                  ],
-                  stops: const [0.0, 0.55, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -40,
-            top: -50,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    FR.gold.withOpacity(.22),
-                    FR.gold.withOpacity(.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -18,
-            top: -18,
-            child: Icon(
-              Icons.workspace_premium_rounded,
-              size: 180,
-              color: FR.gold.withOpacity(.07),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: FR.bg.withOpacity(.35),
-                        borderRadius: FRRad.all(999),
-                        border: Border.all(color: FR.hairline),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const FRLiveDot(size: 6),
-                          const SizedBox(width: 5),
-                          Text('canlı hesaplama',
-                              style: frText(9.5, FontWeight.w800,
-                                  color: FR.ink3, letter: .6)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text('EN UCUZ KOMBİNASYON',
-                    style: frOverline(color: FR.gold, size: 10)),
-                const SizedBox(height: 8),
-                ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (rect) => LinearGradient(
-                    colors: [FR.goldHi, FR.gold, FR.goldDeep],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ).createShader(rect),
-                  child: Text(
-                    best.store,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: frDisplay(34, FontWeight.w700, height: 1.05),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${best.items} fiyat noktası tarandı · '
-                  '${best.covered}/$cartSize ürün eşleşti',
-                  style: frText(12, FontWeight.w600, color: FR.ink3),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('TOPLAM',
-                            style: frOverline(color: FR.ink3, size: 9)),
-                        const SizedBox(height: 4),
-                        FRPriceText(best.total, size: 42, color: FR.gold),
-                      ],
-                    ),
-                    const Spacer(),
-                    if (savings > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 7),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              FR.good.withOpacity(.22),
-                              FR.good.withOpacity(.10),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: FRRad.all(999),
-                          border: Border.all(color: FR.good.withOpacity(.45)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.savings_rounded,
-                                color: FR.good, size: 14),
-                            const SizedBox(width: 6),
-                            Text('-₺${savings.toStringAsFixed(0)} tasarruf',
-                                style: frText(12, FontWeight.w800,
-                                    color: FR.good)),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+  final BasketStoreEstimate estimate;
+  final AppState state;
+
+  String _sourceTr(String raw) {
+    switch (raw) {
+      case 'trustedPrice':
+        return 'Güvenilir fiyat';
+      case 'latestPrice':
+        return 'Son bildirilen';
+      case 'avgPrice':
+        return 'Ortalama';
+      case 'minPrice':
+        return 'En düşük';
+      default:
+        return 'Veri yok';
+    }
+  }
+
+  void _addMissingPrices(BuildContext context) {
+    if (estimate.missingProductIds.isEmpty) return;
+    final firstId = estimate.missingProductIds.first;
+    state.setAddPricePreset(
+      productId: firstId,
+      chainName: estimate.chainName,
+    );
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
     );
   }
-}
-
-class _CompareRow extends StatelessWidget {
-  const _CompareRow({
-    required this.group,
-    required this.cartSize,
-    required this.bestTotal,
-    required this.bestStore,
-  });
-  final _StoreGroup group;
-  final int cartSize;
-  final double bestTotal;
-  final String bestStore;
 
   @override
   Widget build(BuildContext context) {
-    final delta = group.total - bestTotal;
-    final pct = bestTotal <= 0 ? 0.0 : ((delta / bestTotal) * 100.0).abs();
-    final more = delta > 0.005;
-    final coverColor = group.covered >= cartSize ? FR.good : FR.warn;
-
+    final missing = estimate.missingProductIds
+        .map((id) => state.findById(id)?.name)
+        .whereType<String>()
+        .take(3)
+        .toList();
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: frSurface(radius: FRRad.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              FRStoreBadge(group.store),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${group.covered}/$cartSize ürün eşleşti',
-                        style: frText(12.5, FontWeight.w800)),
-                    Text(
-                      group.covered < cartSize
-                          ? '${cartSize - group.covered} ürün için fiyat yok'
-                          : '${group.items} fiyat noktası tarandı',
-                      style: frText(11, FontWeight.w600, color: coverColor),
-                    ),
-                  ],
-                ),
+                child: Text(estimate.chainName, style: frText(13, FontWeight.w800)),
               ),
-              FRPriceText(group.total, size: 16, color: FR.ink),
+              FRPriceText(estimate.estimatedTotal, size: 16, color: FR.gold),
             ],
           ),
-          const SizedBox(height: 10),
-          if (more)
-            _MoreExpensive(delta: delta, pct: pct, vsStore: bestStore)
-          else
-            const _SamePriceTag(),
-        ],
-      ),
-    );
-  }
-}
-
-class _MoreExpensive extends StatelessWidget {
-  const _MoreExpensive({
-    required this.delta,
-    required this.pct,
-    required this.vsStore,
-  });
-  final double delta;
-  final double pct;
-  final String vsStore;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = FR.bad;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: c.withOpacity(.10),
-        borderRadius: FRRad.all(10),
-        border: Border.all(color: c.withOpacity(.28)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.arrow_upward_rounded, size: 14, color: c),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              '${vsStore.isEmpty ? 'En ucuz seçeneğe' : '$vsStore\'e'} göre +₺${delta.toStringAsFixed(delta < 10 ? 2 : 0)} '
-              '(%${pct.toStringAsFixed(pct < 10 ? 1 : 0)}) daha pahalı',
-              style: frText(11, FontWeight.w800, color: c),
-            ),
+          const SizedBox(height: 4),
+          Text(
+            'Tahmini toplam · '
+            'Bulunan ${estimate.foundItemCount} / '
+            '${estimate.foundItemCount + estimate.missingItemCount} ürün · '
+            'Güven: ${confidenceLabelTr(estimate.confidence)} · '
+            '${_sourceTr(estimate.usedPriceSource)}',
+            style: frText(10.5, FontWeight.w600, color: FR.ink3),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SamePriceTag extends StatelessWidget {
-  const _SamePriceTag();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = FR.good;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: c.withOpacity(.10),
-        borderRadius: FRRad.all(10),
-        border: Border.all(color: c.withOpacity(.28)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.bolt_rounded, size: 14, color: c),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              'En ucuz kombinasyona eşit fiyat',
-              style: frText(11, FontWeight.w800, color: c),
+          if (missing.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Eksik fiyatlar:',
+                style: frText(11, FontWeight.w800, color: FR.warn)),
+            Text(missing.join(', '),
+                style: frText(11, FontWeight.w600, color: FR.ink3)),
+            const SizedBox(height: 8),
+            FRCta(
+              label: 'Eksik fiyatları ekle',
+              icon: Icons.add_rounded,
+              filled: false,
+              onTap: () => _addMissingPrices(context),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-List<_StoreGroup> _computeStoreGroups(AppState state) {
-  final storeCount = <String, int>{};
-  final storeTotal = <String, double>{};
-  final storeItems = <String, int>{};
-  for (final c in state.cart) {
-    for (final e in c.product.priceHistory) {
-      storeItems[e.store] = (storeItems[e.store] ?? 0) + 1;
-    }
-    // For each store with a price for this product, add its cheapest entry
-    final byStore = <String, double>{};
-    for (final e in c.product.priceHistory) {
-      final cur = byStore[e.store];
-      if (cur == null || e.price < cur) byStore[e.store] = e.price;
-    }
-    byStore.forEach((store, price) {
-      storeTotal[store] = (storeTotal[store] ?? 0) + price * c.quantity;
-      storeCount[store] = (storeCount[store] ?? 0) + 1;
-    });
-  }
-  final groups = storeTotal.entries
-      .map((e) => _StoreGroup(
-            store: e.key,
-            total: e.value,
-            covered: storeCount[e.key] ?? 0,
-            items: storeItems[e.key] ?? 0,
-          ))
-      .toList();
-  groups.sort((a, b) {
-    final covCmp = b.covered.compareTo(a.covered);
-    if (covCmp != 0) return covCmp;
-    return a.total.compareTo(b.total);
-  });
-  return groups;
-}
-
-class _StoreGroup {
-  final String store;
-  final double total;
-  final int covered;
-  final int items;
-  _StoreGroup({
-    required this.store,
-    required this.total,
-    required this.covered,
-    required this.items,
-  });
-}

@@ -17,7 +17,6 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late List<PriceEntry> _sorted;
-  late List<PriceEntry> _stores;
   late PriceEntry? _best;
 
   @override
@@ -49,29 +48,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final product = widget.product;
     _sorted = [...product.priceHistory]..sort((a, b) => b.date.compareTo(a.date));
     _best = product.bestValueEntry;
-
-    final perStore = <String, PriceEntry>{};
-    for (final e in product.validEntries) {
-      final cur = perStore[e.store];
-      if (cur == null) {
-        perStore[e.store] = e;
-        continue;
-      }
-      final curVerified = cur.status == PriceStatus.communityVerified;
-      final eVerified = e.status == PriceStatus.communityVerified;
-      if (eVerified && !curVerified) {
-        perStore[e.store] = e;
-      } else if (eVerified == curVerified && e.price < cur.price) {
-        perStore[e.store] = e;
-      }
-    }
-    _stores = perStore.values.toList()
-      ..sort((a, b) {
-        final av = a.status == PriceStatus.communityVerified ? 0 : 1;
-        final bv = b.status == PriceStatus.communityVerified ? 0 : 1;
-        if (av != bv) return av - bv;
-        return a.price.compareTo(b.price);
-      });
   }
 
   @override
@@ -183,30 +159,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   if (product.validEntries.length >= 2)
                     _PriceHistoryCard(product: product),
                   if (product.validEntries.length >= 2) const SizedBox(height: 18),
-                  const FRSectionHead(eyebrow: 'MARKETLER', title: 'Mağaza karşılaştırması'),
-                  const SizedBox(height: 12),
-                  if (_stores.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                      child: Text('Bu ürün için henüz fiyat yok.',
-                          style: frText(12.5, FontWeight.w600, color: FR.ink3)),
-                    )
-                  else
-                    ..._stores.map((e) {
-                      final cheapest = product.lowestPrice ?? e.price;
-                      final delta = e.price - cheapest;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                        child: _StoreRow(
-                          store: e.store,
-                          entry: e,
-                          isBest: _best != null && e.id == _best!.id,
-                          delta: delta,
-                          cheapestPrice: cheapest,
-                        ),
-                      );
-                    }),
-                  const SizedBox(height: 20),
                   const FRSectionHead(
                       eyebrow: 'TOPLULUK DOĞRULAMASI',
                       title: 'Son katkılar'),
@@ -420,11 +372,23 @@ class _RegionalGroupCard extends StatelessWidget {
         FRPriceText(group.preferredPrice ?? group.latestPrice, size: 18, color: FR.gold),
         const SizedBox(height: 4),
         Text(
-          '${_relative(group.lastReportedAt)} · ${group.reportCount} bildirim · ${group.verifiedCount} doğrulama · Güven: ${group.confidence}',
+          '${_relative(group.lastReportedAt)} · '
+          '${group.reportCount} bildirim · '
+          '${group.verifiedCount} doğrulama · '
+          'Güven: ${confidenceLabelTr(group.confidence)}',
           style: frText(11, FontWeight.w600, color: FR.ink3),
         ),
-        Text(priceReportSourceTypeLabelTr(group.sourceType),
-            style: frText(11, FontWeight.w700, color: FR.goldDeep)),
+        Row(children: [
+          Text(priceReportSourceTypeLabelTr(group.sourceType),
+              style: frText(11, FontWeight.w700, color: FR.goldDeep)),
+          if (group.hasPhotoEvidence) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.photo_camera_rounded, size: 12, color: FR.ink3),
+            const SizedBox(width: 4),
+            Text('${group.photoReportCount} fotoğraflı',
+                style: frText(11, FontWeight.w700, color: FR.ink3)),
+          ],
+        ]),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: [
           _TinyAction(
@@ -563,161 +527,6 @@ class _PriceHistoryCard extends StatelessWidget {
           ),
         ),
       );
-}
-
-class _StoreRow extends StatelessWidget {
-  const _StoreRow({
-    required this.store,
-    required this.entry,
-    required this.isBest,
-    required this.delta,
-    required this.cheapestPrice,
-  });
-  final String store;
-  final PriceEntry entry;
-  final bool isBest;
-  final double delta;
-  final double cheapestPrice;
-
-  @override
-  Widget build(BuildContext context) {
-    final verified = entry.status == PriceStatus.communityVerified;
-    final pct = cheapestPrice <= 0 ? 0.0 : (delta / cheapestPrice) * 100.0;
-    final isCheapest = delta.abs() < 0.005;
-    return Container(
-      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-      decoration: BoxDecoration(
-        color: FR.surface,
-        borderRadius: FRRad.all(FRRad.l),
-        border: Border.all(color: isBest ? FR.gold.withOpacity(.55) : FR.hairline),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isBest ? FR.gold.withOpacity(.15) : FR.surfaceHi,
-              borderRadius: FRRad.all(12),
-              border: Border.all(color: isBest ? FR.gold : FR.hairline),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              store.substring(0, store.length > 2 ? 2 : store.length).toUpperCase(),
-              style: frText(13, FontWeight.w800, color: isBest ? FR.gold : FR.ink2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(store, style: frText(13.5, FontWeight.w800)),
-                    if (isBest) ...[
-                      const SizedBox(width: 6),
-                      Icon(Icons.bolt_rounded, color: FR.gold, size: 14),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    FRFreshChip(date: entry.date),
-                    FRVerifyBadge.status(
-                      status: statusToString(entry.status),
-                      trustPercent: entry.trustPercent,
-                      dense: true,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              FRPriceText(
-                entry.price,
-                size: 18,
-                color: verified || isBest ? FR.gold : FR.ink,
-              ),
-              const SizedBox(height: 4),
-              _DeltaPill(delta: delta, pct: pct, isCheapest: isCheapest),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Compact pill that summarises how much pricier (or cheaper) a store is
-/// compared to the lowest tracked price. Renders "en ucuz" when the store
-/// holds the cheapest price.
-class _DeltaPill extends StatelessWidget {
-  const _DeltaPill({
-    required this.delta,
-    required this.pct,
-    required this.isCheapest,
-  });
-  final double delta;
-  final double pct;
-  final bool isCheapest;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isCheapest) {
-      final c = FR.good;
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-        decoration: BoxDecoration(
-          color: c.withOpacity(.14),
-          borderRadius: FRRad.all(999),
-          border: Border.all(color: c.withOpacity(.35)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.bolt_rounded, size: 11, color: c),
-            const SizedBox(width: 4),
-            Text('en ucuz', style: frText(10, FontWeight.w800, color: c)),
-          ],
-        ),
-      );
-    }
-    final more = delta > 0;
-    final c = more ? FR.bad : FR.good;
-    final pctText = pct.abs() < 0.5
-        ? pct.abs().toStringAsFixed(1)
-        : pct.abs().toStringAsFixed(pct.abs() < 10 ? 1 : 0);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-      decoration: BoxDecoration(
-        color: c.withOpacity(.12),
-        borderRadius: FRRad.all(999),
-        border: Border.all(color: c.withOpacity(.32)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            more ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-            size: 11,
-            color: c,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${more ? '+' : '-'}₺${delta.abs().toStringAsFixed(delta.abs() < 10 ? 2 : 0)} · %$pctText',
-            style: frText(10, FontWeight.w800, color: c),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ContributionRow extends StatefulWidget {
