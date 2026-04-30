@@ -401,12 +401,88 @@ class _ComparePanel extends StatefulWidget {
 }
 
 class _ComparePanelState extends State<_ComparePanel> {
-  late Future<BasketPricingResult> _future;
+  Future<BasketPricingResult>? _future;
+  int _cartSignature = -1;
 
   @override
   void initState() {
     super.initState();
+    _maybeRefresh();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ComparePanel old) {
+    super.didUpdateWidget(old);
+    _maybeRefresh();
+  }
+
+  int _signatureFor(AppState state) {
+    var sig = 0;
+    for (final c in state.cart) {
+      sig = sig * 31 + c.product.id.hashCode;
+      sig = sig * 31 + c.quantity;
+    }
+    sig = sig * 31 + (state.cityName ?? '').hashCode;
+    sig = sig * 31 + (state.districtName ?? '').hashCode;
+    return sig;
+  }
+
+  void _maybeRefresh() {
+    final sig = _signatureFor(widget.state);
+    if (sig == _cartSignature && _future != null) return;
+    _cartSignature = sig;
     _future = widget.state.calculateRegionalBasketPricing();
+  }
+
+  void _recalc() {
+    setState(() {
+      _cartSignature = _signatureFor(widget.state);
+      _future = widget.state.calculateRegionalBasketPricing();
+    });
+  }
+
+  Future<void> _pickRegion(AppState state) async {
+    final cityCtrl = TextEditingController(text: state.cityName ?? '');
+    final districtCtrl = TextEditingController(text: state.districtName ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FR.surface,
+        title: Text('Bölgeni seç', style: frDisplay(20, FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: cityCtrl,
+              decoration: const InputDecoration(labelText: 'İl'),
+            ),
+            TextField(
+              controller: districtCtrl,
+              decoration: const InputDecoration(labelText: 'İlçe'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('İptal', style: frText(13, FontWeight.w800, color: FR.ink3)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Kaydet', style: frText(13, FontWeight.w800, color: FR.gold)),
+          ),
+        ],
+      ),
+    );
+    cityCtrl.dispose();
+    districtCtrl.dispose();
+    if (ok != true) return;
+    if (cityCtrl.text.trim().isEmpty || districtCtrl.text.trim().isEmpty) return;
+    await state.updateRegionSettings(
+      cityName: cityCtrl.text.trim(),
+      districtName: districtCtrl.text.trim(),
+    );
+    _recalc();
   }
 
   @override
@@ -414,84 +490,583 @@ class _ComparePanelState extends State<_ComparePanel> {
     final state = widget.state;
     if (state.cart.isEmpty) return _EmptyCart();
 
+    final hasRegion = (state.cityName ?? '').trim().isNotEmpty &&
+        (state.districtName ?? '').trim().isNotEmpty;
+    if (!hasRegion) {
+      return _CompareNoRegion(onPick: () => _pickRegion(state));
+    }
+
     return FutureBuilder<BasketPricingResult>(
       future: _future,
       builder: (context, snap) {
         if (!snap.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const _CompareLoading();
         }
         final result = snap.data!;
         final singles = result.singleMarketEstimates;
+        if (singles.isEmpty) {
+          return _CompareEmptyData(
+            city: state.cityName!.trim(),
+            district: state.districtName!.trim(),
+            onAddPrice: () => Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
+            ),
+            onPickRegion: () => _pickRegion(state),
+          );
+        }
+
         final mixed = result.cheapestMixed;
         final smart = result.smartSuggestion;
+        final winner = singles.first;
+        final worstTotal = singles.last.estimatedTotal;
+        final saving = (worstTotal - winner.estimatedTotal).clamp(0, double.infinity);
+        final mixedSavingVsWinner =
+            mixed == null ? 0.0 : (winner.estimatedTotal - mixed.estimatedTotal);
+
         return ListView(
           padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
           children: [
-            const FRSectionHead(eyebrow: 'TEK MARKET', title: 'Tahmini toplamlar'),
-            const SizedBox(height: 12),
-            ...singles.take(5).map(
-                  (s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _SingleStoreCard(estimate: s, state: state),
-                  ),
-                ),
+            _CompareWinnerCard(
+              estimate: winner,
+              savingsVsWorst: saving.toDouble(),
+              totalChains: singles.length,
+              region: '${state.districtName} / ${state.cityName}',
+              onAddMissing: () => _routeToAddMissing(context, winner, state),
+            ),
             const SizedBox(height: 16),
-            const FRSectionHead(eyebrow: 'KARMA SEPET', title: 'En ucuz tahmini karışım'),
-            const SizedBox(height: 12),
-            if (mixed == null)
-              Text('Karma hesap için yeterli bölgesel fiyat yok.',
-                  style: frText(12, FontWeight.w600, color: FR.ink3))
-            else
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: frSurface(radius: FRRad.l),
-                child: Text(
-                  'Tahmini toplam: ₺${mixed.estimatedTotal.toStringAsFixed(2)} · ${mixed.marketCount} market gerekiyor',
-                  style: frText(12.5, FontWeight.w700),
+            if (mixed != null && mixedSavingVsWinner > 0)
+              _CompareMixedCard(
+                mixed: mixed,
+                saving: mixedSavingVsWinner,
+                bestSingle: winner.chainName,
+              ),
+            if (mixed != null && mixedSavingVsWinner > 0)
+              const SizedBox(height: 16),
+            FRSectionHead(
+              eyebrow: 'TEK MARKET SIRALAMASI',
+              title: 'Tahmini toplamlar',
+              action: TextButton.icon(
+                onPressed: _recalc,
+                icon: Icon(Icons.refresh_rounded, size: 14, color: FR.goldDeep),
+                label: Text(
+                  'Yenile',
+                  style: frText(12, FontWeight.w800, color: FR.goldDeep),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: const Size(0, 30),
                 ),
               ),
-            const SizedBox(height: 16),
-            const FRSectionHead(eyebrow: 'ÖNERİ', title: 'En mantıklı seçenek'),
+            ),
             const SizedBox(height: 12),
-            if (smart == null)
-              Text('Karşılaştırma için yeterli veri yok.',
-                  style: frText(12, FontWeight.w600, color: FR.ink3))
-            else
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: frSurface(radius: FRRad.l),
-                child: Text(smart.message, style: frText(12, FontWeight.w700)),
+            for (var i = 0; i < singles.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _SingleStoreCard(
+                  estimate: singles[i],
+                  state: state,
+                  rank: i + 1,
+                  isWinner: i == 0,
+                ),
               ),
+            if (smart != null) ...[
+              const SizedBox(height: 6),
+              _CompareInsightBanner(message: smart.message),
+            ],
           ],
         );
       },
     );
   }
+
+  void _routeToAddMissing(
+    BuildContext context,
+    BasketStoreEstimate estimate,
+    AppState state,
+  ) {
+    if (estimate.missingProductIds.isEmpty) return;
+    state.setAddPricePreset(
+      productId: estimate.missingProductIds.first,
+      chainName: estimate.chainName,
+    );
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
+    );
+  }
 }
 
-/// One single-market estimate row in the compare panel. Shows the chain,
-/// estimated total, coverage, confidence label (Türkçe), the dominant price
-/// source, and a quick action to add the missing prices into the catalog.
+class _CompareNoRegion extends StatelessWidget {
+  const _CompareNoRegion({required this.onPick});
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 24, 20, frBottomScrollPadding(context)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [FR.surfaceHi, FR.surfaceLo],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: FRRad.all(28),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Icon(Icons.location_on_outlined, color: FR.gold, size: 40),
+            ),
+            const SizedBox(height: 16),
+            Text('Bölgeni seç', style: frDisplay(22, FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              'Karşılaştırma için il ve ilçe gerekli — bölgendeki marketlerden gelen fiyatları kullanırız.',
+              textAlign: TextAlign.center,
+              style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: 240,
+              child: FRCta(
+                label: 'İl / ilçe seç',
+                icon: Icons.map_outlined,
+                onTap: onPick,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompareLoading extends StatelessWidget {
+  const _CompareLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 24, 20, frBottomScrollPadding(context)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 220,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [FR.surfaceHi, FR.surfaceLo],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: FRRad.all(FRRad.xxl),
+              border: Border.all(color: FR.hairline),
+            ),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, color: FR.gold),
+                ),
+                const SizedBox(height: 14),
+                Text('Bölgesel fiyatlar hesaplanıyor…',
+                    style: frText(13, FontWeight.w700, color: FR.ink2)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompareEmptyData extends StatelessWidget {
+  const _CompareEmptyData({
+    required this.city,
+    required this.district,
+    required this.onAddPrice,
+    required this.onPickRegion,
+  });
+  final String city;
+  final String district;
+  final VoidCallback onAddPrice;
+  final VoidCallback onPickRegion;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 24, 20, frBottomScrollPadding(context)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [FR.surfaceHi, FR.surfaceLo],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: FRRad.all(28),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Icon(Icons.insights_rounded, color: FR.gold, size: 40),
+            ),
+            const SizedBox(height: 16),
+            Text('Henüz veri yok', style: frDisplay(22, FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              '$district / $city için sepet karşılaştırması yapacak kadar bildirilen fiyat bulamadık. İlk fiyatları sen ekleyebilirsin.',
+              textAlign: TextAlign.center,
+              style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: 240,
+              child: FRCta(
+                label: 'Fiyat ekle',
+                icon: Icons.add_rounded,
+                onTap: onAddPrice,
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: onPickRegion,
+              icon: Icon(Icons.map_outlined, size: 14, color: FR.goldDeep),
+              label: Text('Bölgeyi değiştir',
+                  style: frText(12, FontWeight.w800, color: FR.goldDeep)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompareWinnerCard extends StatelessWidget {
+  const _CompareWinnerCard({
+    required this.estimate,
+    required this.savingsVsWorst,
+    required this.totalChains,
+    required this.region,
+    required this.onAddMissing,
+  });
+  final BasketStoreEstimate estimate;
+  final double savingsVsWorst;
+  final int totalChains;
+  final String region;
+  final VoidCallback onAddMissing;
+
+  @override
+  Widget build(BuildContext context) {
+    final coverage = estimate.foundItemCount /
+        ((estimate.foundItemCount + estimate.missingItemCount).clamp(1, 9999));
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(FRRad.xxl),
+        border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+        boxShadow: frGoldGlow(opacity: .14),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -16,
+            top: -16,
+            child: Icon(Icons.workspace_premium_rounded,
+                size: 140, color: FR.gold.withOpacity(.07)),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: FR.gold.withOpacity(.16),
+                      borderRadius: FRRad.all(999),
+                      border: Border.all(color: FR.gold.withOpacity(.4)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.workspace_premium_rounded,
+                            size: 12, color: FR.gold),
+                        const SizedBox(width: 6),
+                        Text('EN İYİ SEÇENEK',
+                            style: frText(10, FontWeight.w800,
+                                color: FR.gold, letter: 1.2)),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  Text('$totalChains market',
+                      style: frText(11, FontWeight.w800, color: FR.ink3)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(estimate.chainName,
+                  style: frDisplay(26, FontWeight.w700, height: 1.1)),
+              const SizedBox(height: 4),
+              Text(region,
+                  style: frText(12, FontWeight.w700, color: FR.ink3)),
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  FRPriceText(estimate.estimatedTotal, size: 36, color: FR.gold),
+                  const SizedBox(width: 10),
+                  if (savingsVsWorst > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: FR.good.withOpacity(.16),
+                          borderRadius: FRRad.all(999),
+                          border: Border.all(color: FR.good.withOpacity(.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.trending_down_rounded,
+                                size: 12, color: FR.good),
+                            const SizedBox(width: 4),
+                            Text(
+                              '₺${savingsVsWorst.toStringAsFixed(0)} avantaj',
+                              style: frText(11, FontWeight.w800, color: FR.good),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _coverageBar(coverage.toDouble(), estimate),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MetaPill(
+                    icon: Icons.shield_outlined,
+                    label: 'Güven · ${confidenceLabelTr(estimate.confidence)}',
+                  ),
+                  _MetaPill(
+                    icon: Icons.bolt_rounded,
+                    label: _sourceTr(estimate.usedPriceSource),
+                  ),
+                ],
+              ),
+              if (estimate.missingItemCount > 0) ...[
+                const SizedBox(height: 14),
+                FRCta(
+                  label: 'Eksik fiyatları ekle',
+                  icon: Icons.add_rounded,
+                  filled: false,
+                  onTap: onAddMissing,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _coverageBar(double coverage, BasketStoreEstimate e) {
+    final pct = (coverage * 100).round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('KAPSAMA', style: frOverline(color: FR.ink3, size: 9.5)),
+            const Spacer(),
+            Text('$pct% · ${e.foundItemCount}/${e.foundItemCount + e.missingItemCount} ürün',
+                style: frText(11, FontWeight.w800, color: FR.ink2)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: FRRad.all(999),
+          child: Stack(
+            children: [
+              Container(height: 6, color: FR.bgElev),
+              FractionallySizedBox(
+                widthFactor: coverage.clamp(0.0, 1.0),
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompareMixedCard extends StatelessWidget {
+  const _CompareMixedCard({
+    required this.mixed,
+    required this.saving,
+    required this.bestSingle,
+  });
+  final BasketMixedEstimate mixed;
+  final double saving;
+  final String bestSingle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.xl),
+        border: Border.all(color: FR.good.withOpacity(.45)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FR.good.withOpacity(.16),
+              borderRadius: FRRad.all(14),
+              border: Border.all(color: FR.good.withOpacity(.35)),
+            ),
+            child: Icon(Icons.alt_route_rounded, color: FR.good, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('KARMA SEPET', style: frOverline(color: FR.good, size: 9.5)),
+                const SizedBox(height: 3),
+                Text(
+                  '${mixed.marketCount} markete bölünce ₺${saving.toStringAsFixed(0)} kazanç',
+                  style: frText(13.5, FontWeight.w800, height: 1.3),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Tahmini toplam ₺${mixed.estimatedTotal.toStringAsFixed(2)} · $bestSingle alternatifine kıyasla',
+                  style: frText(11.5, FontWeight.w700, color: FR.ink3, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompareInsightBanner extends StatelessWidget {
+  const _CompareInsightBanner({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.bgElev,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairlineSoft),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_outline_rounded, size: 18, color: FR.goldDeep),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message,
+                style: frText(12, FontWeight.w700, color: FR.ink2, height: 1.5)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  const _MetaPill({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: FR.bgElev,
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: FR.ink2),
+          const SizedBox(width: 5),
+          Text(label, style: frText(10.5, FontWeight.w800, color: FR.ink2)),
+        ],
+      ),
+    );
+  }
+}
+
+String _sourceTr(String raw) {
+  switch (raw) {
+    case 'trustedPrice':
+      return 'Güvenilir fiyat';
+    case 'latestPrice':
+      return 'Son bildirilen';
+    case 'avgPrice':
+      return 'Ortalama';
+    case 'minPrice':
+      return 'En düşük';
+    default:
+      return 'Veri yok';
+  }
+}
+
+/// Single-market estimate row in the compare panel. Shows the chain, total,
+/// rank, coverage indicator and an action to add missing prices.
 class _SingleStoreCard extends StatelessWidget {
-  const _SingleStoreCard({required this.estimate, required this.state});
+  const _SingleStoreCard({
+    required this.estimate,
+    required this.state,
+    required this.rank,
+    required this.isWinner,
+  });
 
   final BasketStoreEstimate estimate;
   final AppState state;
-
-  String _sourceTr(String raw) {
-    switch (raw) {
-      case 'trustedPrice':
-        return 'Güvenilir fiyat';
-      case 'latestPrice':
-        return 'Son bildirilen';
-      case 'avgPrice':
-        return 'Ortalama';
-      case 'minPrice':
-        return 'En düşük';
-      default:
-        return 'Veri yok';
-    }
-  }
+  final int rank;
+  final bool isWinner;
 
   void _addMissingPrices(BuildContext context) {
     if (estimate.missingProductIds.isEmpty) return;
@@ -507,46 +1082,104 @@ class _SingleStoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final total = estimate.foundItemCount + estimate.missingItemCount;
+    final coverage = total == 0 ? 0.0 : estimate.foundItemCount / total;
     final missing = estimate.missingProductIds
         .map((id) => state.findById(id)?.name)
         .whereType<String>()
-        .take(3)
+        .take(2)
         .toList();
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: frSurface(radius: FRRad.l),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(
+          color: isWinner ? FR.gold.withOpacity(.55) : FR.hairline,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(estimate.chainName, style: frText(13, FontWeight.w800)),
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isWinner ? FR.gold : FR.bgElev,
+                  borderRadius: FRRad.all(10),
+                  border: Border.all(
+                      color: isWinner ? FR.gold : FR.hairline),
+                ),
+                child: Text(
+                  '$rank',
+                  style: frText(12, FontWeight.w800,
+                      color: isWinner ? FR.onGold : FR.ink2),
+                ),
               ),
-              FRPriceText(estimate.estimatedTotal, size: 16, color: FR.gold),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(estimate.chainName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: frText(13.5, FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${estimate.foundItemCount}/$total ürün · ${confidenceLabelTr(estimate.confidence)} · ${_sourceTr(estimate.usedPriceSource)}',
+                      style: frText(10.5, FontWeight.w700, color: FR.ink3),
+                    ),
+                  ],
+                ),
+              ),
+              FRPriceText(estimate.estimatedTotal,
+                  size: 17, color: isWinner ? FR.gold : FR.ink),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Tahmini toplam · '
-            'Bulunan ${estimate.foundItemCount} / '
-            '${estimate.foundItemCount + estimate.missingItemCount} ürün · '
-            'Güven: ${confidenceLabelTr(estimate.confidence)} · '
-            '${_sourceTr(estimate.usedPriceSource)}',
-            style: frText(10.5, FontWeight.w600, color: FR.ink3),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: FRRad.all(999),
+            child: Stack(
+              children: [
+                Container(height: 5, color: FR.bgElev),
+                FractionallySizedBox(
+                  widthFactor: coverage.clamp(0.0, 1.0),
+                  child: Container(
+                    height: 5,
+                    color: isWinner ? FR.gold : FR.goldDeep.withOpacity(.55),
+                  ),
+                ),
+              ],
+            ),
           ),
           if (missing.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('Eksik fiyatlar:',
-                style: frText(11, FontWeight.w800, color: FR.warn)),
-            Text(missing.join(', '),
-                style: frText(11, FontWeight.w600, color: FR.ink3)),
-            const SizedBox(height: 8),
-            FRCta(
-              label: 'Eksik fiyatları ekle',
-              icon: Icons.add_rounded,
-              filled: false,
-              onTap: () => _addMissingPrices(context),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_outline_rounded, size: 13, color: FR.warn),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Eksik · ${missing.join(', ')}${estimate.missingProductIds.length > missing.length ? '…' : ''}',
+                    style: frText(11, FontWeight.w700, color: FR.ink3),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => _addMissingPrices(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text('Ekle',
+                      style: frText(11, FontWeight.w800, color: FR.goldDeep)),
+                ),
+              ],
             ),
           ],
         ],
