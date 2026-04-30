@@ -38,18 +38,7 @@ class HomeTab extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(20, 10, 20, frBottomScrollPadding(context)),
         children: [
           FRFadeSlideIn(delay: nextDelay(), child: _Greet(state: state)),
-          const SizedBox(height: 12),
-          FRFadeSlideIn(delay: nextDelay(), child: const _HomeScopeStrip()),
-          const SizedBox(height: 12),
-          FRFadeSlideIn(delay: nextDelay(), child: const _AddPriceCallout()),
           const SizedBox(height: 18),
-          if (state.banners.isNotEmpty) ...[
-            FRFadeSlideIn(
-              delay: nextDelay(),
-              child: _BannerCarousel(banners: state.banners),
-            ),
-            const SizedBox(height: 18),
-          ],
           FRFadeSlideIn(
             delay: nextDelay(),
             child: _RadarHero(
@@ -59,19 +48,32 @@ class HomeTab extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 26),
-          FRFadeSlideIn(
-            delay: nextDelay(),
-            child: const FRSectionHead(
-              eyebrow: 'FİLTRE',
-              title: 'Kategoriler',
+          const SizedBox(height: 18),
+          FRFadeSlideIn(delay: nextDelay(), child: const _HomeScopeStrip()),
+          const SizedBox(height: 14),
+          FRFadeSlideIn(delay: nextDelay(), child: const _AddPriceCallout()),
+          if (state.banners.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            FRFadeSlideIn(
+              delay: nextDelay(),
+              child: _BannerCarousel(banners: state.banners),
             ),
-          ),
-          const SizedBox(height: 12),
-          FRFadeSlideIn(
-            delay: nextDelay(),
-            child: _CategoryStrip(categories: state.categories),
-          ),
+          ],
+          if (state.categories.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            FRFadeSlideIn(
+              delay: nextDelay(),
+              child: const FRSectionHead(
+                eyebrow: 'KEŞFET',
+                title: 'Kategoriler',
+              ),
+            ),
+            const SizedBox(height: 12),
+            FRFadeSlideIn(
+              delay: nextDelay(),
+              child: _CategoryStrip(categories: state.categories),
+            ),
+          ],
           const SizedBox(height: 26),
           FRFadeSlideIn(
             delay: nextDelay(),
@@ -82,7 +84,8 @@ class HomeTab extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
                 ),
-                child: Text('Tümü', style: frText(12, FontWeight.w800, color: FR.goldDeep)),
+                child: Text('Tümü',
+                    style: frText(12, FontWeight.w800, color: FR.goldDeep)),
               ),
             ),
           ),
@@ -92,7 +95,8 @@ class HomeTab extends StatelessWidget {
             child: SizedBox(
               height: 302,
               child: topDrops.isEmpty
-                  ? const _EmptyBlock(height: 302, text: 'Bu hafta fiyat düşüşü henüz yok.')
+                  ? const _EmptyBlock(
+                      height: 302, text: 'Bu hafta fiyat düşüşü henüz yok.')
                   : ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: topDrops.length,
@@ -105,7 +109,9 @@ class HomeTab extends StatelessWidget {
                           onFavorite: () => state.toggleFavorite(p.id),
                           onTap: () => Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    ProductDetailScreen(product: p)),
                           ),
                         );
                       },
@@ -123,39 +129,19 @@ class HomeTab extends StatelessWidget {
                 children: [
                   const FRLiveDot(),
                   const SizedBox(width: 6),
-                  Text('canlı', style: frText(11, FontWeight.w800, color: FR.good)),
+                  Text('canlı',
+                      style: frText(11, FontWeight.w800, color: FR.good)),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          FRFadeSlideIn(
-            delay: nextDelay(),
-            child: Text(
-              state.homeScopeSubtitle,
-              style: frText(11.5, FontWeight.w600, color: FR.ink3),
-            ),
-          ),
           const SizedBox(height: 12),
-          if (usesLegacyFallback)
-            FRFadeSlideIn(
-              delay: nextDelay(),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                child: Text(
-                  'Legacy/global fallback · scope verisi gelmedi.',
-                  style: frText(11.5, FontWeight.w700, color: FR.goldDeep),
-                ),
-              ),
-            ),
           if (feedItems.isEmpty)
             FRFadeSlideIn(
               delay: nextDelay(),
               child: _EmptyBlock(
                 height: 120,
-                text: usesLegacyFallback
-                    ? 'Scope için price_entries bulunamadı. Legacy/global akış gösteriliyor.'
-                    : state.homeScopeEmptyMessage,
+                text: state.homeScopeEmptyMessage,
               ),
             )
           else
@@ -169,7 +155,8 @@ class HomeTab extends StatelessWidget {
                       : state.homeScopedEntryForProduct(p.id),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                    MaterialPageRoute(
+                        builder: (_) => ProductDetailScreen(product: p)),
                   ),
                 ),
               ),
@@ -205,37 +192,6 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _pickManual(AppState state) async {
-    final cityCtrl = TextEditingController(text: state.cityName ?? '');
-    final districtCtrl = TextEditingController(text: state.districtName ?? '');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('İl / ilçe seç'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'İl')),
-            TextField(controller: districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kaydet')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    if (cityCtrl.text.trim().isEmpty || districtCtrl.text.trim().isEmpty) {
-      _snack('İl ve ilçe zorunlu.');
-      return;
-    }
-    await state.updateRegionSettings(
-      cityName: cityCtrl.text.trim(),
-      districtName: districtCtrl.text.trim(),
-    );
-  }
-
   Future<void> _useLocation(AppState state) async {
     setState(() => _locating = true);
     try {
@@ -245,28 +201,144 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
       }
       if (permission == LocationPermission.deniedForever ||
           permission == LocationPermission.denied) {
-        _snack('Konum izni verilmedi. İl / ilçe seçebilirsin.');
-        await _pickManual(state);
+        _snack('Konum izni verilmedi.');
         return;
       }
       final pos = await Geolocator.getCurrentPosition();
-      final marks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final marks =
+          await placemarkFromCoordinates(pos.latitude, pos.longitude);
       final mark = marks.isNotEmpty ? marks.first : null;
       final city = (mark?.administrativeArea ?? mark?.locality ?? '').trim();
-      final district = (mark?.subAdministrativeArea ?? mark?.subLocality ?? '').trim();
+      final district =
+          (mark?.subAdministrativeArea ?? mark?.subLocality ?? '').trim();
       if (city.isEmpty || district.isEmpty) {
-        _snack('Konum bulundu ama il/ilçe çözülemedi. Elle seçebilirsin.');
-        await _pickManual(state);
+        _snack('Konum çözülemedi. Elle seçebilirsin.');
         return;
       }
       await state.updateRegionSettings(cityName: city, districtName: district);
       _snack('Konum güncellendi: $city / $district');
     } catch (_) {
-      _snack('Konum alınamadı. İl / ilçe seçebilirsin.');
-      await _pickManual(state);
+      _snack('Konum alınamadı.');
     } finally {
       if (mounted) setState(() => _locating = false);
     }
+  }
+
+  Future<void> _openPicker(AppState state) async {
+    final cityCtrl = TextEditingController(text: state.cityName ?? '');
+    final districtCtrl =
+        TextEditingController(text: state.districtName ?? '');
+    final result = await showModalBottomSheet<_RegionResult>(
+      context: context,
+      backgroundColor: FR.surface,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 18,
+            bottom: 20 + MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: FR.hairline,
+                    borderRadius: FRRad.all(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text('BÖLGE', style: frOverline()),
+              const SizedBox(height: 4),
+              Text('Bölgeni seç',
+                  style: frDisplay(22, FontWeight.w700)),
+              const SizedBox(height: 14),
+              FRCta(
+                label: 'Konumumu kullan',
+                icon: Icons.my_location_rounded,
+                onTap: () => Navigator.pop(ctx, _RegionResult.location),
+              ),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: Divider(color: FR.hairline, height: 1)),
+                const SizedBox(width: 8),
+                Text('VEYA',
+                    style: frOverline(color: FR.ink3, size: 9.5)),
+                const SizedBox(width: 8),
+                Expanded(child: Divider(color: FR.hairline, height: 1)),
+              ]),
+              const SizedBox(height: 14),
+              TextField(
+                controller: cityCtrl,
+                decoration: InputDecoration(
+                  labelText: 'İl',
+                  filled: true,
+                  fillColor: FR.bgElev,
+                  border: OutlineInputBorder(
+                    borderRadius: FRRad.all(FRRad.m),
+                    borderSide: BorderSide(color: FR.hairline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: FRRad.all(FRRad.m),
+                    borderSide: BorderSide(color: FR.hairline),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: districtCtrl,
+                decoration: InputDecoration(
+                  labelText: 'İlçe',
+                  filled: true,
+                  fillColor: FR.bgElev,
+                  border: OutlineInputBorder(
+                    borderRadius: FRRad.all(FRRad.m),
+                    borderSide: BorderSide(color: FR.hairline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: FRRad.all(FRRad.m),
+                    borderSide: BorderSide(color: FR.hairline),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              FRCta(
+                label: 'Kaydet',
+                icon: Icons.check_rounded,
+                filled: false,
+                onTap: () => Navigator.pop(ctx, _RegionResult.manual),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (result == _RegionResult.location) {
+      await _useLocation(state);
+    } else if (result == _RegionResult.manual) {
+      final city = cityCtrl.text.trim();
+      final district = districtCtrl.text.trim();
+      if (city.isEmpty || district.isEmpty) {
+        _snack('İl ve ilçe zorunlu.');
+      } else {
+        await state.updateRegionSettings(cityName: city, districtName: district);
+        _snack('Bölge güncellendi: $city / $district');
+      }
+    }
+    cityCtrl.dispose();
+    districtCtrl.dispose();
   }
 
   @override
@@ -276,92 +348,73 @@ class _HomeScopeStripState extends State<_HomeScopeStrip> {
     final district = (state.districtName ?? '').trim();
     final scope = state.activeHomeScope;
     final hasRegion = city.isNotEmpty && district.isNotEmpty;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-      decoration: frSurface(radius: FRRad.m),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.location_on_outlined, size: 15, color: FR.gold),
-              const SizedBox(width: 6),
-              Text(
-                hasRegion ? '$city / $district' : 'Bölgeni seç',
-                style: frText(12, FontWeight.w800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 34,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: _locating ? null : () => _openPicker(state),
+          borderRadius: FRRad.all(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: FR.surface,
+              borderRadius: FRRad.all(999),
+              border: Border.all(color: FR.hairline),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                FRFilterChip('Yakınımda',
-                    active: scope == HomePriceScope.nearby,
-                    onTap: hasRegion
-                        ? () => state.setHomePriceScope(HomePriceScope.nearby)
-                        : null),
-                const SizedBox(width: 8),
-                FRFilterChip('Şehrimde',
-                    active: scope == HomePriceScope.city,
-                    onTap: hasRegion
-                        ? () => state.setHomePriceScope(HomePriceScope.city)
-                        : null),
-                const SizedBox(width: 8),
-                FRFilterChip('Online',
-                    active: scope == HomePriceScope.online,
-                    onTap: () => state.setHomePriceScope(HomePriceScope.online)),
-                const SizedBox(width: 8),
-                FRFilterChip('Türkiye geneli',
-                    active: scope == HomePriceScope.turkeyWide,
-                    onTap: () => state.setHomePriceScope(HomePriceScope.turkeyWide)),
+                Icon(
+                  _locating ? Icons.gps_fixed_rounded : Icons.location_on_outlined,
+                  size: 14,
+                  color: FR.gold,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _locating
+                      ? 'Konum alınıyor…'
+                      : (hasRegion ? '$city / $district' : 'Bölgeni seç'),
+                  style: frText(12.5, FontWeight.w800),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 14, color: FR.ink3),
               ],
             ),
           ),
-          Wrap(
-            spacing: 6,
-            runSpacing: 0,
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
             children: [
-              TextButton.icon(
-                onPressed: _locating ? null : () => _useLocation(state),
-                icon: Icon(Icons.my_location_rounded, size: 14, color: _locating ? FR.ink3 : FR.gold),
-                label: Text(_locating ? 'Konum alınıyor…' : 'Konumumu kullan',
-                    style: frText(11.5, FontWeight.w700, color: _locating ? FR.ink3 : FR.ink)),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                  minimumSize: const Size(0, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => _pickManual(state),
-                icon: Icon(Icons.map_outlined, size: 14, color: FR.gold),
-                label: Text('İl / ilçe seç',
-                    style: frText(11.5, FontWeight.w700, color: FR.ink)),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                  minimumSize: const Size(0, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-                ),
-              ),
+              FRFilterChip('Yakınımda',
+                  active: scope == HomePriceScope.nearby,
+                  onTap: hasRegion
+                      ? () => state.setHomePriceScope(HomePriceScope.nearby)
+                      : null),
+              FRFilterChip('Şehrimde',
+                  active: scope == HomePriceScope.city,
+                  onTap: hasRegion
+                      ? () => state.setHomePriceScope(HomePriceScope.city)
+                      : null),
+              FRFilterChip('Online',
+                  active: scope == HomePriceScope.online,
+                  onTap: () => state.setHomePriceScope(HomePriceScope.online)),
+              FRFilterChip('Türkiye geneli',
+                  active: scope == HomePriceScope.turkeyWide,
+                  onTap: () =>
+                      state.setHomePriceScope(HomePriceScope.turkeyWide)),
             ],
           ),
-          if (!hasRegion) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Yakınımda ve Şehrimde sekmeleri için önce konum seç.',
-              style: frText(11, FontWeight.w700, color: FR.ink3),
-            ),
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
+
+enum _RegionResult { location, manual }
 
 /// Always-visible call-to-action that drops the user straight into the
 /// add-price flow. Spec calls for: "Fiyat gördün mü? 20 saniyede ekle."
@@ -829,8 +882,7 @@ class _CategoryStrip extends StatelessWidget {
           final icon = _icons[c] ?? Icons.local_offer_outlined;
           return FRFilterChip(
             c,
-            active: i == 0,
-            leading: Icon(icon, size: 14, color: i == 0 ? FR.bg : FR.ink2),
+            leading: Icon(icon, size: 14, color: FR.ink2),
             onTap: () {
               final state = AppStateScope.of(context);
               state.setExplorePresetCategory(c);

@@ -62,9 +62,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top nav
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Row(
                 children: [
                   FRIconChip(
@@ -72,111 +71,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       onTap: () => Navigator.pop(context)),
                   const Spacer(),
                   FRIconChip(
-                    icon: isFav ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                    icon: isFav
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_outline_rounded,
                     active: isFav,
                     onTap: () => state.toggleFavorite(product.id),
                   ),
-                  const SizedBox(width: 8),
-                  FRIconChip(icon: Icons.share_outlined, onTap: () {}),
                 ],
               ),
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
                 children: [
-                  // Hero image
-                  Container(
-                    height: 220,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [FR.surfaceHi, FR.surfaceLo],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: FRRad.all(24),
-                      border: Border.all(color: FR.hairline),
-                    ),
-                    child: Stack(
-                      children: [
-                        if (product.imageUrl != null &&
-                            product.imageUrl!.isNotEmpty)
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: FRRad.all(24),
-                              child: Image.network(
-                                product.imageUrl!,
-                                fit: BoxFit.cover,
-                                cacheWidth: 1200,
-                                filterQuality: FilterQuality.medium,
-                                errorBuilder: (_, __, ___) => Center(
-                                  child: Text(product.emoji,
-                                      style: const TextStyle(fontSize: 108)),
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          Center(
-                            child: Text(product.emoji,
-                                style: const TextStyle(fontSize: 108)),
-                          ),
-                        Positioned(
-                          top: 14,
-                          left: 14,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                            decoration: BoxDecoration(
-                              color: FR.gold.withOpacity(.16),
-                              borderRadius: FRRad.all(999),
-                              border: Border.all(color: FR.gold.withOpacity(.35)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.verified_rounded, color: FR.gold, size: 13),
-                                const SizedBox(width: 5),
-                                Text('Katalog onaylı',
-                                    style: frText(10.5, FontWeight.w800, color: FR.gold)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _DetailHero(product: product),
                   const SizedBox(height: 18),
-                  Text('${product.category.toUpperCase()} · ${product.brand.toUpperCase()}',
-                      style: frOverline(color: FR.ink3)),
-                  const SizedBox(height: 4),
-                  Text(product.name,
-                      style: frDisplay(28, FontWeight.w700, height: 1.1)),
-                  Text(product.unit,
-                      style: frText(13, FontWeight.w600, color: FR.ink3)),
+                  _DetailTitleBlock(product: product),
                   const SizedBox(height: 18),
-                  _RegionalPriceSections(product: product, state: state, legacyBest: _best),
-                  const SizedBox(height: 18),
-                  if (product.validEntries.length >= 2)
+                  _DetailHeadlinePrice(product: product, state: state),
+                  const SizedBox(height: 22),
+                  _RegionalPriceSections(
+                      product: product, state: state, legacyBest: _best),
+                  const SizedBox(height: 22),
+                  if (product.validEntries.length >= 2) ...[
                     _PriceHistoryCard(product: product),
-                  if (product.validEntries.length >= 2) const SizedBox(height: 18),
+                    const SizedBox(height: 22),
+                  ],
                   const FRSectionHead(
                       eyebrow: 'TOPLULUK DOĞRULAMASI',
                       title: 'Son katkılar'),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
                     'Oy ver, topluluğun güveni şekillendir. Kendi girdiğine ya da aynı girdiye tekrar oy veremezsin.',
-                    style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.5),
+                    style: frText(11.5, FontWeight.w600,
+                        color: FR.ink3, height: 1.5),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   if (_sorted.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                      child: Text('Henüz katkı yok — ilk fiyatı sen ekle.',
-                          style: frText(12, FontWeight.w600, color: FR.ink3)),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: frSurface(radius: FRRad.l),
+                      child: Text(
+                        'Henüz katkı yok — ilk fiyatı sen ekle.',
+                        style: frText(12.5, FontWeight.w600, color: FR.ink3),
+                      ),
                     )
                   else
                     ..._sorted.take(6).map((e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                          padding: const EdgeInsets.only(bottom: 10),
                           child: _ContributionRow(
                             product: product,
                             entry: e,
@@ -188,11 +130,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             _Actions(
               isAlertActive: alert != null,
-              onAlert: () => _openAlert(context, state, product, alert?.targetPrice),
+              alertTarget: alert?.targetPrice,
+              onAlert: () =>
+                  _openAlert(context, state, product, alert?.targetPrice),
               onAdd: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
               ),
-              onCart: () => state.addToCart(product),
+              onCart: () {
+                state.addToCart(product);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${product.name} sepete eklendi.')),
+                );
+              },
             ),
           ],
         ),
@@ -360,108 +309,210 @@ class _RegionalGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: FR.surfaceHi,
-        borderRadius: FRRad.all(12),
+        borderRadius: FRRad.all(FRRad.l),
         border: Border.all(color: FR.hairline),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(group.displayTitle, style: frText(12.5, FontWeight.w800)),
-        const SizedBox(height: 4),
-        FRPriceText(group.preferredPrice ?? group.latestPrice, size: 18, color: FR.gold),
-        const SizedBox(height: 4),
-        Text(
-          '${_relative(group.lastReportedAt)} · '
-          '${group.reportCount} bildirim · '
-          '${group.verifiedCount} doğrulama · '
-          'Güven: ${confidenceLabelTr(group.confidence)}',
-          style: frText(11, FontWeight.w600, color: FR.ink3),
-        ),
-        Row(children: [
-          Text(priceReportSourceTypeLabelTr(group.sourceType),
-              style: frText(11, FontWeight.w700, color: FR.goldDeep)),
-          if (group.hasPhotoEvidence) ...[
-            const SizedBox(width: 8),
-            Icon(Icons.photo_camera_rounded, size: 12, color: FR.ink3),
-            const SizedBox(width: 4),
-            Text('${group.photoReportCount} fotoğraflı',
-                style: frText(11, FontWeight.w700, color: FR.ink3)),
-          ],
-        ]),
-        const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          _TinyAction(
-            label: 'Ben de gördüm',
-            onTap: () async {
-              final state = AppStateScope.of(context);
-              try {
-                await state.verifyRegionalPriceSeen(
-                  productId: product.id,
-                  chainId: group.chainId,
-                  price: group.preferredPrice ?? group.latestPrice ?? 0,
-                  city: group.cityName,
-                  district: group.districtName,
-                );
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Doğrulaman kaydedildi.')),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$e')),
-                );
-              }
-            },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(group.chainName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: frText(13.5, FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${group.districtName} / ${group.cityName}',
+                      style:
+                          frText(11, FontWeight.w700, color: FR.ink3),
+                    ),
+                  ],
+                ),
+              ),
+              FRPriceText(
+                group.preferredPrice ?? group.latestPrice,
+                size: 18,
+                color: FR.gold,
+              ),
+            ],
           ),
-          _TinyAction(
-            label: 'Farklı fiyat bildir',
-            onTap: () {
-              final state = AppStateScope.of(context);
-              state.setAddPricePreset(
-                productId: product.id,
-                chainId: group.chainId,
-                chainName: group.chainName,
-              );
-              state.updateRegionSettings(
-                cityName: group.cityName,
-                districtName: group.districtName,
-              );
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
-              );
-            },
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _MetaPill(
+                icon: Icons.schedule_rounded,
+                label: _relative(group.lastReportedAt),
+              ),
+              _MetaPill(
+                icon: Icons.shield_outlined,
+                label: confidenceLabelTr(group.confidence),
+              ),
+              _MetaPill(
+                icon: Icons.people_outline_rounded,
+                label: '${group.reportCount} bildirim',
+              ),
+              if (group.verifiedCount > 0)
+                _MetaPill(
+                  icon: Icons.verified_rounded,
+                  label: '${group.verifiedCount} doğrulama',
+                  tone: FR.good,
+                ),
+              if (group.hasPhotoEvidence)
+                _MetaPill(
+                  icon: Icons.photo_camera_rounded,
+                  label: '${group.photoReportCount} fotoğraflı',
+                ),
+            ],
           ),
-          _TinyAction(
-            label: 'Sepete ekle',
-            onTap: () => AppStateScope.of(context).addToCart(product),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TinyAction(
+                  icon: Icons.thumb_up_alt_outlined,
+                  label: 'Ben de gördüm',
+                  onTap: () async {
+                    final state = AppStateScope.of(context);
+                    try {
+                      await state.verifyRegionalPriceSeen(
+                        productId: product.id,
+                        chainId: group.chainId,
+                        price: group.preferredPrice ??
+                            group.latestPrice ??
+                            0,
+                        city: group.cityName,
+                        district: group.districtName,
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Doğrulaman kaydedildi.')),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$e')),
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TinyAction(
+                  icon: Icons.edit_outlined,
+                  label: 'Farklı fiyat',
+                  onTap: () {
+                    final state = AppStateScope.of(context);
+                    state.setAddPricePreset(
+                      productId: product.id,
+                      chainId: group.chainId,
+                      chainName: group.chainName,
+                    );
+                    state.updateRegionSettings(
+                      cityName: group.cityName,
+                      districtName: group.districtName,
+                    );
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              const MainScreen(initialIndex: 2)),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ]),
-      ]),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  const _MetaPill({required this.icon, required this.label, this.tone});
+  final IconData icon;
+  final String label;
+  final Color? tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = tone ?? FR.ink2;
+    final bg = tone == null ? FR.bgElev : tone!.withOpacity(.12);
+    final border = tone == null ? FR.hairline : tone!.withOpacity(.35);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: c),
+          const SizedBox(width: 4),
+          Text(label, style: frText(10.5, FontWeight.w800, color: c)),
+        ],
+      ),
     );
   }
 }
 
 class _TinyAction extends StatelessWidget {
-  const _TinyAction({required this.label, required this.onTap});
+  const _TinyAction({
+    required this.label,
+    required this.onTap,
+    this.icon,
+  });
 
   final String label;
+  final IconData? icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: FRRad.all(999),
+      borderRadius: FRRad.all(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: FR.bgElev,
-          borderRadius: FRRad.all(999),
+          borderRadius: FRRad.all(12),
           border: Border.all(color: FR.hairline),
         ),
-        child: Text(label, style: frText(10.5, FontWeight.w700, color: FR.ink2)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: FR.ink2),
+              const SizedBox(width: 6),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: frText(11, FontWeight.w800, color: FR.ink2),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -753,11 +804,13 @@ class _ContributionRowState extends State<_ContributionRow> {
 class _Actions extends StatelessWidget {
   const _Actions({
     required this.isAlertActive,
+    required this.alertTarget,
     required this.onAlert,
     required this.onAdd,
     required this.onCart,
   });
   final bool isAlertActive;
+  final double? alertTarget;
   final VoidCallback onAlert;
   final VoidCallback onAdd;
   final VoidCallback onCart;
@@ -766,21 +819,46 @@ class _Actions extends StatelessWidget {
   Widget build(BuildContext context) {
     final safe = MediaQuery.of(context).viewPadding.bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + safe), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + safe),
       decoration: BoxDecoration(
         color: FR.bgElev,
         border: Border(top: BorderSide(color: FR.hairline)),
       ),
       child: Row(
         children: [
-          Expanded(
-            child: FRCta(
-              label: isAlertActive ? 'Alarm aktif' : 'Alarm kur',
-              icon: isAlertActive
-                  ? Icons.notifications_active_rounded
-                  : Icons.notifications_none_rounded,
-              filled: false,
-              onTap: onAlert,
+          InkWell(
+            onTap: onAlert,
+            borderRadius: FRRad.all(16),
+            child: Container(
+              height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isAlertActive ? FR.gold.withOpacity(.14) : FR.surface,
+                borderRadius: FRRad.all(16),
+                border: Border.all(
+                  color: isAlertActive ? FR.gold.withOpacity(.55) : FR.hairline,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isAlertActive
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_none_rounded,
+                    size: 18,
+                    color: isAlertActive ? FR.gold : FR.ink2,
+                  ),
+                  if (isAlertActive && alertTarget != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '₺${alertTarget!.toStringAsFixed(0)}',
+                      style: frText(12, FontWeight.w800, color: FR.gold),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -801,10 +879,231 @@ class _Actions extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 18)],
+                boxShadow: [
+                  BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 18),
+                ],
               ),
               child: Icon(Icons.add_rounded, color: FR.onGold, size: 24),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailHero extends StatelessWidget {
+  const _DetailHero({required this.product});
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage =
+        product.imageUrl != null && product.imageUrl!.isNotEmpty;
+    return Container(
+      height: 240,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(FRRad.xxl),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Stack(
+        children: [
+          if (hasImage)
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: FRRad.all(FRRad.xxl),
+                child: Image.network(
+                  product.imageUrl!,
+                  fit: BoxFit.cover,
+                  cacheWidth: 1200,
+                  filterQuality: FilterQuality.medium,
+                  errorBuilder: (_, __, ___) => Center(
+                    child: Text(product.emoji,
+                        style: const TextStyle(fontSize: 108)),
+                  ),
+                ),
+              ),
+            )
+          else
+            Center(
+              child: Text(product.emoji,
+                  style: const TextStyle(fontSize: 108)),
+            ),
+          Positioned(
+            top: 14,
+            left: 14,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.16),
+                borderRadius: FRRad.all(999),
+                border: Border.all(color: FR.gold.withOpacity(.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.verified_rounded, color: FR.gold, size: 13),
+                  const SizedBox(width: 5),
+                  Text('Katalog onaylı',
+                      style:
+                          frText(10.5, FontWeight.w800, color: FR.gold)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailTitleBlock extends StatelessWidget {
+  const _DetailTitleBlock({required this.product});
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${product.category.toUpperCase()} · ${product.brand.toUpperCase()}',
+          style: frOverline(color: FR.ink3),
+        ),
+        const SizedBox(height: 6),
+        Text(product.name,
+            style: frDisplay(28, FontWeight.w700, height: 1.1)),
+        const SizedBox(height: 4),
+        Text(product.unit,
+            style: frText(13, FontWeight.w600, color: FR.ink3)),
+      ],
+    );
+  }
+}
+
+class _DetailHeadlinePrice extends StatelessWidget {
+  const _DetailHeadlinePrice({required this.product, required this.state});
+  final Product product;
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final lowest = product.lowestPrice;
+    final pct = product.priceChangePct;
+    final store = product.cheapestStore;
+    final verified = product.verifiedCount;
+    final trust = product.aggregateTrustPercent;
+    final dataPoints = product.validEntries.length;
+
+    if (lowest == null) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: frSurface(radius: FRRad.xl),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FR.bgElev,
+                borderRadius: FRRad.all(14),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Icon(Icons.timer_outlined, color: FR.ink3, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Fiyat bekleniyor',
+                      style: frText(14, FontWeight.w800, color: FR.ink)),
+                  const SizedBox(height: 2),
+                  Text('Topluluktan ilk fiyatı sen ekleyebilirsin.',
+                      style:
+                          frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(FRRad.xxl),
+        border: Border.all(color: FR.goldDeep.withOpacity(.32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('TOPLULUKTAN EN İYİ FİYAT', style: frOverline()),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              FRPriceText(lowest, size: 36, color: FR.gold),
+              const SizedBox(width: 10),
+              if (pct != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: FRTrendPill(pct: pct),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (store != null) FRStoreBadge(store, filled: true),
+              if (verified > 0)
+                FRVerifyBadge(
+                  label: '$verified doğrulandı',
+                  tone: FRVerifyTone.good,
+                  trustPercent: trust,
+                  dense: true,
+                )
+              else
+                FRVerifyBadge(
+                  label: trust >= 50 ? 'İncelemede' : 'Yeni',
+                  tone: FRVerifyTone.neutral,
+                  trustPercent: trust,
+                  dense: true,
+                ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: FR.bgElev,
+                  borderRadius: FRRad.all(999),
+                  border: Border.all(color: FR.hairline),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.bar_chart_rounded, size: 12, color: FR.ink2),
+                    const SizedBox(width: 4),
+                    Text('$dataPoints veri noktası',
+                        style: frText(10.5, FontWeight.w800, color: FR.ink2)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
