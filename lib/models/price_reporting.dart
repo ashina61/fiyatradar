@@ -36,6 +36,43 @@ String priceReportSourceTypeLabelTr(PriceReportSourceType type) {
   }
 }
 
+/// Returns the user-facing confidence band label for a report given its
+/// distance to the nearest branch. The bands are intentionally soft so
+/// distance never blocks a submission — it only changes the badge.
+///
+/// 0-30 m   → "Şube yakınında bildirildi"
+/// 30-100 m → "Konum uyumlu"
+/// >100 m   → "Konum destekli bölgesel fiyat"
+/// no GPS   → "Manuel bölgesel fiyat"
+String priceReportBandLabelTr({
+  required PriceReportSourceType sourceType,
+  double? distanceToBranchMeters,
+}) {
+  if (sourceType == PriceReportSourceType.manualRegional) {
+    return 'Manuel bölgesel fiyat';
+  }
+  if (sourceType == PriceReportSourceType.branchNear) {
+    return 'Şube yakınında bildirildi';
+  }
+  if (distanceToBranchMeters != null) {
+    if (distanceToBranchMeters <= 100) return 'Konum uyumlu';
+    return 'Konum destekli bölgesel fiyat';
+  }
+  return 'Konum destekli';
+}
+
+String confidenceLabelTr(String raw) {
+  switch (raw) {
+    case 'high':
+      return 'Yüksek';
+    case 'medium':
+      return 'Orta';
+    case 'low':
+    default:
+      return 'Düşük';
+  }
+}
+
 class RegionModel {
   final String cityId;
   final String cityName;
@@ -64,8 +101,10 @@ class PriceGroupModel {
   final double? trustedPrice;
   final double? avgPrice;
   final double? minPrice;
+  final double? maxPrice;
   final int reportCount;
   final int verifiedCount;
+  final int photoReportCount;
   final String confidence;
   final PriceReportSourceType sourceType;
   final DateTime? lastReportedAt;
@@ -84,8 +123,10 @@ class PriceGroupModel {
     required this.trustedPrice,
     required this.avgPrice,
     required this.minPrice,
+    required this.maxPrice,
     required this.reportCount,
     required this.verifiedCount,
+    required this.photoReportCount,
     required this.confidence,
     required this.sourceType,
     required this.lastReportedAt,
@@ -110,8 +151,10 @@ class PriceGroupModel {
       trustedPrice: (m['trustedPrice'] as num?)?.toDouble(),
       avgPrice: (m['avgPrice'] as num?)?.toDouble(),
       minPrice: (m['minPrice'] as num?)?.toDouble(),
+      maxPrice: (m['maxPrice'] as num?)?.toDouble(),
       reportCount: (m['reportCount'] as num?)?.toInt() ?? 0,
       verifiedCount: (m['verifiedCount'] as num?)?.toInt() ?? 0,
+      photoReportCount: (m['photoReportCount'] as num?)?.toInt() ?? 0,
       confidence: (m['confidence'] ?? 'low') as String,
       sourceType: priceReportSourceTypeFromValue(m['sourceType'] as String?),
       lastReportedAt: ts is Timestamp ? ts.toDate() : null,
@@ -129,4 +172,6 @@ class PriceGroupModel {
     if (minPrice != null) return 'minPrice';
     return 'none';
   }
+
+  bool get hasPhotoEvidence => photoReportCount > 0;
 }

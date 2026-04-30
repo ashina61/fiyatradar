@@ -19,6 +19,8 @@ class AddPriceTab extends StatefulWidget {
 
 class _AddPriceTabState extends State<AddPriceTab> {
   static const _kStoreResultLimit = 30;
+  static const double _kPriceWarnLow = 0.5;
+  static const double _kPriceWarnHigh = 5000.0;
   Product? _selectedProduct;
   StorePlace? _selectedPlace;
   PriceSourceType _sourceType = PriceSourceType.physical;
@@ -27,6 +29,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
   final _storeQueryCtrl = TextEditingController();
   bool _submitting = false;
   bool _locating = false;
+  bool _showOptional = false;
   double? _regionLat;
   double? _regionLng;
   double? _gpsAccuracyMeters;
@@ -82,21 +85,49 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
 
-    if (pid == null || price == null || price <= 0) {
-      _snack('Ürün seçip geçerli bir fiyat girmelisin.');
+    if (pid == null) {
+      _snack('Önce ürün seç.');
+      return;
+    }
+    if (price == null || price <= 0) {
+      _snack('Geçerli bir fiyat gir.');
       return;
     }
     if (place == null) {
-      _snack('Fiyatı göndermeden önce market seçmelisin.');
+      _snack('Fiyatı göndermeden önce market seç.');
       return;
     }
     if (_needsRegion && (city.isEmpty || district.isEmpty)) {
-      _snack('Bölgesel fiyat için il ve ilçe zorunlu.');
+      _snack('Bölgesel fiyat için il ve ilçe seç.');
       return;
     }
     if (!_needsRegion) {
       _snack('Bu sürümde fiyat ekleme yalnızca bölgesel bildirim olarak destekleniyor.');
       return;
+    }
+
+    if (price < _kPriceWarnLow || price > _kPriceWarnHigh) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Bu fiyat normal aralığın dışında'),
+          content: Text(
+            '₺${price.toStringAsFixed(2)} biraz alışılmadık görünüyor. '
+            'Yine de göndermek istiyor musun?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Düzenle'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Yine de gönder'),
+            ),
+          ],
+        ),
+      );
+      if (go != true) return;
     }
 
     setState(() => _submitting = true);
@@ -157,7 +188,14 @@ class _AddPriceTabState extends State<AddPriceTab> {
           _snack('Doğrulaman kaydedildi.');
         }
       } else {
-        _snack('Fiyat eklendi · ${place.chainName ?? place.displayName} / $district bölgesine işlendi · ${result.sourceLabel}');
+        _snack(
+          'Fiyat eklendi · '
+          '${place.chainName ?? place.displayName} / $district bölgesine işlendi · '
+          '${result.sourceLabel}',
+        );
+        if (mounted) {
+          setState(() => _selectedProduct = null);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -358,7 +396,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
               children: [
                 _IntroBanner(),
                 const SizedBox(height: 18),
-                _label('Ürün'),
+
+                // 1) Ürün — "Ne gördün?"
+                _step(1, 'Ne gördün?'),
                 InkWell(
                   onTap: () => _pickProduct(state),
                   borderRadius: FRRad.all(FRRad.m),
@@ -395,57 +435,37 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                _label('Kaynak türü'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _sourceChip('Fiziksel Market', PriceSourceType.physical),
-                    _sourceChip('Online Market', PriceSourceType.online),
-                    _sourceChip('Pazar', PriceSourceType.bazaar),
-                  ],
+
+                // 2) Fiyat — "Fiyat kaç TL?"
+                _step(2, 'Fiyat kaç TL?'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                  decoration: frSurface(radius: FRRad.m),
+                  child: Row(children: [
+                    Text('₺', style: frDisplay(22, FontWeight.w700, color: FR.gold)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _priceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: frPrice(28),
+                        cursorColor: FR.gold,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: '0,00',
+                          hintStyle: frPrice(28, color: FR.ink3),
+                          isCollapsed: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                        ),
+                      ),
+                    ),
+                    Text(_selectedProduct?.unit ?? '', style: frText(12, FontWeight.w700, color: FR.ink3)),
+                  ]),
                 ),
                 const SizedBox(height: 18),
-                if (_needsRegion) ...[
-                  _label('Bölge'),
-                  if (city.isNotEmpty && district.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                      decoration: frSurface(radius: FRRad.m),
-                      child: Row(children: [
-                        Icon(Icons.location_on_rounded, color: FR.gold, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text('$city / $district', style: frText(13, FontWeight.w700))),
-                        TextButton(
-                          onPressed: () => _pickRegionManually(state),
-                          child: Text('Değiştir', style: frText(12, FontWeight.w700, color: FR.gold)),
-                        )
-                      ]),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                      decoration: frSurface(radius: FRRad.m),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Fiyat eklemek için bölge seçmelisin.', style: frText(12.5, FontWeight.w700)),
-                        const SizedBox(height: 12),
-                        Wrap(spacing: 8, runSpacing: 8, children: [
-                          FRCta(
-                            label: _locating ? 'Konum alınıyor…' : 'Konumumu kullan',
-                            icon: Icons.my_location_rounded,
-                            onTap: _locating ? null : () => _useCurrentLocation(state),
-                          ),
-                          FRCta(
-                            label: 'İl / ilçe seç',
-                            icon: Icons.map_outlined,
-                            onTap: () => _pickRegionManually(state),
-                          ),
-                        ]),
-                      ]),
-                    ),
-                  const SizedBox(height: 18),
-                ],
-                _label('Mağaza / Market'),
+
+                // 3) Market — "Hangi markette gördün?"
+                _step(3, 'Hangi markette gördün?'),
                 Container(
                   padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 2),
                   decoration: frSurface(radius: FRRad.m),
@@ -456,7 +476,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     cursorColor: FR.gold,
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'Market ara…',
+                      hintText: 'BİM, A101, ŞOK, Migros…',
                       hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
                       prefixIcon: Icon(Icons.search_rounded, color: FR.ink3, size: 18),
                     ),
@@ -500,46 +520,99 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     },
                   ),
                 const SizedBox(height: 18),
-                _label('Fiyat'),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                  decoration: frSurface(radius: FRRad.m),
-                  child: Row(children: [
-                    Text('₺', style: frDisplay(22, FontWeight.w700, color: FR.gold)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _priceCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: frPrice(28),
-                        cursorColor: FR.gold,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: '0,00',
-                          hintStyle: frPrice(28, color: FR.ink3),
-                          isCollapsed: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+
+                // 4) Nerede gördün? — region
+                if (_needsRegion) ...[
+                  _step(4, 'Nerede gördün?'),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Konumunu sadece ilçe ve yakın marketi önermek için kullanırız. '
+                      'Kesin konumunu kimseye göstermeyiz.',
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.4),
+                    ),
+                  ),
+                  if (city.isNotEmpty && district.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                      decoration: frSurface(radius: FRRad.m),
+                      child: Row(children: [
+                        Icon(Icons.location_on_rounded, color: FR.gold, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('$district / $city', style: frText(13, FontWeight.w800)),
+                              Text(
+                                _regionLat != null ? 'Konumdan algılandı' : 'Manuel seçildi',
+                                style: frText(10.5, FontWeight.w600, color: FR.ink3),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => _pickRegionManually(state),
+                          child: Text('Değiştir', style: frText(12, FontWeight.w700, color: FR.gold)),
+                        )
+                      ]),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                      decoration: frSurface(radius: FRRad.m),
+                      child: Wrap(spacing: 8, runSpacing: 8, children: [
+                        FRCta(
+                          label: _locating ? 'Konum alınıyor…' : 'Konumla doldur',
+                          icon: Icons.my_location_rounded,
+                          onTap: _locating ? null : () => _useCurrentLocation(state),
+                        ),
+                        FRCta(
+                          label: 'Elle seç',
+                          icon: Icons.map_outlined,
+                          filled: false,
+                          onTap: () => _pickRegionManually(state),
+                        ),
+                      ]),
+                    ),
+                  const SizedBox(height: 18),
+                ],
+
+                // Optional accordion: kaynak türü, not
+                _OptionalAccordion(
+                  expanded: _showOptional,
+                  onToggle: () => setState(() => _showOptional = !_showOptional),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Kaynak türü'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _sourceChip('Fiziksel Market', PriceSourceType.physical),
+                          _sourceChip('Online Market', PriceSourceType.online),
+                          _sourceChip('Pazar', PriceSourceType.bazaar),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _label('Not'),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                        decoration: frSurface(radius: FRRad.m),
+                        child: TextField(
+                          controller: _noteCtrl,
+                          maxLines: 3,
+                          style: frText(13, FontWeight.w600),
+                          cursorColor: FR.gold,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Kampanya, raf etiketi, stok bilgisi…',
+                            hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
+                          ),
                         ),
                       ),
-                    ),
-                    Text(_selectedProduct?.unit ?? '', style: frText(12, FontWeight.w700, color: FR.ink3)),
-                  ]),
-                ),
-                const SizedBox(height: 18),
-                _label('Not (opsiyonel)'),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                  decoration: frSurface(radius: FRRad.m),
-                  child: TextField(
-                    controller: _noteCtrl,
-                    maxLines: 3,
-                    style: frText(13, FontWeight.w600),
-                    cursorColor: FR.gold,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: 'Kampanya detayı, kupon kodu, stok…',
-                      hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -555,7 +628,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               decoration: BoxDecoration(color: FR.bgElev, border: Border(top: BorderSide(color: FR.hairline))),
               child: FRCta(
-                label: _submitting ? 'Gönderiliyor…' : 'Fiyatı paylaş · +10 PT',
+                label: _submitting ? 'Gönderiliyor…' : 'Fiyatı ekle · +10 PT',
                 icon: Icons.radar_rounded,
                 onTap: _submitting ? null : () => _submit(state),
               ),
@@ -619,6 +692,28 @@ class _AddPriceTabState extends State<AddPriceTab> {
           Container(width: 3, height: 14, color: FR.gold),
           const SizedBox(width: 8),
           Text(text, style: frText(12, FontWeight.w800, color: FR.ink, letter: .4)),
+        ]),
+      );
+
+  /// Numbered step header for the linear add-price flow.
+  Widget _step(int n, String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FR.gold,
+              borderRadius: FRRad.all(999),
+            ),
+            child: Text('$n',
+                style: frText(11, FontWeight.w800, color: FR.onGold)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: frText(14, FontWeight.w800, height: 1.2)),
+          ),
         ]),
       );
 
@@ -846,6 +941,59 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
           const SizedBox(height: 12),
           FRCta(label: _saving ? 'Kaydediliyor…' : 'Öneriyi gönder', icon: Icons.add_business_rounded, onTap: _saving ? null : _save),
         ]),
+      ),
+    );
+  }
+}
+
+class _OptionalAccordion extends StatelessWidget {
+  const _OptionalAccordion({
+    required this.expanded,
+    required this.onToggle,
+    required this.child,
+  });
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: frSurface(radius: FRRad.m),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: FRRad.all(FRRad.m),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, size: 16, color: FR.ink2),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'İstersen güveni artır (opsiyonel)',
+                      style: frText(12.5, FontWeight.w800),
+                    ),
+                  ),
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: FR.ink3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: child,
+            ),
+        ],
       ),
     );
   }
