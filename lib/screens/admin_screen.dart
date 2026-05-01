@@ -3441,11 +3441,20 @@ class AdminStoreManagementScreen extends StatefulWidget {
   const AdminStoreManagementScreen({super.key});
 
   @override
-  State<AdminStoreManagementScreen> createState() => _AdminStoreManagementScreenState();
+  State<AdminStoreManagementScreen> createState() =>
+      _AdminStoreManagementScreenState();
 }
 
-class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen> {
+class _AdminStoreManagementScreenState
+    extends State<AdminStoreManagementScreen> {
   static const _pageSize = 50;
+  static const _tabs = [
+    'Zincirler',
+    'Mağazalar',
+    'Onay bekleyen',
+    'Eski kayıtlar',
+  ];
+
   int _tab = 0;
   final _cityCtrl = TextEditingController();
   final _districtCtrl = TextEditingController();
@@ -3478,7 +3487,15 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
   }
 
   bool get _hasSearchFilter => _searchCtrl.text.trim().isNotEmpty;
-  bool get _hasCityFilter => _cityCtrl.text.trim().isNotEmpty;
+
+  void _resetAndLoadPlaces() {
+    setState(() {
+      _placesLastDoc = null;
+      _placeDocs.clear();
+    });
+    _loadPlaces(reset: true);
+  }
+
   static String _normalizeName(String value) => value
       .trim()
       .toLowerCase()
@@ -3552,24 +3569,17 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
     }).toList();
   }
 
-  Future<void> _createChainFromDialog() async {
-    final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
+  Future<void> _createChainFromSheet() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final raw = await _showStoreNameSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Yeni zincir ekle'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(labelText: 'Zincir adı'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ekle')),
-        ],
-      ),
+      title: 'Yeni zincir',
+      subtitle: 'Markette tek başına yer alacak zincirin adı',
+      hint: 'Örn. A101, BİM, Migros',
+      saveLabel: 'Zinciri ekle',
     );
-    if (ok != true) return;
-    final name = ctrl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (raw == null) return;
+    final name = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (name.isEmpty) return;
     await FirebaseService.instance.storeChains.add({
       'name': name,
@@ -3578,72 +3588,36 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Zincir eklendi.')),
+    );
   }
 
-  Future<void> _createPlaceFromDialog() async {
-    final nameCtrl = TextEditingController();
-    final cityCtrl = TextEditingController(text: _cityCtrl.text.trim());
-    final districtCtrl = TextEditingController(text: _districtCtrl.text.trim());
-    String type = 'local_market';
-    String status = 'pending';
-    final ok = await showDialog<bool>(
+  Future<void> _createPlaceFromSheet() async {
+    final uid = AppStateScope.of(context).user?.uid;
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await _showPlaceFormSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Yeni mağaza / nokta ekle'),
-        content: StatefulBuilder(
-          builder: (_, setInner) => SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Görünen ad')),
-                TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'Şehir')),
-                TextField(controller: districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
-                DropdownButton<String>(
-                  value: type,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'chain_market', child: Text('Chain Market')),
-                    DropdownMenuItem(value: 'local_market', child: Text('Local Market')),
-                    DropdownMenuItem(value: 'online_market', child: Text('Online Market')),
-                    DropdownMenuItem(value: 'bazaar', child: Text('Bazaar')),
-                  ],
-                  onChanged: (v) => setInner(() => type = v ?? 'local_market'),
-                ),
-                DropdownButton<String>(
-                  value: status,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                    DropdownMenuItem(value: 'verified', child: Text('Verified')),
-                    DropdownMenuItem(value: 'trusted', child: Text('Trusted')),
-                  ],
-                  onChanged: (v) => setInner(() => status = v ?? 'pending'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kaydet')),
-        ],
-      ),
+      title: 'Yeni mağaza',
+      initialCity: _cityCtrl.text.trim(),
+      initialDistrict: _districtCtrl.text.trim(),
     );
-    if (ok != true) return;
-    final name = nameCtrl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
-    final city = cityCtrl.text.trim();
-    final district = districtCtrl.text.trim();
+    if (result == null) return;
+    final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final city = result.city.trim();
+    final district = result.district.trim();
     if (name.isEmpty || city.isEmpty || district.isEmpty) return;
     await FirebaseService.instance.storePlaces.add({
       'displayName': name,
       'normalizedName': _normalizeName(name),
-      'type': type,
+      'type': result.type,
       'city': city,
       'district': district,
-      'status': status,
+      'status': result.status,
       'isActive': true,
       'usageCount': 0,
-      'createdByUid': AppStateScope.of(context).user?.uid,
+      'createdByUid': uid,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -3651,10 +3625,11 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
     setState(() {
       _cityCtrl.text = city;
       _districtCtrl.text = district;
-      _placesLastDoc = null;
-      _placeDocs.clear();
     });
-    await _loadPlaces(reset: true);
+    _resetAndLoadPlaces();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Mağaza eklendi.')),
+    );
   }
 
   Future<void> _runLegacyMigrationBatch() async {
@@ -3679,248 +3654,199 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
   ) async {
     final uid = AppStateScope.of(context).user?.uid;
+    final messenger = ScaffoldMessenger.of(context);
     if (uid == null || uid.isEmpty) return;
-    final cityCtrl = TextEditingController();
-    final districtCtrl = TextEditingController();
-    String type = 'local_market';
-    final ok = await showDialog<bool>(
+    final result = await _showRegionAssignSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Bölge ata ve taşı'),
-        content: StatefulBuilder(
-          builder: (ctx, setInner) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'Şehir')),
-              TextField(controller: districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
-              DropdownButton<String>(
-                value: type,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem(value: 'local_market', child: Text('Local Market')),
-                  DropdownMenuItem(value: 'chain_market', child: Text('Chain Market')),
-                  DropdownMenuItem(value: 'bazaar', child: Text('Bazaar')),
-                ],
-                onChanged: (v) => setInner(() => type = v ?? 'local_market'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Taşı')),
-        ],
-      ),
+      legacyName:
+          (doc.data()['name'] ?? doc.data()['displayName'] ?? '').toString(),
     );
-    if (ok != true) return;
-    final city = cityCtrl.text.trim();
-    final district = districtCtrl.text.trim();
-    if (city.isEmpty || district.isEmpty) return;
+    if (result == null) return;
+    if (result.city.isEmpty || result.district.isEmpty) return;
     await FirebaseService.instance.migrateSingleLegacyStoreToStorePlace(
       legacyStoreDoc: doc,
-      city: city,
-      district: district,
-      type: type,
+      city: result.city,
+      district: result.district,
+      type: result.type,
       createdByUid: uid,
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       const SnackBar(content: Text('Kayıt store_place olarak taşındı.')),
     );
   }
 
+  void _onAddPressed() {
+    if (_tab == 0) {
+      _createChainFromSheet();
+    } else if (_tab == 3) {
+      _runLegacyMigrationBatch();
+    } else {
+      _createPlaceFromSheet();
+    }
+  }
+
+  IconData get _addIcon =>
+      _tab == 3 ? Icons.sync_rounded : Icons.add_rounded;
+
   @override
   Widget build(BuildContext context) {
-    final tabs = ['Zincirler', 'Mağazalar / Noktalar', 'Onay Bekleyenler', 'Eski Kayıtları Taşı'];
     return Scaffold(
       backgroundColor: FR.bg,
-      appBar: AppBar(title: const Text('Mağaza Yönetimi')),
-      body: Column(children: [
-        SizedBox(
-          height: 40,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-            itemCount: tabs.length,
-            itemBuilder: (_, i) => Padding(
-              padding: const EdgeInsets.only(right: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-              child: FRFilterChip(tabs[i], active: _tab == i, onTap: () => setState(() => _tab = i)),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Row(
+                children: [
+                  FRIconChip(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                  FRIconChip(icon: _addIcon, onTap: _onAddPressed),
+                ],
+              ),
             ),
-          ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: FRPageHeader(
+                overline: 'ADMIN · MAĞAZA AĞI',
+                title: 'Mağaza',
+                italicTail: ' yönetimi',
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 42,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                scrollDirection: Axis.horizontal,
+                itemCount: _tabs.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => FRFilterChip(
+                  _tabs[i],
+                  active: _tab == i,
+                  onTap: () => setState(() => _tab = i),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Expanded(child: _buildTab()),
+          ],
         ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _tab == 0
-              ? _buildChains()
-              : (_tab == 1
-                  ? _buildPlaces()
-                  : (_tab == 2 ? _buildPending() : _buildLegacyBridge())),
-        )
-      ]),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          if (_tab == 0) {
-            await _createChainFromDialog();
-          } else {
-            await _createPlaceFromDialog();
-          }
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }
 
-  Widget _buildChains() {
+  Widget _buildTab() {
+    switch (_tab) {
+      case 0:
+        return _buildChainsTab();
+      case 1:
+        return _buildPlacesTab();
+      case 2:
+        return _buildPendingTab();
+      default:
+        return _buildLegacyTab();
+    }
+  }
+
+  Widget _buildChainsTab() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseService.instance.storeChains.orderBy('updatedAt', descending: true).limit(60).snapshots(),
+      stream: FirebaseService.instance.storeChains
+          .orderBy('updatedAt', descending: true)
+          .limit(60)
+          .snapshots(),
       builder: (_, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const _AdminLoading();
+        }
         final docs = snap.data?.docs ?? const [];
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: _empty('Henüz zincir kaydı yok.'),
+          );
+        }
         return ListView(
-          padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-          children: docs.map((d) {
-            final data = d.data();
-            return ListTile(
-              tileColor: FR.surface,
-              title: Text((data['name'] ?? '').toString()),
-              subtitle: Text(((data['isActive'] ?? true) ? 'Aktif' : 'Pasif').toString()),
-              trailing: Switch(
-                value: (data['isActive'] as bool?) ?? true,
-                onChanged: (v) => d.reference.update({'isActive': v, 'updatedAt': FieldValue.serverTimestamp()}),
-              ),
-              onTap: () => d.reference.update({'updatedAt': FieldValue.serverTimestamp()}),
-            );
-          }).toList(),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          children: [
+            _rowList([
+              for (final d in docs)
+                _ChainRow(
+                  data: d.data(),
+                  onToggleActive: (v) => d.reference.update({
+                    'isActive': v,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  }),
+                ),
+            ]),
+          ],
         );
       },
     );
   }
 
-  Widget _buildPlaces() {
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-        child: Column(children: [
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _cityCtrl,
-                decoration: const InputDecoration(labelText: 'Şehir'),
-                onChanged: (_) {
-                  setState(() {
-                    _placesLastDoc = null;
-                    _placeDocs.clear();
-                  });
-                  _loadPlaces(reset: true);
-                },
+  Widget _buildPlacesTab() {
+    final filtered = _filteredPlaceDocs;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      children: [
+        _PlacesFilterCard(
+          cityCtrl: _cityCtrl,
+          districtCtrl: _districtCtrl,
+          searchCtrl: _searchCtrl,
+          type: _type,
+          status: _status,
+          onSearchChanged: (_) => _resetAndLoadPlaces(),
+          onCityChanged: (_) => _resetAndLoadPlaces(),
+          onDistrictChanged: (_) => _resetAndLoadPlaces(),
+          onTypeChanged: (v) => setState(() => _type = v),
+          onStatusChanged: (v) => setState(() => _status = v),
+          onApply: _resetAndLoadPlaces,
+        ),
+        const SizedBox(height: 14),
+        _PlacesSummary(
+          city: _cityCtrl.text.trim(),
+          district: _districtCtrl.text.trim(),
+          type: _type,
+          status: _status,
+          loadedCount: filtered.length,
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty && !_loadingPlaces)
+          _empty('Bu filtre için yüklü mağaza yok.')
+        else
+          _rowList([
+            for (final d in filtered)
+              _PlaceRow(
+                data: d.data(),
+                onToggleActive: () => d.reference.update({
+                  'isActive': !((d.data()['isActive'] as bool?) ?? true),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _districtCtrl,
-                decoration: const InputDecoration(labelText: 'İlçe'),
-                onChanged: (_) {
-                  setState(() {
-                    _placesLastDoc = null;
-                    _placeDocs.clear();
-                  });
-                  _loadPlaces(reset: true);
-                },
-              ),
-            ),
           ]),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _searchCtrl,
-            decoration: const InputDecoration(labelText: 'Arama'),
-            onChanged: (_) {
-              setState(() {
-                _placesLastDoc = null;
-                _placeDocs.clear();
-              });
-              _loadPlaces(reset: true);
-            },
-          ),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: DropdownButton<String>(value: _type, isExpanded: true, items: const [
-              DropdownMenuItem(value: 'all', child: Text('Tüm türler')),
-              DropdownMenuItem(value: 'chain_market', child: Text('Chain Market')),
-              DropdownMenuItem(value: 'local_market', child: Text('Local Market')),
-              DropdownMenuItem(value: 'online_market', child: Text('Online')),
-              DropdownMenuItem(value: 'bazaar', child: Text('Bazaar')),
-            ], onChanged: (v) => setState(() => _type = v ?? 'all'))),
-            const SizedBox(width: 8),
-            Expanded(child: DropdownButton<String>(value: _status, isExpanded: true, items: const [
-              DropdownMenuItem(value: 'all', child: Text('Tüm statüler')),
-              DropdownMenuItem(value: 'verified', child: Text('Verified')),
-              DropdownMenuItem(value: 'trusted', child: Text('Trusted')),
-              DropdownMenuItem(value: 'pending', child: Text('Pending')),
-              DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
-            ], onChanged: (v) => setState(() => _status = v ?? 'all'))),
-          ]),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () {
-                setState(() {
-                  _placesLastDoc = null;
-                  _placeDocs.clear();
-                });
-                _loadPlaces(reset: true);
-              },
-              child: const Text('Filtrele'),
+        const SizedBox(height: 16),
+        if (_hasMorePlaces)
+          Center(
+            child: FRCta(
+              label: _loadingPlaces ? 'Yükleniyor…' : 'Daha fazla yükle',
+              icon: Icons.expand_more_rounded,
+              filled: false,
+              onTap: _loadingPlaces ? null : () => _loadPlaces(),
             ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Filtre: şehir="${_cityCtrl.text.trim().isEmpty ? "-" : _cityCtrl.text.trim()}" · ilçe="${_districtCtrl.text.trim().isEmpty ? "-" : _districtCtrl.text.trim()}" · tür=$_type · durum=$_status',
-              style: frText(11, FontWeight.w700, color: FR.ink3),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Yüklü sonuç: ${_filteredPlaceDocs.length}',
-              style: frText(11, FontWeight.w700, color: FR.ink3),
-            ),
-          ),
-        ]),
-      ),
-      Expanded(
-        child: ListView.builder(
-                itemCount: _filteredPlaceDocs.length + 1,
-                itemBuilder: (_, i) {
-                  if (i == _filteredPlaceDocs.length) {
-                    if (!_hasMorePlaces) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                      child: Center(
-                        child: FRCta(
-                          label: _loadingPlaces ? 'Yükleniyor…' : 'Daha fazla yükle',
-                          onTap: _loadingPlaces ? null : () => _loadPlaces(),
-                        ),
-                      ),
-                    );
-                  }
-                  final d = _filteredPlaceDocs[i];
-                  final m = d.data();
-                  return ListTile(
-                    title: Text((m['displayName'] ?? '').toString()),
-                    subtitle: Text('${m['type'] ?? ''} · ${m['city'] ?? ''}/${m['district'] ?? ''} · ${m['status'] ?? ''}'),
-                    trailing: IconButton(
-                      icon: Icon((m['isActive'] as bool? ?? true) ? Icons.toggle_on_rounded : Icons.toggle_off_rounded),
-                      onPressed: () => d.reference.update({'isActive': !((m['isActive'] as bool?) ?? true), 'updatedAt': FieldValue.serverTimestamp()}),
-                    ),
-                  );
-                },
-              ),
-      ),
-    ]);
+          )
+        else if (_loadingPlaces)
+          const _AdminLoading(),
+      ],
+    );
   }
 
-  Widget _buildPending() {
+  Widget _buildPendingTab() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseService.instance.storePlaces
           .where('isActive', isEqualTo: true)
@@ -3929,81 +3855,1060 @@ class _AdminStoreManagementScreenState extends State<AdminStoreManagementScreen>
           .limit(50)
           .snapshots(),
       builder: (_, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const _AdminLoading();
+        }
         final docs = snap.data?.docs ?? const [];
-        return ListView.builder(
-          padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-          itemCount: docs.length,
-          itemBuilder: (_, i) {
-            final d = docs[i];
-            final m = d.data();
-            return Card(
-              child: ListTile(
-                title: Text((m['displayName'] ?? '').toString()),
-                subtitle: Text('${m['type'] ?? ''} · ${m['city'] ?? ''}/${m['district'] ?? ''}'),
-                trailing: Wrap(spacing: 4, children: [
-                  IconButton(onPressed: () => d.reference.update({'status': 'verified', 'updatedAt': FieldValue.serverTimestamp()}), icon: const Icon(Icons.check_circle_outline_rounded)),
-                  IconButton(onPressed: () => d.reference.update({'status': 'rejected', 'isActive': false, 'updatedAt': FieldValue.serverTimestamp()}), icon: const Icon(Icons.cancel_outlined)),
-                ]),
-              ),
-            );
-          },
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: _empty('Onay bekleyen kayıt yok.'),
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          children: [
+            _rowList([
+              for (final d in docs)
+                _PendingRow(
+                  data: d.data(),
+                  onApprove: () => d.reference.update({
+                    'status': 'verified',
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  }),
+                  onReject: () => d.reference.update({
+                    'status': 'rejected',
+                    'isActive': false,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  }),
+                ),
+            ]),
+          ],
         );
       },
     );
   }
 
-  Widget _buildLegacyBridge() {
+  Widget _buildLegacyTab() {
     final res = _legacyMigration;
-    final missing = res?.missingRegionDocs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    final missing = res?.missingRegionDocs ??
+        const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     return ListView(
-      padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       children: [
-        Container(
-          padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-          decoration: frSurface(radius: FRRad.m),
-          child: Column(
+        _LegacyHeroCard(
+          busy: _legacyBusy,
+          onMigrate: _runLegacyMigrationBatch,
+        ),
+        if (res != null) ...[
+          const SizedBox(height: 14),
+          _MigrationStatsRow(res: res),
+        ],
+        const SizedBox(height: 18),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text('BÖLGESİ EKSİK KAYITLAR', style: frOverline()),
+        ),
+        const SizedBox(height: 8),
+        if (missing.isEmpty)
+          _empty('Bölge eksik kayıt yok (son batch için).')
+        else
+          _rowList([
+            for (final d in missing)
+              _MissingRegionRow(
+                data: d.data(),
+                onMigrate: () => _migrateMissingRegion(d),
+              ),
+          ]),
+      ],
+    );
+  }
+}
+
+// ─── Sub-widgets ─────────────────────────────────────────────────────────────
+
+class _AdminLoading extends StatelessWidget {
+  const _AdminLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.4, color: FR.gold),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChainRow extends StatelessWidget {
+  const _ChainRow({required this.data, required this.onToggleActive});
+  final Map<String, dynamic> data;
+  final ValueChanged<bool> onToggleActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = (data['isActive'] as bool?) ?? true;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: FR.surfaceHi,
+              borderRadius: FRRad.all(12),
+              border: Border.all(color: FR.hairline),
+            ),
+            alignment: Alignment.center,
+            child: Icon(Icons.storefront_rounded, color: FR.gold, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (data['name'] ?? '—').toString(),
+                  style: frText(13.5, FontWeight.w800),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  active ? 'Aktif zincir' : 'Pasifte',
+                  style: frText(11, FontWeight.w700,
+                      color: active ? FR.good : FR.ink3),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: active,
+            onChanged: onToggleActive,
+            activeColor: FR.bg,
+            activeTrackColor: FR.gold,
+            inactiveThumbColor: FR.ink2,
+            inactiveTrackColor: FR.surfaceHi,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceRow extends StatelessWidget {
+  const _PlaceRow({required this.data, required this.onToggleActive});
+  final Map<String, dynamic> data;
+  final VoidCallback onToggleActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = (data['isActive'] as bool?) ?? true;
+    final status = (data['status'] ?? 'pending').toString();
+    final type = (data['type'] ?? 'local_market').toString();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Eski market kayıtlarını kontrol et', style: frText(13, FontWeight.w800)),
-              const SizedBox(height: 6),
+              Expanded(
+                child: Text(
+                  (data['displayName'] ?? '—').toString(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: frText(13.5, FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _StatusPill(status: status),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_typeLabel(type)} · '
+            '${(data['city'] ?? '').toString()} / ${(data['district'] ?? '').toString()}',
+            style: frText(11.5, FontWeight.w700, color: FR.ink3),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (active ? FR.good : FR.ink3).withOpacity(.14),
+                  borderRadius: FRRad.all(999),
+                  border: Border.all(
+                    color: (active ? FR.good : FR.ink3).withOpacity(.3),
+                  ),
+                ),
+                child: Text(
+                  active ? 'AKTİF' : 'PASİF',
+                  style: frText(10, FontWeight.w800,
+                      color: active ? FR.good : FR.ink3, letter: 1.1),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: onToggleActive,
+                borderRadius: FRRad.all(999),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: FR.surfaceHi,
+                    borderRadius: FRRad.all(999),
+                    border: Border.all(color: FR.hairline),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        active
+                            ? Icons.toggle_off_rounded
+                            : Icons.toggle_on_rounded,
+                        size: 16,
+                        color: FR.ink2,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        active ? 'Pasifle' : 'Aktif et',
+                        style: frText(11.5, FontWeight.w800, color: FR.ink),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingRow extends StatelessWidget {
+  const _PendingRow({
+    required this.data,
+    required this.onApprove,
+    required this.onReject,
+  });
+  final Map<String, dynamic> data;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = (data['type'] ?? '').toString();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  (data['displayName'] ?? '—').toString(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: frText(13.5, FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const _StatusPill(status: 'pending'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_typeLabel(type)} · '
+            '${(data['city'] ?? '').toString()} / ${(data['district'] ?? '').toString()}',
+            style: frText(11.5, FontWeight.w700, color: FR.ink3),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FRCta(
+                  label: 'Reddet',
+                  icon: Icons.cancel_outlined,
+                  filled: false,
+                  height: 44,
+                  onTap: onReject,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FRCta(
+                  label: 'Onayla',
+                  icon: Icons.check_circle_outline_rounded,
+                  height: 44,
+                  onTap: onApprove,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissingRegionRow extends StatelessWidget {
+  const _MissingRegionRow({required this.data, required this.onMigrate});
+  final Map<String, dynamic> data;
+  final VoidCallback onMigrate;
+
+  @override
+  Widget build(BuildContext context) {
+    final name =
+        (data['name'] ?? data['displayName'] ?? '—').toString();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: FR.warn.withOpacity(.14),
+              borderRadius: FRRad.all(10),
+              border: Border.all(color: FR.warn.withOpacity(.35)),
+            ),
+            alignment: Alignment.center,
+            child:
+                Icon(Icons.warning_amber_rounded, color: FR.warn, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: frText(13, FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                  'Bölge eksik · taşımak için ata',
+                  style: frText(11, FontWeight.w600, color: FR.ink3),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FRCta(
+            label: 'Taşı',
+            icon: Icons.east_rounded,
+            filled: false,
+            height: 38,
+            onTap: onMigrate,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegacyHeroCard extends StatelessWidget {
+  const _LegacyHeroCard({required this.busy, required this.onMigrate});
+  final bool busy;
+  final VoidCallback onMigrate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.goldDeep.withOpacity(.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('ESKİ KAYIT KÖPRÜSÜ', style: frOverline()),
+          const SizedBox(height: 8),
+          Text('Eski stores → store_places',
+              style: frDisplay(20, FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(
+            'Eski market kayıtlarını yeni store_places koleksiyonuna taşı. '
+            'Bölgesi eksik kayıtlar aşağıda elle atanmayı bekler.',
+            style: frText(12, FontWeight.w600, color: FR.ink2, height: 1.45),
+          ),
+          const SizedBox(height: 14),
+          FRCta(
+            label: busy ? 'Çalışıyor…' : '50 kayıt taşı',
+            icon: Icons.sync_rounded,
+            onTap: busy ? null : onMigrate,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MigrationStatsRow extends StatelessWidget {
+  const _MigrationStatsRow({required this.res});
+  final LegacyStoreMigrationResult res;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _stat('İŞLENEN', '${res.processed}', FR.ink)),
+        const SizedBox(width: 8),
+        Expanded(child: _stat('YENİ', '${res.migrated}', FR.good)),
+        const SizedBox(width: 8),
+        Expanded(child: _stat('GÜNCEL', '${res.updated}', FR.gold)),
+        const SizedBox(width: 8),
+        Expanded(
+            child: _stat('EKSİK', '${res.skippedMissingRegion}', FR.warn)),
+      ],
+    );
+  }
+
+  Widget _stat(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: frText(9.5, FontWeight.w800,
+                  color: FR.ink3, letter: 1.2)),
+          const SizedBox(height: 6),
+          Text(value, style: frPrice(20, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, icon) = switch (status) {
+      'verified' => ('Doğrulandı', FR.good, Icons.verified_rounded),
+      'trusted' => ('Güvenilir', FR.gold, Icons.workspace_premium_rounded),
+      'pending' => ('Bekliyor', FR.warn, Icons.schedule_rounded),
+      'rejected' => ('Reddedildi', FR.bad, Icons.block_rounded),
+      _ => ('—', FR.ink3, Icons.help_outline_rounded),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.14),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: color.withOpacity(.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(label, style: frText(10, FontWeight.w800, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlacesSummary extends StatelessWidget {
+  const _PlacesSummary({
+    required this.city,
+    required this.district,
+    required this.type,
+    required this.status,
+    required this.loadedCount,
+  });
+  final String city;
+  final String district;
+  final String type;
+  final String status;
+  final int loadedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '${city.isEmpty ? "Tüm şehirler" : city}'
+            ' · '
+            '${district.isEmpty ? "Tüm ilçeler" : district}'
+            ' · ${_typeLabel(type)} · ${_statusLabel(status)}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: frText(11, FontWeight.w700, color: FR.ink3),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: FR.gold.withOpacity(.14),
+            borderRadius: FRRad.all(999),
+            border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+          ),
+          child: Text(
+            '$loadedCount kayıt',
+            style: frText(10.5, FontWeight.w800, color: FR.gold),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlacesFilterCard extends StatelessWidget {
+  const _PlacesFilterCard({
+    required this.cityCtrl,
+    required this.districtCtrl,
+    required this.searchCtrl,
+    required this.type,
+    required this.status,
+    required this.onSearchChanged,
+    required this.onCityChanged,
+    required this.onDistrictChanged,
+    required this.onTypeChanged,
+    required this.onStatusChanged,
+    required this.onApply,
+  });
+  final TextEditingController cityCtrl;
+  final TextEditingController districtCtrl;
+  final TextEditingController searchCtrl;
+  final String type;
+  final String status;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String> onCityChanged;
+  final ValueChanged<String> onDistrictChanged;
+  final ValueChanged<String> onTypeChanged;
+  final ValueChanged<String> onStatusChanged;
+  final VoidCallback onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('FİLTRE', style: frOverline()),
+          const SizedBox(height: 10),
+          TextField(
+            controller: searchCtrl,
+            onChanged: onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Mağaza ara',
+              prefixIcon: Icon(Icons.search_rounded, color: FR.ink3),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: cityCtrl,
+                  onChanged: onCityChanged,
+                  decoration: const InputDecoration(hintText: 'Şehir'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: districtCtrl,
+                  onChanged: onDistrictChanged,
+                  decoration: const InputDecoration(hintText: 'İlçe'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _FilterDropdown(
+                  value: type,
+                  items: const [
+                    ('all', 'Tüm türler'),
+                    ('chain_market', 'Chain'),
+                    ('local_market', 'Local'),
+                    ('online_market', 'Online'),
+                    ('bazaar', 'Pazar'),
+                  ],
+                  onChanged: onTypeChanged,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FilterDropdown(
+                  value: status,
+                  items: const [
+                    ('all', 'Tüm statüler'),
+                    ('verified', 'Verified'),
+                    ('trusted', 'Trusted'),
+                    ('pending', 'Pending'),
+                    ('rejected', 'Rejected'),
+                  ],
+                  onChanged: onStatusChanged,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FRCta(
+              label: 'Filtreyi uygula',
+              icon: Icons.tune_rounded,
+              filled: false,
+              height: 42,
+              onTap: onApply,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterDropdown extends StatelessWidget {
+  const _FilterDropdown({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+  final String value;
+  final List<(String, String)> items;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: FR.surfaceHi,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: FR.surface,
+          icon: Icon(Icons.keyboard_arrow_down_rounded, color: FR.ink2),
+          style: frText(12.5, FontWeight.w700, color: FR.ink),
+          items: [
+            for (final (v, l) in items)
+              DropdownMenuItem(value: v, child: Text(l)),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+String _typeLabel(String t) => switch (t) {
+      'chain_market' => 'Zincir',
+      'local_market' => 'Yerel',
+      'online_market' => 'Online',
+      'bazaar' => 'Pazar',
+      'all' => 'Tüm türler',
+      _ => t,
+    };
+
+String _statusLabel(String s) => switch (s) {
+      'verified' => 'Verified',
+      'trusted' => 'Trusted',
+      'pending' => 'Pending',
+      'rejected' => 'Rejected',
+      'all' => 'Tüm statüler',
+      _ => s,
+    };
+
+// ─── Bottom sheets ───────────────────────────────────────────────────────────
+
+class _AdminBottomSheetShell extends StatelessWidget {
+  const _AdminBottomSheetShell({
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+        decoration: BoxDecoration(
+          color: FR.surface,
+          borderRadius: FRRad.all(FRRad.xl),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: FR.hairline,
+                  borderRadius: FRRad.all(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text('ADMIN', style: frOverline()),
+            const SizedBox(height: 4),
+            Text(title, style: frDisplay(22, FontWeight.w700)),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
               Text(
-                'Bu eski market kayıtlarında bölge yok. Fiyat eklemede görünmeleri için şehir/ilçe atanmalı.',
-                style: frText(11.5, FontWeight.w600, color: FR.ink3),
+                subtitle!,
+                style: frText(12, FontWeight.w700, color: FR.ink3),
+              ),
+            ],
+            const SizedBox(height: 18),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<String?> _showStoreNameSheet({
+  required BuildContext context,
+  required String title,
+  required String subtitle,
+  required String hint,
+  required String saveLabel,
+}) async {
+  final ctrl = TextEditingController();
+  try {
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AdminBottomSheetShell(
+        title: title,
+        subtitle: subtitle,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: InputDecoration(hintText: hint),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FRCta(
+                    label: 'İptal',
+                    filled: false,
+                    onTap: () => Navigator.pop(ctx, false),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FRCta(
+                    label: saveLabel,
+                    icon: Icons.add_rounded,
+                    onTap: () => Navigator.pop(ctx, true),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return null;
+    return ctrl.text;
+  } finally {
+    ctrl.dispose();
+  }
+}
+
+class _PlaceFormResult {
+  const _PlaceFormResult({
+    required this.name,
+    required this.city,
+    required this.district,
+    required this.type,
+    required this.status,
+  });
+  final String name;
+  final String city;
+  final String district;
+  final String type;
+  final String status;
+}
+
+Future<_PlaceFormResult?> _showPlaceFormSheet({
+  required BuildContext context,
+  required String title,
+  String initialCity = '',
+  String initialDistrict = '',
+}) async {
+  final nameCtrl = TextEditingController();
+  final cityCtrl = TextEditingController(text: initialCity);
+  final districtCtrl = TextEditingController(text: initialDistrict);
+  String type = 'local_market';
+  String status = 'pending';
+  try {
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AdminBottomSheetShell(
+        title: title,
+        subtitle: 'Mağaza · zincir · yerel · pazar',
+        child: StatefulBuilder(
+          builder: (ctx, setInner) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: 'Görünen ad'),
               ),
               const SizedBox(height: 10),
-              FRCta(
-                label: _legacyBusy ? 'Çalışıyor…' : '50 kayıt migrate et',
-                onTap: _legacyBusy ? null : _runLegacyMigrationBatch,
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: cityCtrl,
+                      decoration: const InputDecoration(hintText: 'Şehir'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: districtCtrl,
+                      decoration: const InputDecoration(hintText: 'İlçe'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FilterDropdown(
+                      value: type,
+                      items: const [
+                        ('chain_market', 'Chain'),
+                        ('local_market', 'Local'),
+                        ('online_market', 'Online'),
+                        ('bazaar', 'Pazar'),
+                      ],
+                      onChanged: (v) => setInner(() => type = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _FilterDropdown(
+                      value: status,
+                      items: const [
+                        ('pending', 'Pending'),
+                        ('verified', 'Verified'),
+                        ('trusted', 'Trusted'),
+                      ],
+                      onChanged: (v) => setInner(() => status = v),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: FRCta(
+                      label: 'İptal',
+                      filled: false,
+                      onTap: () => Navigator.pop(ctx, false),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FRCta(
+                      label: 'Kaydet',
+                      icon: Icons.check_rounded,
+                      onTap: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        if (res != null) ...[
-          Text(
-            'İşlenen: ${res.processed} · Yeni: ${res.migrated} · Güncellendi: ${res.updated} · Eksik bölge: ${res.skippedMissingRegion}',
-            style: frText(11.5, FontWeight.w700, color: FR.ink3),
-          ),
-          const SizedBox(height: 10),
-        ],
-        Text('Bölgesi eksik kayıtlar', style: frText(12.5, FontWeight.w800)),
-        const SizedBox(height: 8),
-        if (missing.isEmpty)
-          _empty('Eksik bölge kaydı yok (son batch için).')
-        else
-          ...missing.map((d) {
-            final name = (d.data()['name'] ?? d.data()['displayName'] ?? '').toString();
-            return ListTile(
-              tileColor: FR.surface,
-              title: Text(name),
-              subtitle: const Text('Bölge eksik'),
-              trailing: TextButton(
-                onPressed: () => _migrateMissingRegion(d),
-                child: const Text('Store_place olarak taşı'),
-              ),
-            );
-          }),
-      ],
+      ),
     );
+    if (ok != true) return null;
+    return _PlaceFormResult(
+      name: nameCtrl.text,
+      city: cityCtrl.text,
+      district: districtCtrl.text,
+      type: type,
+      status: status,
+    );
+  } finally {
+    nameCtrl.dispose();
+    cityCtrl.dispose();
+    districtCtrl.dispose();
+  }
+}
+
+class _RegionAssignResult {
+  const _RegionAssignResult({
+    required this.city,
+    required this.district,
+    required this.type,
+  });
+  final String city;
+  final String district;
+  final String type;
+}
+
+Future<_RegionAssignResult?> _showRegionAssignSheet({
+  required BuildContext context,
+  required String legacyName,
+}) async {
+  final cityCtrl = TextEditingController();
+  final districtCtrl = TextEditingController();
+  String type = 'local_market';
+  try {
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AdminBottomSheetShell(
+        title: 'Bölge ata ve taşı',
+        subtitle: legacyName,
+        child: StatefulBuilder(
+          builder: (ctx, setInner) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: cityCtrl,
+                      autofocus: true,
+                      decoration: const InputDecoration(hintText: 'Şehir'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: districtCtrl,
+                      decoration: const InputDecoration(hintText: 'İlçe'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _FilterDropdown(
+                value: type,
+                items: const [
+                  ('local_market', 'Local'),
+                  ('chain_market', 'Chain'),
+                  ('bazaar', 'Pazar'),
+                ],
+                onChanged: (v) => setInner(() => type = v),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: FRCta(
+                      label: 'İptal',
+                      filled: false,
+                      onTap: () => Navigator.pop(ctx, false),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FRCta(
+                      label: 'Taşı',
+                      icon: Icons.east_rounded,
+                      onTap: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return null;
+    return _RegionAssignResult(
+      city: cityCtrl.text.trim(),
+      district: districtCtrl.text.trim(),
+      type: type,
+    );
+  } finally {
+    cityCtrl.dispose();
+    districtCtrl.dispose();
   }
 }
