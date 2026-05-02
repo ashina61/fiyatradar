@@ -1,14 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../models/price_v1.dart';
 import '../../models/product.dart';
+import '../../models/turkey_locations.dart';
 import '../../services/firebase_service.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
+import '../widgets/region_picker_sheet.dart';
 
 class AddPriceTab extends StatefulWidget {
   const AddPriceTab({super.key});
@@ -225,39 +226,23 @@ class _AddPriceTabState extends State<AddPriceTab> {
   Future<void> _useCurrentLocation(AppState state) async {
     setState(() => _locating = true);
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _snack('Konum izni olmadan bölge belirlenemedi. İl/ilçe seçebilirsin.');
-        await _pickRegionManually(state);
-        return;
-      }
-      final pos = await Geolocator.getCurrentPosition();
-      _regionLat = pos.latitude;
-      _regionLng = pos.longitude;
-      _gpsAccuracyMeters = pos.accuracy;
+      // GPS coordinates are still useful as branch metadata even when the
+      // city/district has to be picked from the whitelist.
       try {
-        final places = await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        final mark = places.isNotEmpty ? places.first : null;
-        final city = (mark?.administrativeArea ?? mark?.locality ?? '').trim();
-        final district = (mark?.subAdministrativeArea ?? mark?.subLocality ?? '').trim();
-        if (city.isEmpty || district.isEmpty) {
-          _snack('Konum çözümlendi ama il/ilçe bulunamadı. Elle seçmelisin.');
-          await _pickRegionManually(state);
-          return;
+        var permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
         }
-        await state.updateRegionSettings(cityName: city, districtName: district);
-        if (!mounted) return;
-        _snack('Bölge ayarlandı: $city / $district');
+        if (permission != LocationPermission.denied &&
+            permission != LocationPermission.deniedForever) {
+          final pos = await Geolocator.getCurrentPosition();
+          _regionLat = pos.latitude;
+          _regionLng = pos.longitude;
+          _gpsAccuracyMeters = pos.accuracy;
+        }
       } catch (_) {
-        _snack('Konumdan il/ilçe alınamadı. Elle seçebilirsin.');
-        await _pickRegionManually(state);
+        // GPS is best-effort; continue to the manual picker either way.
       }
-    } catch (e) {
-      _snack('Konum alınamadı: $e');
       await _pickRegionManually(state);
     } finally {
       if (mounted) setState(() => _locating = false);
@@ -265,22 +250,18 @@ class _AddPriceTabState extends State<AddPriceTab> {
   }
 
   Future<void> _pickRegionManually(AppState state) async {
-    final result = await showModalBottomSheet<(String, String)?>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: FR.bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _RegionPickerSheet(
-        initialCity: state.cityName,
-        initialDistrict: state.districtName,
-      ),
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: state.cityName,
+      initialDistrict: state.districtName,
     );
     if (result == null) return;
-    await state.updateRegionSettings(cityName: result.$1, districtName: result.$2);
+    final city = TurkeyLocations.canonicalCity(result.city) ?? result.city;
+    final district =
+        TurkeyLocations.canonicalDistrict(city, result.district) ?? result.district;
+    await state.updateRegionSettings(cityName: city, districtName: district);
     if (!mounted) return;
-    _snack('Bölge ayarlandı: ${result.$1} / ${result.$2}');
+    _snack('Bölge ayarlandı: $city / $district');
   }
 
   Query<Map<String, dynamic>> _basePlaceQuery(AppState state, {required bool search}) {
@@ -741,68 +722,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
   }
 }
 
-class _RegionPickerSheet extends StatefulWidget {
-  const _RegionPickerSheet({this.initialCity, this.initialDistrict});
-  final String? initialCity;
-  final String? initialDistrict;
-
-  @override
-  State<_RegionPickerSheet> createState() => _RegionPickerSheetState();
-}
-
-class _RegionPickerSheetState extends State<_RegionPickerSheet> {
-  late final TextEditingController _cityCtrl;
-  late final TextEditingController _districtCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _cityCtrl = TextEditingController(text: widget.initialCity ?? '');
-    _districtCtrl = TextEditingController(text: widget.initialDistrict ?? '');
-  }
-
-  @override
-  void dispose() {
-    _cityCtrl.dispose();
-    _districtCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('İl / ilçe seç', style: frDisplay(20, FontWeight.w700)),
-        const SizedBox(height: 12),
-        TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'İl')),
-        const SizedBox(height: 10),
-        TextField(controller: _districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
-        const SizedBox(height: 12),
-        FRCta(
-          label: 'Kaydet',
-          icon: Icons.check_rounded,
-          onTap: () {
-            final city = _cityCtrl.text.trim();
-            final district = _districtCtrl.text.trim();
-            if (city.isEmpty || district.isEmpty) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('İl ve ilçe zorunlu.')));
-              return;
-            }
-            Navigator.pop(context, (city, district));
-          },
-        ),
-      ]),
-    );
-  }
-}
-
 class _SuggestPlaceSheet extends StatefulWidget {
   const _SuggestPlaceSheet({required this.sourceType, this.city, this.district});
   final PriceSourceType sourceType;
@@ -815,24 +734,24 @@ class _SuggestPlaceSheet extends StatefulWidget {
 
 class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
   late final TextEditingController _nameCtrl;
-  late final TextEditingController _cityCtrl;
-  late final TextEditingController _districtCtrl;
   final TextEditingController _neighborhoodCtrl = TextEditingController();
+  late String? _city;
+  late String? _district;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController();
-    _cityCtrl = TextEditingController(text: widget.city ?? '');
-    _districtCtrl = TextEditingController(text: widget.district ?? '');
+    _city = TurkeyLocations.canonicalCity(widget.city);
+    _district = _city == null
+        ? null
+        : TurkeyLocations.canonicalDistrict(_city, widget.district);
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _cityCtrl.dispose();
-    _districtCtrl.dispose();
     _neighborhoodCtrl.dispose();
     super.dispose();
   }
@@ -856,8 +775,8 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
     if (uid == null || uid.isEmpty) return;
     final name = _nameCtrl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
     final normalized = _normalize(name);
-    final city = _cityCtrl.text.trim();
-    final district = _districtCtrl.text.trim();
+    final city = _city ?? '';
+    final district = _district ?? '';
     final type = _typeString();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad zorunlu.')));
@@ -923,20 +842,66 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
     }
   }
 
+  Future<void> _changeRegion() async {
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: _city,
+      initialDistrict: _district,
+    );
+    if (result == null) return;
+    setState(() {
+      _city = result.city;
+      _district = result.district;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final regionLabel = (_city != null && _district != null)
+        ? '$_city / $_district'
+        : 'İl ve ilçe seç';
     return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 20 + MediaQuery.of(context).viewInsets.bottom), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 20 + MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Bu marketi/pazarı öner', style: frDisplay(20, FontWeight.w700)),
           const SizedBox(height: 10),
           TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Ad')),
-          const SizedBox(height: 8),
-          TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'İl')),
-          const SizedBox(height: 8),
-          TextField(controller: _districtCtrl, decoration: const InputDecoration(labelText: 'İlçe')),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          if (widget.sourceType != PriceSourceType.online) ...[
+            InkWell(
+              onTap: _changeRegion,
+              borderRadius: FRRad.all(FRRad.m),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: FR.bgElev,
+                  borderRadius: FRRad.all(FRRad.m),
+                  border: Border.all(color: FR.hairline),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.place_outlined, size: 18, color: FR.gold),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('İL / İLÇE',
+                              style: frOverline(color: FR.ink3, size: 9.5)),
+                          const SizedBox(height: 2),
+                          Text(regionLabel,
+                              style: frText(13.5, FontWeight.w800)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.keyboard_arrow_right_rounded, color: FR.ink3),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           TextField(controller: _neighborhoodCtrl, decoration: const InputDecoration(labelText: 'Mahalle (opsiyonel)')),
           const SizedBox(height: 12),
           FRCta(label: _saving ? 'Kaydediliyor…' : 'Öneriyi gönder', icon: Icons.add_business_rounded, onTap: _saving ? null : _save),

@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/product.dart';
+import '../models/turkey_locations.dart';
 import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
+import 'widgets/region_picker_sheet.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -3504,8 +3506,12 @@ class _AdminStoreManagementScreenState
       .trim();
 
   Query<Map<String, dynamic>> _placesQuery() {
-    Query<Map<String, dynamic>> q =
-        FirebaseService.instance.storePlaces.where('isActive', isEqualTo: true);
+    // Admins need to see every market in the catalog, including the ones a
+    // user has flipped to inactive, so we no longer hard-filter by isActive
+    // on the server. Use whereIn so the existing composite indexes that key
+    // off `isActive` still apply.
+    Query<Map<String, dynamic>> q = FirebaseService.instance.storePlaces
+        .where('isActive', whereIn: const [true, false]);
     final city = _cityCtrl.text.trim();
     final district = _districtCtrl.text.trim();
     final hasSearch = _hasSearchFilter;
@@ -3802,8 +3808,6 @@ class _AdminStoreManagementScreenState
           type: _type,
           status: _status,
           onSearchChanged: (_) => _resetAndLoadPlaces(),
-          onCityChanged: (_) => _resetAndLoadPlaces(),
-          onDistrictChanged: (_) => _resetAndLoadPlaces(),
           onTypeChanged: (v) => setState(() => _type = v),
           onStatusChanged: (v) => setState(() => _status = v),
           onApply: _resetAndLoadPlaces,
@@ -4407,8 +4411,6 @@ class _PlacesFilterCard extends StatelessWidget {
     required this.type,
     required this.status,
     required this.onSearchChanged,
-    required this.onCityChanged,
-    required this.onDistrictChanged,
     required this.onTypeChanged,
     required this.onStatusChanged,
     required this.onApply,
@@ -4419,8 +4421,6 @@ class _PlacesFilterCard extends StatelessWidget {
   final String type;
   final String status;
   final ValueChanged<String> onSearchChanged;
-  final ValueChanged<String> onCityChanged;
-  final ValueChanged<String> onDistrictChanged;
   final ValueChanged<String> onTypeChanged;
   final ValueChanged<String> onStatusChanged;
   final VoidCallback onApply;
@@ -4451,18 +4451,10 @@ class _PlacesFilterCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: cityCtrl,
-                  onChanged: onCityChanged,
-                  decoration: const InputDecoration(hintText: 'Şehir'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: districtCtrl,
-                  onChanged: onDistrictChanged,
-                  decoration: const InputDecoration(hintText: 'İlçe'),
+                child: _RegionFilterTile(
+                  cityCtrl: cityCtrl,
+                  districtCtrl: districtCtrl,
+                  onChanged: onApply,
                 ),
               ),
             ],
@@ -4511,6 +4503,90 @@ class _PlacesFilterCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RegionFilterTile extends StatefulWidget {
+  const _RegionFilterTile({
+    required this.cityCtrl,
+    required this.districtCtrl,
+    required this.onChanged,
+  });
+  final TextEditingController cityCtrl;
+  final TextEditingController districtCtrl;
+  final VoidCallback onChanged;
+
+  @override
+  State<_RegionFilterTile> createState() => _RegionFilterTileState();
+}
+
+class _RegionFilterTileState extends State<_RegionFilterTile> {
+  Future<void> _open() async {
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: widget.cityCtrl.text,
+      initialDistrict: widget.districtCtrl.text,
+    );
+    if (result == null) return;
+    widget.cityCtrl.text = result.city;
+    widget.districtCtrl.text = result.district;
+    setState(() {});
+    widget.onChanged();
+  }
+
+  void _clear() {
+    widget.cityCtrl.clear();
+    widget.districtCtrl.clear();
+    setState(() {});
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final city = widget.cityCtrl.text.trim();
+    final district = widget.districtCtrl.text.trim();
+    final hasRegion = city.isNotEmpty;
+    final label = !hasRegion
+        ? 'Tüm bölgeler'
+        : (district.isEmpty ? city : '$city / $district');
+    return InkWell(
+      onTap: _open,
+      borderRadius: FRRad.all(FRRad.m),
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: FR.surfaceHi,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.place_outlined, size: 16, color: FR.gold),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: frText(12.5, FontWeight.w700,
+                    color: hasRegion ? FR.ink : FR.ink3),
+              ),
+            ),
+            if (hasRegion)
+              InkWell(
+                onTap: _clear,
+                borderRadius: FRRad.all(999),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child:
+                      Icon(Icons.close_rounded, size: 14, color: FR.ink3),
+                ),
+              )
+            else
+              Icon(Icons.keyboard_arrow_down_rounded, color: FR.ink2),
+          ],
+        ),
       ),
     );
   }
@@ -4710,8 +4786,9 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
   String initialDistrict = '',
 }) async {
   final nameCtrl = TextEditingController();
-  final cityCtrl = TextEditingController(text: initialCity);
-  final districtCtrl = TextEditingController(text: initialDistrict);
+  String? city = TurkeyLocations.canonicalCity(initialCity);
+  String? district =
+      city == null ? null : TurkeyLocations.canonicalDistrict(city, initialDistrict);
   String type = 'local_market';
   String status = 'pending';
   try {
@@ -4732,22 +4809,47 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                 decoration: const InputDecoration(hintText: 'Görünen ad'),
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: cityCtrl,
-                      decoration: const InputDecoration(hintText: 'Şehir'),
-                    ),
+              InkWell(
+                borderRadius: FRRad.all(FRRad.m),
+                onTap: () async {
+                  final r = await showRegionPickerSheet(
+                    ctx,
+                    initialCity: city,
+                    initialDistrict: district,
+                  );
+                  if (r != null) {
+                    setInner(() {
+                      city = r.city;
+                      district = r.district;
+                    });
+                  }
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: FR.surfaceHi,
+                    borderRadius: FRRad.all(FRRad.m),
+                    border: Border.all(color: FR.hairline),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: districtCtrl,
-                      decoration: const InputDecoration(hintText: 'İlçe'),
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.place_outlined, color: FR.gold, size: 16),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          (city != null && district != null)
+                              ? '$city / $district'
+                              : 'İl ve ilçe seç',
+                          style: frText(13, FontWeight.w800,
+                              color: city == null ? FR.ink3 : FR.ink),
+                        ),
+                      ),
+                      Icon(Icons.keyboard_arrow_right_rounded,
+                          size: 18, color: FR.ink2),
+                    ],
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 10),
               Row(
@@ -4806,15 +4908,13 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
     if (ok != true) return null;
     return _PlaceFormResult(
       name: nameCtrl.text,
-      city: cityCtrl.text,
-      district: districtCtrl.text,
+      city: city ?? '',
+      district: district ?? '',
       type: type,
       status: status,
     );
   } finally {
     nameCtrl.dispose();
-    cityCtrl.dispose();
-    districtCtrl.dispose();
   }
 }
 
@@ -4833,11 +4933,10 @@ Future<_RegionAssignResult?> _showRegionAssignSheet({
   required BuildContext context,
   required String legacyName,
 }) async {
-  final cityCtrl = TextEditingController();
-  final districtCtrl = TextEditingController();
+  String? city;
+  String? district;
   String type = 'local_market';
-  try {
-    final ok = await showModalBottomSheet<bool>(
+  final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -4848,23 +4947,47 @@ Future<_RegionAssignResult?> _showRegionAssignSheet({
           builder: (ctx, setInner) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: cityCtrl,
-                      autofocus: true,
-                      decoration: const InputDecoration(hintText: 'Şehir'),
-                    ),
+              InkWell(
+                borderRadius: FRRad.all(FRRad.m),
+                onTap: () async {
+                  final r = await showRegionPickerSheet(
+                    ctx,
+                    initialCity: city,
+                    initialDistrict: district,
+                  );
+                  if (r != null) {
+                    setInner(() {
+                      city = r.city;
+                      district = r.district;
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: FR.surfaceHi,
+                    borderRadius: FRRad.all(FRRad.m),
+                    border: Border.all(color: FR.hairline),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: districtCtrl,
-                      decoration: const InputDecoration(hintText: 'İlçe'),
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.place_outlined, color: FR.gold, size: 16),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          (city != null && district != null)
+                              ? '$city / $district'
+                              : 'İl ve ilçe seç',
+                          style: frText(13, FontWeight.w800,
+                              color: city == null ? FR.ink3 : FR.ink),
+                        ),
+                      ),
+                      Icon(Icons.keyboard_arrow_right_rounded,
+                          size: 18, color: FR.ink2),
+                    ],
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 10),
               _FilterDropdown(
@@ -4900,15 +5023,12 @@ Future<_RegionAssignResult?> _showRegionAssignSheet({
           ),
         ),
       ),
-    );
-    if (ok != true) return null;
-    return _RegionAssignResult(
-      city: cityCtrl.text.trim(),
-      district: districtCtrl.text.trim(),
-      type: type,
-    );
-  } finally {
-    cityCtrl.dispose();
-    districtCtrl.dispose();
-  }
+  );
+  if (ok != true) return null;
+  if (city == null || district == null) return null;
+  return _RegionAssignResult(
+    city: city!,
+    district: district!,
+    type: type,
+  );
 }

@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../models/price_v1.dart';
 import '../models/price_reporting.dart';
 import '../models/product.dart';
+import '../models/turkey_locations.dart';
 import '../services/basket_pricing_service.dart';
 import '../services/firebase_service.dart';
 import '../services/price_report_service.dart';
@@ -987,10 +988,15 @@ class AppState extends ChangeNotifier {
     if (p == null) throw StateError('Ürün bulunamadı.');
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Fiyat eklemek için giriş yapmalısın.');
-    final cityTrim = city.trim();
-    final districtTrim = district.trim();
-    if (cityTrim.isEmpty || districtTrim.isEmpty) {
-      throw StateError('İl ve ilçe bilgisi zorunlu.');
+    final cityTrim = TurkeyLocations.canonicalCity(city);
+    if (cityTrim == null) {
+      throw StateError('Geçersiz il: "$city". Listeden seç.');
+    }
+    final districtTrim =
+        TurkeyLocations.canonicalDistrict(cityTrim, district);
+    if (districtTrim == null) {
+      throw StateError(
+          'Geçersiz ilçe: "$district". $cityTrim ilçelerinden seç.');
     }
     final resolvedChainId = chainId.trim().isEmpty ? store : chainId;
     final resolvedChainName = chainName.trim().isEmpty ? store : chainName;
@@ -1798,10 +1804,24 @@ class AppState extends ChangeNotifier {
     if (user == null) {
       throw StateError('Aktif kullanıcı bulunamadı.');
     }
+    // Always normalize against the canonical whitelist so that "İstanbul"
+    // and "istanbul" never reach Firestore as two different cities.
+    final canonicalCity = TurkeyLocations.canonicalCity(cityName);
+    if (canonicalCity == null) {
+      throw StateError(
+          'Geçersiz il: "$cityName". Lütfen listeden seç.');
+    }
+    final canonicalDistrict =
+        TurkeyLocations.canonicalDistrict(canonicalCity, districtName);
+    if (districtName != null && districtName.trim().isNotEmpty &&
+        canonicalDistrict == null) {
+      throw StateError(
+          'Geçersiz ilçe: "$districtName". Lütfen $canonicalCity ilçelerinden seç.');
+    }
     await _svc.userDoc(user!.uid).set({
-      'cityName': cityName.trim(),
-      if (districtName != null && districtName.trim().isNotEmpty)
-        'district': districtName.trim()
+      'cityName': canonicalCity,
+      if (canonicalDistrict != null)
+        'district': canonicalDistrict
       else
         'district': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -2107,9 +2127,23 @@ class AppStateScope extends InheritedNotifier<AppState> {
     required super.child,
   }) : super(notifier: state);
 
+  /// Use inside `build` methods. Subscribes the calling widget to rebuild
+  /// when [AppState] notifies listeners.
   static AppState of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppStateScope>();
     assert(scope != null, 'AppStateScope not found in widget tree');
     return scope!.notifier!;
+  }
+
+  /// Use inside callbacks (`onTap`, async handlers, etc.) where you only
+  /// need to invoke a method on [AppState] without subscribing the caller's
+  /// element to future rebuilds. Registering a dependency in a callback that
+  /// then unmounts the surrounding tree (e.g. via `Navigator.pushReplacement`)
+  /// can trip the framework's `_dependents.isEmpty` assertion.
+  static AppState read(BuildContext context) {
+    final element =
+        context.getElementForInheritedWidgetOfExactType<AppStateScope>();
+    assert(element != null, 'AppStateScope not found in widget tree');
+    return (element!.widget as AppStateScope).notifier!;
   }
 }
