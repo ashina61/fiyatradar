@@ -219,6 +219,21 @@ class _IdentityCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       cacheWidth: 228,
                       filterQuality: FilterQuality.medium,
+                      loadingBuilder: (_, child, progress) => progress == null
+                          ? child
+                          : Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: FR.onGold,
+                                ),
+                              ),
+                            ),
+                      errorBuilder: (_, __, ___) => Text(initial,
+                          style: frDisplay(34, FontWeight.w800,
+                              color: FR.onGold)),
                     )
                   : Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.onGold)),
             ),

@@ -101,10 +101,19 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     try {
       String? imageUrl;
       String? imagePath;
-      if (_pendingProfileImage != null && state.user != null) {
+      final pending = _pendingProfileImage;
+      if (pending != null) {
+        final user = state.user;
+        if (user == null) {
+          throw FirebaseException(
+            plugin: 'firebase_storage',
+            code: 'unauthenticated',
+            message: 'Profil fotoğrafını yüklemek için giriş yapmalısın.',
+          );
+        }
         final res = await FirebaseService.instance.uploadUserProfileImage(
-          uid: state.user!.uid,
-          bytes: _pendingProfileImage!,
+          uid: user.uid,
+          bytes: pending,
         );
         imageUrl = res.url;
         imagePath = res.path;
@@ -123,14 +132,18 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       if (!mounted) return;
       setState(() => _pendingProfileImage = null);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil bilgileri güncellendi.')),
+        SnackBar(
+          content: Text(
+            pending == null
+                ? 'Profil bilgileri güncellendi.'
+                : 'Profil fotoğrafı güncellendi.',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_describeProfileError(e)),
-        ),
+        SnackBar(content: Text(_describeProfileError(e))),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -241,6 +254,28 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                           fit: BoxFit.cover,
                           cacheWidth: 192,
                           filterQuality: FilterQuality.medium,
+                          loadingBuilder: (_, child, progress) =>
+                              progress == null
+                                  ? child
+                                  : Center(
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: FR.gold,
+                                        ),
+                                      ),
+                                    ),
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(
+                              state.displayName.isEmpty
+                                  ? 'F'
+                                  : state.displayName[0].toUpperCase(),
+                              style: frDisplay(24, FontWeight.w800,
+                                  color: FR.gold),
+                            ),
+                          ),
                         )
                       : Center(
                           child: Text(

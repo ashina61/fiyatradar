@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../../models/product.dart';
 import '../../state/app_state.dart';
@@ -10,6 +8,7 @@ import '../banner_page_screen.dart';
 import '../main_screen.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
+import '../widgets/region_picker_sheet.dart';
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
@@ -18,16 +17,18 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final topDrops = state.homeTopDrops;
+    // Scope-aware feed: when the user picks Yakınımda / Şehrimde / Online /
+    // Türkiye geneli, only entries that match that scope are shown. We do
+    // NOT fall back to "everything" — that would defeat the purpose of the
+    // selector and surface prices the user explicitly excluded.
     final scopedProductIds = state.homeScopedProductIds;
-    final scopedFeedItems = scopedProductIds
+    final feedItems = scopedProductIds
         .map(state.findById)
         .whereType<Product>()
         .take(6)
         .toList();
-    final usesLegacyFallback =
-        scopedFeedItems.isEmpty && state.homeFeed.isNotEmpty;
-    final feedItems =
-        usesLegacyFallback ? state.homeFeed.take(6).toList() : scopedFeedItems;
+    final hasRegion = (state.cityName ?? '').trim().isNotEmpty &&
+        (state.districtName ?? '').trim().isNotEmpty;
 
     var step = 0;
     Duration nextDelay() => Duration(milliseconds: 60 * step++);
@@ -41,6 +42,11 @@ class HomeTab extends StatelessWidget {
           const SizedBox(height: 18),
           FRFadeSlideIn(
             delay: nextDelay(),
+            child: _HomeScopeCard(state: state, hasRegion: hasRegion),
+          ),
+          const SizedBox(height: 14),
+          FRFadeSlideIn(
+            delay: nextDelay(),
             child: _RadarHero(
               state: state,
               onInspect: () => Navigator.of(context).pushReplacement(
@@ -48,8 +54,6 @@ class HomeTab extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          FRFadeSlideIn(delay: nextDelay(), child: const _HomeScopeStrip()),
           const SizedBox(height: 14),
           FRFadeSlideIn(delay: nextDelay(), child: const _AddPriceCallout()),
           if (state.banners.isNotEmpty) ...[
@@ -135,6 +139,14 @@ class HomeTab extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 6),
+          FRFadeSlideIn(
+            delay: nextDelay(),
+            child: Text(
+              state.homeScopeSubtitle,
+              style: frText(11.5, FontWeight.w600, color: FR.ink3),
+            ),
+          ),
           const SizedBox(height: 12),
           if (feedItems.isEmpty)
             FRFadeSlideIn(
@@ -150,9 +162,7 @@ class HomeTab extends StatelessWidget {
                 delay: nextDelay(),
                 child: _FeedRow(
                   product: p,
-                  latest: usesLegacyFallback
-                      ? state.latestEntryForProduct(p.id)
-                      : state.homeScopedEntryForProduct(p.id),
+                  latest: state.homeScopedEntryForProduct(p.id),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -177,244 +187,114 @@ class _BannerCarousel extends StatefulWidget {
   State<_BannerCarousel> createState() => _BannerCarouselState();
 }
 
-class _HomeScopeStrip extends StatefulWidget {
-  const _HomeScopeStrip();
+class _HomeScopeCard extends StatelessWidget {
+  const _HomeScopeCard({required this.state, required this.hasRegion});
+  final AppState state;
+  final bool hasRegion;
 
-  @override
-  State<_HomeScopeStrip> createState() => _HomeScopeStripState();
-}
-
-class _HomeScopeStripState extends State<_HomeScopeStrip> {
-  bool _locating = false;
-
-  void _snack(String text) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  Future<void> _useLocation(AppState state) async {
-    setState(() => _locating = true);
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever ||
-          permission == LocationPermission.denied) {
-        _snack('Konum izni verilmedi.');
-        return;
-      }
-      final pos = await Geolocator.getCurrentPosition();
-      final marks =
-          await placemarkFromCoordinates(pos.latitude, pos.longitude);
-      final mark = marks.isNotEmpty ? marks.first : null;
-      final city = (mark?.administrativeArea ?? mark?.locality ?? '').trim();
-      final district =
-          (mark?.subAdministrativeArea ?? mark?.subLocality ?? '').trim();
-      if (city.isEmpty || district.isEmpty) {
-        _snack('Konum çözülemedi. Elle seçebilirsin.');
-        return;
-      }
-      await state.updateRegionSettings(cityName: city, districtName: district);
-      _snack('Konum güncellendi: $city / $district');
-    } catch (_) {
-      _snack('Konum alınamadı.');
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  Future<void> _openPicker(AppState state) async {
-    final cityCtrl = TextEditingController(text: state.cityName ?? '');
-    final districtCtrl =
-        TextEditingController(text: state.districtName ?? '');
-    final result = await showModalBottomSheet<_RegionResult>(
-      context: context,
-      backgroundColor: FR.surface,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 18,
-            bottom: 20 + MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: FR.hairline,
-                    borderRadius: FRRad.all(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text('BÖLGE', style: frOverline()),
-              const SizedBox(height: 4),
-              Text('Bölgeni seç',
-                  style: frDisplay(22, FontWeight.w700)),
-              const SizedBox(height: 14),
-              FRCta(
-                label: 'Konumumu kullan',
-                icon: Icons.my_location_rounded,
-                onTap: () => Navigator.pop(ctx, _RegionResult.location),
-              ),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(child: Divider(color: FR.hairline, height: 1)),
-                const SizedBox(width: 8),
-                Text('VEYA',
-                    style: frOverline(color: FR.ink3, size: 9.5)),
-                const SizedBox(width: 8),
-                Expanded(child: Divider(color: FR.hairline, height: 1)),
-              ]),
-              const SizedBox(height: 14),
-              TextField(
-                controller: cityCtrl,
-                decoration: InputDecoration(
-                  labelText: 'İl',
-                  filled: true,
-                  fillColor: FR.bgElev,
-                  border: OutlineInputBorder(
-                    borderRadius: FRRad.all(FRRad.m),
-                    borderSide: BorderSide(color: FR.hairline),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: FRRad.all(FRRad.m),
-                    borderSide: BorderSide(color: FR.hairline),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: districtCtrl,
-                decoration: InputDecoration(
-                  labelText: 'İlçe',
-                  filled: true,
-                  fillColor: FR.bgElev,
-                  border: OutlineInputBorder(
-                    borderRadius: FRRad.all(FRRad.m),
-                    borderSide: BorderSide(color: FR.hairline),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: FRRad.all(FRRad.m),
-                    borderSide: BorderSide(color: FR.hairline),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              FRCta(
-                label: 'Kaydet',
-                icon: Icons.check_rounded,
-                filled: false,
-                onTap: () => Navigator.pop(ctx, _RegionResult.manual),
-              ),
-            ],
-          ),
-        );
-      },
+  Future<void> _openPicker(BuildContext context) async {
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: state.cityName,
+      initialDistrict: state.districtName,
     );
-    if (result == _RegionResult.location) {
-      await _useLocation(state);
-    } else if (result == _RegionResult.manual) {
-      final city = cityCtrl.text.trim();
-      final district = districtCtrl.text.trim();
-      if (city.isEmpty || district.isEmpty) {
-        _snack('İl ve ilçe zorunlu.');
-      } else {
-        await state.updateRegionSettings(cityName: city, districtName: district);
-        _snack('Bölge güncellendi: $city / $district');
-      }
+    if (result == null) return;
+    try {
+      await state.updateRegionSettings(
+        cityName: result.city,
+        districtName: result.district,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bölge güncellendi: ${result.city} / ${result.district}')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bölge güncellenemedi: $e')),
+      );
     }
-    cityCtrl.dispose();
-    districtCtrl.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
     final scope = state.activeHomeScope;
-    final hasRegion = city.isNotEmpty && district.isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: _locating ? null : () => _openPicker(state),
-          borderRadius: FRRad.all(999),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            decoration: BoxDecoration(
-              color: FR.surface,
-              borderRadius: FRRad.all(999),
-              border: Border.all(color: FR.hairline),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.place_outlined, size: 18, color: FR.gold),
+              const SizedBox(width: 8),
+              Text('BÖLGE', style: frOverline(color: FR.ink3, size: 9.5)),
+              const Spacer(),
+              TextButton(
+                onPressed: () => _openPicker(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  hasRegion ? 'Değiştir' : 'Seç',
+                  style: frText(12, FontWeight.w800, color: FR.gold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasRegion ? '$city / $district' : 'Listeden il ve ilçe seç',
+            style: frDisplay(18, FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasRegion
+                ? 'Yakınımda ve Şehrimde sekmeleri bu bölgeye göre filtrelenir.'
+                : 'Bölge seçilmediği sürece yalnızca Online ve Türkiye geneli görüntülenir.',
+            style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
               children: [
-                Icon(
-                  _locating ? Icons.gps_fixed_rounded : Icons.location_on_outlined,
-                  size: 14,
-                  color: FR.gold,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _locating
-                      ? 'Konum alınıyor…'
-                      : (hasRegion ? '$city / $district' : 'Bölgeni seç'),
-                  style: frText(12.5, FontWeight.w800),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.keyboard_arrow_down_rounded,
-                    size: 14, color: FR.ink3),
+                FRFilterChip('Yakınımda',
+                    active: scope == HomePriceScope.nearby,
+                    onTap: hasRegion
+                        ? () => state.setHomePriceScope(HomePriceScope.nearby)
+                        : null),
+                FRFilterChip('Şehrimde',
+                    active: scope == HomePriceScope.city,
+                    onTap: hasRegion
+                        ? () => state.setHomePriceScope(HomePriceScope.city)
+                        : null),
+                FRFilterChip('Online',
+                    active: scope == HomePriceScope.online,
+                    onTap: () =>
+                        state.setHomePriceScope(HomePriceScope.online)),
+                FRFilterChip('Türkiye geneli',
+                    active: scope == HomePriceScope.turkeyWide,
+                    onTap: () =>
+                        state.setHomePriceScope(HomePriceScope.turkeyWide)),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              FRFilterChip('Yakınımda',
-                  active: scope == HomePriceScope.nearby,
-                  onTap: hasRegion
-                      ? () => state.setHomePriceScope(HomePriceScope.nearby)
-                      : null),
-              FRFilterChip('Şehrimde',
-                  active: scope == HomePriceScope.city,
-                  onTap: hasRegion
-                      ? () => state.setHomePriceScope(HomePriceScope.city)
-                      : null),
-              FRFilterChip('Online',
-                  active: scope == HomePriceScope.online,
-                  onTap: () => state.setHomePriceScope(HomePriceScope.online)),
-              FRFilterChip('Türkiye geneli',
-                  active: scope == HomePriceScope.turkeyWide,
-                  onTap: () =>
-                      state.setHomePriceScope(HomePriceScope.turkeyWide)),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
-
-enum _RegionResult { location, manual }
 
 /// Always-visible call-to-action that drops the user straight into the
 /// add-price flow. Spec calls for: "Fiyat gördün mü? 20 saniyede ekle."
@@ -531,7 +411,9 @@ class _BannerCard extends StatelessWidget {
   final AppBanner banner;
 
   void _onTap(BuildContext context) {
-    final state = AppStateScope.of(context);
+    // Read without subscribing — banner taps usually push a new route, so
+    // registering a fresh dependency right before tear-down isn't needed.
+    final state = AppStateScope.read(context);
     if (banner.actionType == 'route' && banner.actionTarget.trim().isNotEmpty) {
       runBannerRoute(context, state, banner.actionTarget);
       return;
@@ -884,7 +766,10 @@ class _CategoryStrip extends StatelessWidget {
             c,
             leading: Icon(icon, size: 14, color: FR.ink2),
             onTap: () {
-              final state = AppStateScope.of(context);
+              // `read` instead of `of` — we are about to replace the route,
+              // so we must NOT register a fresh dependency on the
+              // AppStateScope that this element is about to unmount under.
+              final state = AppStateScope.read(context);
               state.setExplorePresetCategory(c);
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
