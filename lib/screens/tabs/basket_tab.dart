@@ -7,6 +7,7 @@ import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../main_screen.dart';
+import '../widgets/region_picker_sheet.dart';
 
 class BasketTab extends StatefulWidget {
   const BasketTab({super.key});
@@ -442,47 +443,30 @@ class _ComparePanelState extends State<_ComparePanel> {
   }
 
   Future<void> _pickRegion(AppState state) async {
-    final cityCtrl = TextEditingController(text: state.cityName ?? '');
-    final districtCtrl = TextEditingController(text: state.districtName ?? '');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: FR.surface,
-        title: Text('Bölgeni seç', style: frDisplay(20, FontWeight.w700)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: cityCtrl,
-              decoration: const InputDecoration(labelText: 'İl'),
-            ),
-            TextField(
-              controller: districtCtrl,
-              decoration: const InputDecoration(labelText: 'İlçe'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('İptal', style: frText(13, FontWeight.w800, color: FR.ink3)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Kaydet', style: frText(13, FontWeight.w800, color: FR.gold)),
-          ),
-        ],
-      ),
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: state.cityName,
+      initialDistrict: state.districtName,
     );
-    cityCtrl.dispose();
-    districtCtrl.dispose();
-    if (ok != true) return;
-    if (cityCtrl.text.trim().isEmpty || districtCtrl.text.trim().isEmpty) return;
-    await state.updateRegionSettings(
-      cityName: cityCtrl.text.trim(),
-      districtName: districtCtrl.text.trim(),
-    );
-    _recalc();
+    if (result == null) return;
+    try {
+      await state.updateRegionSettings(
+        cityName: result.city,
+        districtName: result.district,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Bölge güncellendi: ${result.city} / ${result.district}')),
+      );
+      _recalc();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bölge güncellenemedi: $e')),
+      );
+    }
   }
 
   @override
@@ -526,6 +510,12 @@ class _ComparePanelState extends State<_ComparePanel> {
         return ListView(
           padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
           children: [
+            _CompareRegionRow(
+              city: state.cityName!.trim(),
+              district: state.districtName!.trim(),
+              onChange: () => _pickRegion(state),
+            ),
+            const SizedBox(height: 14),
             _CompareWinnerCard(
               estimate: winner,
               savingsVsWorst: saving.toDouble(),
@@ -591,6 +581,63 @@ class _ComparePanelState extends State<_ComparePanel> {
     );
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
+    );
+  }
+}
+
+// ─── Region indicator at the top of the compare result panel ────────────────
+
+class _CompareRegionRow extends StatelessWidget {
+  const _CompareRegionRow({
+    required this.city,
+    required this.district,
+    required this.onChange,
+  });
+  final String city;
+  final String district;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onChange,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: frSurface(radius: FRRad.l),
+        child: Row(
+          children: [
+            Icon(Icons.place_outlined, size: 18, color: FR.gold),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('KARŞILAŞTIRMA BÖLGESİ',
+                      style: frOverline(color: FR.ink3, size: 9.5)),
+                  const SizedBox(height: 2),
+                  Text('$district / $city',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frText(13.5, FontWeight.w800)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.14),
+                borderRadius: FRRad.all(999),
+                border: Border.all(color: FR.gold.withOpacity(.4)),
+              ),
+              child: Text('Değiştir',
+                  style: frText(11.5, FontWeight.w800, color: FR.gold)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
