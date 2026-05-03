@@ -210,6 +210,24 @@ class _AddPriceTabState extends State<AddPriceTab> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// Returns a short hint about what's missing for submit, or null when the
+  /// form is ready to send.
+  String? _submitReadyHint(AppState state) {
+    if (_selectedProduct == null) return 'Önce ürünü seç.';
+    final priceText = _priceCtrl.text.replaceAll(',', '.').trim();
+    final price = double.tryParse(priceText);
+    if (priceText.isEmpty || price == null || price <= 0) {
+      return 'Geçerli bir fiyat gir.';
+    }
+    if (_selectedPlace == null) return 'Marketi seç.';
+    if (_needsRegion &&
+        ((state.cityName ?? '').trim().isEmpty ||
+            (state.districtName ?? '').trim().isEmpty)) {
+      return 'İl ve ilçe seç.';
+    }
+    return null;
+  }
+
   void _pickProduct(AppState state) async {
     final picked = await showModalBottomSheet<Product>(
       context: context,
@@ -302,33 +320,45 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     final ownUid = state.user?.uid;
     final hasSearch = _storeQueryCtrl.text.trim().isNotEmpty;
-    final normalQuery = _basePlaceQuery(state, search: hasSearch);
-    final normalSnap = await normalQuery.get();
-    final all = <String, StorePlace>{
-      for (final d in normalSnap.docs) d.id: StorePlace.fromDoc(d),
-    };
+    final all = <String, StorePlace>{};
+    try {
+      final normalQuery = _basePlaceQuery(state, search: hasSearch);
+      final normalSnap = await normalQuery.get();
+      for (final d in normalSnap.docs) {
+        all[d.id] = StorePlace.fromDoc(d);
+      }
+    } catch (e) {
+      // Surface to console; we'll still try the user's own pending places so
+      // the picker isn't completely empty if a Firestore index is missing.
+      // ignore: avoid_print
+      print('add_price: place query failed → $e');
+    }
 
     if (_sourceType != PriceSourceType.online && ownUid != null && ownUid.isNotEmpty) {
-      final city = (state.cityName ?? '').trim();
-      final district = (state.districtName ?? '').trim();
-      final ownPendingQ = FirebaseService.instance.storePlaces
-          .where('isActive', isEqualTo: true)
-          .where('createdByUid', isEqualTo: ownUid)
-          .where('status', isEqualTo: 'pending')
-          .where('city', isEqualTo: city)
-          .where('district', isEqualTo: district)
-          .limit(_kStoreResultLimit);
-      final ownPendingSnap = await ownPendingQ.get();
-      for (final d in ownPendingSnap.docs) {
-        final place = StorePlace.fromDoc(d);
-        if (_sourceType == PriceSourceType.physical &&
-            !(place.type == StorePlaceType.chainMarket || place.type == StorePlaceType.localMarket)) {
-          continue;
+      try {
+        final city = (state.cityName ?? '').trim();
+        final district = (state.districtName ?? '').trim();
+        final ownPendingQ = FirebaseService.instance.storePlaces
+            .where('isActive', isEqualTo: true)
+            .where('createdByUid', isEqualTo: ownUid)
+            .where('status', isEqualTo: 'pending')
+            .where('city', isEqualTo: city)
+            .where('district', isEqualTo: district)
+            .limit(_kStoreResultLimit);
+        final ownPendingSnap = await ownPendingQ.get();
+        for (final d in ownPendingSnap.docs) {
+          final place = StorePlace.fromDoc(d);
+          if (_sourceType == PriceSourceType.physical &&
+              !(place.type == StorePlaceType.chainMarket || place.type == StorePlaceType.localMarket)) {
+            continue;
+          }
+          if (_sourceType == PriceSourceType.bazaar && place.type != StorePlaceType.bazaar) {
+            continue;
+          }
+          all[d.id] = place;
         }
-        if (_sourceType == PriceSourceType.bazaar && place.type != StorePlaceType.bazaar) {
-          continue;
-        }
-        all[d.id] = place;
+      } catch (_) {
+        // Pending lookup is best-effort; fall through.
       }
     }
 
@@ -362,6 +392,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
     final regionMissing = _needsRegion && (city.isEmpty || district.isEmpty);
+    final priceText = _priceCtrl.text.trim();
+    final priceValid =
+        double.tryParse(priceText.replaceAll(',', '.')) != null && priceText.isNotEmpty;
 
     return SafeArea(
       bottom: false,
@@ -376,27 +409,49 @@ class _AddPriceTabState extends State<AddPriceTab> {
               padding: EdgeInsets.fromLTRB(20, 18, 20, frScrollPaddingWithFooter(context)), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               children: [
                 _IntroBanner(),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
 
                 // 1) Ürün — "Ne gördün?"
-                _step(1, 'Ne gördün?'),
+                _step(1, 'Ne gördün?', completed: _selectedProduct != null),
                 InkWell(
                   onTap: () => _pickProduct(state),
                   borderRadius: FRRad.all(FRRad.m),
-                  child: Container(
-                    padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                    decoration: frSurface(radius: FRRad.m),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: FR.surface,
+                      borderRadius: FRRad.all(FRRad.m),
+                      border: Border.all(
+                        color: _selectedProduct != null
+                            ? FR.gold.withOpacity(.55)
+                            : FR.hairline,
+                        width: _selectedProduct != null ? 1.4 : 1.0,
+                      ),
+                      boxShadow:
+                          _selectedProduct != null ? frGoldGlow(opacity: .12) : null,
+                    ),
                     child: Row(children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: FR.bgElev,
-                          borderRadius: FRRad.all(10),
-                          border: Border.all(color: FR.hairline),
+                          gradient: LinearGradient(
+                            colors: _selectedProduct != null
+                                ? [FR.gold.withOpacity(.18), FR.surfaceLo]
+                                : [FR.bgElev, FR.bgElev],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: FRRad.all(12),
+                          border: Border.all(
+                            color: _selectedProduct != null
+                                ? FR.gold.withOpacity(.45)
+                                : FR.hairline,
+                          ),
                         ),
                         alignment: Alignment.center,
-                        child: Text(_selectedProduct?.emoji ?? '🔎', style: const TextStyle(fontSize: 20)),
+                        child: Text(_selectedProduct?.emoji ?? '🔎', style: const TextStyle(fontSize: 22)),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -406,47 +461,75 @@ class _AddPriceTabState extends State<AddPriceTab> {
                                 Text(_selectedProduct!.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: frText(13.5, FontWeight.w800)),
+                                    style: frText(14, FontWeight.w800)),
+                                const SizedBox(height: 2),
                                 Text('${_selectedProduct!.brand} · ${_selectedProduct!.unit}',
                                     style: frText(11.5, FontWeight.w600, color: FR.ink3)),
                               ]),
                       ),
-                      Icon(Icons.chevron_right_rounded, color: FR.ink3),
+                      Icon(
+                        _selectedProduct != null
+                            ? Icons.swap_horiz_rounded
+                            : Icons.chevron_right_rounded,
+                        color: _selectedProduct != null ? FR.gold : FR.ink3,
+                      ),
                     ]),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
 
                 // 2) Fiyat — "Fiyat kaç TL?"
-                _step(2, 'Fiyat kaç TL?'),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                  decoration: frSurface(radius: FRRad.m),
+                _step(2, 'Fiyat kaç TL?', completed: priceValid),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: FR.surface,
+                    borderRadius: FRRad.all(FRRad.m),
+                    border: Border.all(
+                      color: priceValid ? FR.gold.withOpacity(.55) : FR.hairline,
+                      width: priceValid ? 1.4 : 1.0,
+                    ),
+                    boxShadow: priceValid ? frGoldGlow(opacity: .12) : null,
+                  ),
                   child: Row(children: [
-                    Text('₺', style: frDisplay(22, FontWeight.w700, color: FR.gold)),
+                    Text('₺', style: frDisplay(26, FontWeight.w700, color: FR.gold)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         controller: _priceCtrl,
+                        onChanged: (_) => setState(() {}),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: frPrice(28),
+                        style: frPrice(30),
                         cursorColor: FR.gold,
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           hintText: '0,00',
-                          hintStyle: frPrice(28, color: FR.ink3),
+                          hintStyle: frPrice(30, color: FR.ink3),
                           isCollapsed: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
                     ),
-                    Text(_selectedProduct?.unit ?? '', style: frText(12, FontWeight.w700, color: FR.ink3)),
+                    if ((_selectedProduct?.unit ?? '').isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: FR.bgElev,
+                          borderRadius: FRRad.all(999),
+                          border: Border.all(color: FR.hairline),
+                        ),
+                        child: Text(
+                          _selectedProduct!.unit,
+                          style: frText(11, FontWeight.w800, color: FR.ink2),
+                        ),
+                      ),
                   ]),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
 
                 // 3) Market — "Hangi markette gördün?"
-                _step(3, 'Hangi markette gördün?'),
+                _step(3, 'Hangi markette gördün?', completed: _selectedPlace != null),
                 Container(
                   padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 2),
                   decoration: frSurface(radius: FRRad.m),
@@ -482,29 +565,53 @@ class _AddPriceTabState extends State<AddPriceTab> {
                         runSpacing: 8,
                         children: places.map((place) {
                           final selected = _selectedPlace?.id == place.id;
+                          final isPending = place.status == 'pending';
                           return InkWell(
                             onTap: () => setState(() => _selectedPlace = place),
                             borderRadius: FRRad.all(999),
-                            child: Container(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 14, 10),
                               decoration: BoxDecoration(
                                 color: selected ? FR.gold : FR.surface,
                                 borderRadius: FRRad.all(999),
-                                border: Border.all(color: selected ? FR.gold : FR.hairline),
+                                border: Border.all(
+                                  color: selected ? FR.gold : FR.hairline,
+                                  width: selected ? 1.4 : 1.0,
+                                ),
+                                boxShadow: selected ? frGoldGlow(opacity: .18) : null,
                               ),
-                              child: Text(place.displayName,
-                                  style: frText(12, FontWeight.w800, color: selected ? FR.onGold : FR.ink)),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (selected) ...[
+                                    Icon(Icons.check_rounded,
+                                        size: 14, color: FR.onGold),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(place.displayName,
+                                      style: frText(12.5, FontWeight.w800,
+                                          color: selected ? FR.onGold : FR.ink)),
+                                  if (isPending) ...[
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.schedule_rounded,
+                                        size: 11,
+                                        color: selected ? FR.onGold : FR.warn),
+                                  ],
+                                ],
+                              ),
                             ),
                           );
                         }).toList(),
                       );
                     },
                   ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
 
                 // 4) Nerede gördün? — region
                 if (_needsRegion) ...[
-                  _step(4, 'Nerede gördün?'),
+                  _step(4, 'Nerede gördün?',
+                      completed: city.isNotEmpty && district.isNotEmpty),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
@@ -515,48 +622,93 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   ),
                   if (city.isNotEmpty && district.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                      decoration: frSurface(radius: FRRad.m),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: FR.surface,
+                        borderRadius: FRRad.all(FRRad.m),
+                        border: Border.all(color: FR.gold.withOpacity(.55), width: 1.4),
+                        boxShadow: frGoldGlow(opacity: .12),
+                      ),
                       child: Row(children: [
-                        Icon(Icons.location_on_rounded, color: FR.gold, size: 18),
-                        const SizedBox(width: 8),
+                        Container(
+                          width: 40,
+                          height: 40,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: FR.gold.withOpacity(.16),
+                            borderRadius: FRRad.all(12),
+                            border: Border.all(color: FR.gold.withOpacity(.45)),
+                          ),
+                          child: Icon(Icons.location_on_rounded,
+                              color: FR.gold, size: 19),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('$district / $city', style: frText(13, FontWeight.w800)),
-                              Text(
-                                _regionLat != null ? 'Konumdan algılandı' : 'Manuel seçildi',
-                                style: frText(10.5, FontWeight.w600, color: FR.ink3),
-                              ),
+                              Text('$district / $city',
+                                  style: frText(13.5, FontWeight.w800)),
+                              const SizedBox(height: 2),
+                              Row(children: [
+                                Icon(
+                                  _regionLat != null
+                                      ? Icons.gps_fixed_rounded
+                                      : Icons.touch_app_outlined,
+                                  size: 11,
+                                  color: FR.ink3,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _regionLat != null
+                                      ? 'Konumdan algılandı'
+                                      : 'Manuel seçildi',
+                                  style: frText(10.5, FontWeight.w700,
+                                      color: FR.ink3),
+                                ),
+                              ]),
                             ],
                           ),
                         ),
-                        TextButton(
-                          onPressed: () => _pickRegionManually(state),
-                          child: Text('Değiştir', style: frText(12, FontWeight.w700, color: FR.gold)),
-                        )
+                        InkWell(
+                          onTap: () => _pickRegionManually(state),
+                          borderRadius: FRRad.all(999),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: FR.bgElev,
+                              borderRadius: FRRad.all(999),
+                              border: Border.all(color: FR.hairline),
+                            ),
+                            child: Text('Değiştir',
+                                style: frText(11.5, FontWeight.w800,
+                                    color: FR.gold)),
+                          ),
+                        ),
                       ]),
                     )
                   else
                     Container(
-                      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                      padding: const EdgeInsets.all(14),
                       decoration: frSurface(radius: FRRad.m),
                       child: Wrap(spacing: 8, runSpacing: 8, children: [
                         FRCta(
                           label: _locating ? 'Konum alınıyor…' : 'Konumla doldur',
                           icon: Icons.my_location_rounded,
+                          height: 44,
                           onTap: _locating ? null : () => _useCurrentLocation(state),
                         ),
                         FRCta(
                           label: 'Elle seç',
                           icon: Icons.map_outlined,
                           filled: false,
+                          height: 44,
                           onTap: () => _pickRegionManually(state),
                         ),
                       ]),
                     ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
                 ],
 
                 // Optional accordion: kaynak türü, not
@@ -572,7 +724,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                         runSpacing: 8,
                         children: [
                           _sourceChip('Fiziksel Market', PriceSourceType.physical),
-                          _sourceChip('Online Market', PriceSourceType.online),
                           _sourceChip('Pazar', PriceSourceType.bazaar),
                         ],
                       ),
@@ -606,12 +757,43 @@ class _AddPriceTabState extends State<AddPriceTab> {
             bottom: true,
             minimum: EdgeInsets.only(bottom: frStickyFooterBottomPadding(context)), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
             child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-              decoration: BoxDecoration(color: FR.bgElev, border: Border(top: BorderSide(color: FR.hairline))),
-              child: FRCta(
-                label: _submitting ? 'Gönderiliyor…' : 'Fiyatı ekle · +10 PT',
-                icon: Icons.radar_rounded,
-                onTap: _submitting ? null : () => _submit(state),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [FR.bgElev, FR.bg],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                border: Border(top: BorderSide(color: FR.hairline)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_submitReadyHint(state) != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              size: 13, color: FR.ink3),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _submitReadyHint(state)!,
+                              style: frText(11.5, FontWeight.w700,
+                                  color: FR.ink3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  FRCta(
+                    label: _submitting ? 'Gönderiliyor…' : 'Fiyatı ekle · +10 PT',
+                    icon: Icons.radar_rounded,
+                    onTap: _submitting ? null : () => _submit(state),
+                  ),
+                ],
               ),
             ),
           ),
@@ -676,25 +858,54 @@ class _AddPriceTabState extends State<AddPriceTab> {
         ]),
       );
 
-  /// Numbered step header for the linear add-price flow.
-  Widget _step(int n, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+  /// Numbered step header for the linear add-price flow. Switches to a gold
+  /// check badge when [completed] is true so the user gets a clear premium
+  /// progress signal as they fill in each field.
+  Widget _step(int n, String text, {bool completed = false}) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
         child: Row(children: [
-          Container(
-            width: 22,
-            height: 22,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 26,
+            height: 26,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: FR.gold,
+              gradient: LinearGradient(
+                colors: completed
+                    ? [FR.goldHi, FR.goldDeep]
+                    : [FR.surfaceHi, FR.surface],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: FRRad.all(999),
+              border: Border.all(
+                color: completed ? FR.gold : FR.hairline,
+              ),
+              boxShadow: completed ? frGoldGlow(opacity: .22) : null,
             ),
-            child: Text('$n',
-                style: frText(11, FontWeight.w800, color: FR.onGold)),
+            child: completed
+                ? Icon(Icons.check_rounded, color: FR.onGold, size: 15)
+                : Text('$n',
+                    style: frText(12, FontWeight.w800, color: FR.ink)),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(text, style: frText(14, FontWeight.w800, height: 1.2)),
+            child: Text(text,
+                style: frText(15, FontWeight.w800,
+                    height: 1.2, letter: -0.2)),
           ),
+          if (completed)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: FR.good.withOpacity(.14),
+                borderRadius: FRRad.all(999),
+                border: Border.all(color: FR.good.withOpacity(.35)),
+              ),
+              child: Text('TAMAM',
+                  style: frText(9, FontWeight.w800,
+                      color: FR.good, letter: 1.1)),
+            ),
         ]),
       );
 
