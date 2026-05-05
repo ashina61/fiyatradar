@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,13 +16,23 @@ import 'ui/tokens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await FRThemeController.instance.load();
-  runApp(const FiyatRadarApp());
+  Object? bootError;
+  try {
+    await Firebase.initializeApp();
+    await FRThemeController.instance.load();
+  } catch (e, st) {
+    // Surface to logs but keep the app alive — `_AuthGate` will render the
+    // error screen so the user gets actionable feedback instead of a white
+    // crash on hot reload / network blips.
+    debugPrint('FiyatRadar boot failed: $e\n$st');
+    bootError = e;
+  }
+  runApp(FiyatRadarApp(bootError: bootError));
 }
 
 class FiyatRadarApp extends StatefulWidget {
-  const FiyatRadarApp({super.key});
+  const FiyatRadarApp({super.key, this.bootError});
+  final Object? bootError;
 
   @override
   State<FiyatRadarApp> createState() => _FiyatRadarAppState();
@@ -31,6 +43,9 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
   late final Future<_Init> _initFuture = _boot();
 
   Future<_Init> _boot() async {
+    if (widget.bootError != null) {
+      throw widget.bootError!;
+    }
     await _state.init();
     final prefs = await SharedPreferences.getInstance();
     return _Init(showOnboarding: !(prefs.getBool('onboarding_done') ?? false));
@@ -57,6 +72,17 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
             themeMode: FRThemeController.instance.isDark
                 ? ThemeMode.dark
                 : ThemeMode.light,
+            // App is Turkish-only today. Material/Cupertino/Widgets delegates
+            // are still required so Material widgets (e.g. TextField, time
+            // picker, toolbar tooltips) render localized strings instead of
+            // falling back to English.
+            locale: const Locale('tr'),
+            supportedLocales: const [Locale('tr'), Locale('en')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             home: _AuthGate(
               state: _state,
               initFuture: _initFuture,

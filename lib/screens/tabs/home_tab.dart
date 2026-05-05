@@ -191,10 +191,11 @@ class _HomeHeader extends StatelessWidget {
 
   String _greeting() {
     final hour = DateTime.now().hour;
-    if (hour < 6) return 'İyi geceler';
-    if (hour < 12) return 'Günaydın';
-    if (hour < 18) return 'İyi günler';
-    return 'İyi akşamlar';
+    if (hour < 5) return 'İyi geceler';
+    if (hour < 11) return 'Günaydın';
+    if (hour < 17) return 'İyi günler';
+    if (hour < 22) return 'İyi akşamlar';
+    return 'İyi geceler';
   }
 
   @override

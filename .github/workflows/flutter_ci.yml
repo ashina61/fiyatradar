@@ -32,6 +32,14 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Verify firestore.rules is synced into firestore_rules_tests
+        run: |
+          if ! diff -q firestore.rules firestore_rules_tests/firestore.rules >/dev/null; then
+            echo "::error::firestore_rules_tests/firestore.rules is out of sync with firestore.rules"
+            diff firestore.rules firestore_rules_tests/firestore.rules || true
+            exit 1
+          fi
+
       - name: Install Firestore rules test dependencies
         working-directory: firestore_rules_tests
         run: npm install

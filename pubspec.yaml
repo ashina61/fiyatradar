@@ -4,64 +4,48 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+
+  # Typography
   google_fonts: ^6.1.0
-  flutter_svg: ^2.0.10+1
 
   # Firebase
   firebase_core: ^3.1.0
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.0.0
-  crypto: ^3.0.6
   firebase_storage: ^12.0.1
+  # firebase_messaging + flutter_local_notifications stay declared so the
+  # in-progress FCM wiring (functions/index.js → users/{uid}.fcmToken) can
+  # land without another pubspec round-trip.
   firebase_messaging: ^15.1.6
   flutter_local_notifications: ^17.2.3
   google_sign_in: ^6.2.1
 
-  # State Management
-  flutter_riverpod: ^2.4.9
-  riverpod_annotation: ^2.3.3
-
-  # UI/UX
+  # UI / icons
   cupertino_icons: ^1.0.6
-  cached_network_image: ^3.3.1
-  photo_view: ^0.14.0
-  shimmer: ^3.0.0
-  flutter_staggered_grid_view: ^0.7.0
-  font_awesome_flutter: 10.6.0
 
-  # Utils
+  # Utilities
   image_picker: ^1.0.7
+  # mobile_scanner stays declared so the barcode scan flow can be wired in
+  # without another pubspec round-trip — currently the barcode is entered
+  # manually in product_request_screen.dart.
   mobile_scanner: ^5.2.3
   geolocator: ^11.0.0
   geocoding: ^2.1.1
   local_auth: ^2.3.0
-  intl: ^0.19.0
   shared_preferences: ^2.2.2
-  uuid: ^4.3.3
-  image: ^4.2.0
-  timeago: ^3.6.1
-  flutter_map: ^7.0.2
-  latlong2: ^0.9.1
   url_launcher: ^6.3.1
-  share_plus: ^10.0.2
-  fl_chart: ^0.69.2
-
-  # Navigation
-  go_router: ^13.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.1
-  riverpod_generator: ^2.3.9
-  build_runner: ^2.4.8
+  flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.13.1
 
 flutter:
@@ -69,6 +53,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/app_logo.png
+    - assets/icons/icon.png
     - assets/fiyatradar_marketler.json
     - assets/fiyatradar_urunler.json
 flutter_launcher_icons:

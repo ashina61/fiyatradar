@@ -211,29 +211,61 @@ class AppState extends ChangeNotifier {
   }
 
 
-  String? _addPricePresetProductId;
+  // Add-price preset queue. The basket "fill missing for chain X" flow can
+  // queue multiple products; the add-price tab consumes them one by one so
+  // the user can add several missing prices in a row without re-navigating
+  // each time.
+  final List<String> _addPricePresetProductIds = <String>[];
   String? _addPricePresetChainId;
   String? _addPricePresetChainName;
 
-  ({String? productId, String? chainId, String? chainName})
+  ({String? productId, String? chainId, String? chainName, int remaining})
       consumeAddPricePreset() {
+    final pid = _addPricePresetProductIds.isEmpty
+        ? null
+        : _addPricePresetProductIds.removeAt(0);
     final out = (
-      productId: _addPricePresetProductId,
+      productId: pid,
       chainId: _addPricePresetChainId,
       chainName: _addPricePresetChainName,
+      remaining: _addPricePresetProductIds.length,
     );
-    _addPricePresetProductId = null;
-    _addPricePresetChainId = null;
-    _addPricePresetChainName = null;
+    if (_addPricePresetProductIds.isEmpty) {
+      // Last item drained → also drop the chain context so a future
+      // unrelated tap doesn't carry it forward.
+      _addPricePresetChainId = null;
+      _addPricePresetChainName = null;
+    }
     return out;
   }
+
+  /// Returns the number of products still queued for add-price preset
+  /// consumption (0 when nothing is queued).
+  int get addPricePresetQueueLength => _addPricePresetProductIds.length;
 
   void setAddPricePreset({
     String? productId,
     String? chainId,
     String? chainName,
   }) {
-    _addPricePresetProductId = productId;
+    _addPricePresetProductIds
+      ..clear()
+      ..addAll(productId == null ? const <String>[] : <String>[productId]);
+    _addPricePresetChainId = chainId;
+    _addPricePresetChainName = chainName;
+  }
+
+  /// Queue multiple products to be added in succession (used by the basket
+  /// "fill missing for chain X" CTA). `chainId` / `chainName` apply to the
+  /// whole batch so the user only picks the market once.
+  void queueAddPricePreset({
+    required List<String> productIds,
+    String? chainId,
+    String? chainName,
+  }) {
+    _addPricePresetProductIds
+      ..clear()
+      ..addAll(productIds.where((e) => e.trim().isNotEmpty));
     _addPricePresetChainId = chainId;
     _addPricePresetChainName = chainName;
   }
@@ -1069,6 +1101,11 @@ class AppState extends ChangeNotifier {
       price: price,
       userId: uid,
     );
+    // Verifying a previously reported price is a real contribution — award
+    // the same per-vote PT as the legacy `voteOnPrice` flow so the
+    // rewards UI doesn't lie when "Fiyat ekle · +10 PT" pivots into a
+    // verification on duplicate.
+    await _addPoints(PointsRules.verifyVote);
   }
 
   Stream<List<PriceGroupModel>> watchRegionalPriceGroups({
@@ -1239,23 +1276,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> addProduct({
-    required String name,
-    required String brand,
-    required String category,
-    required String emoji,
-    required String unit,
-  }) async {
-    await _svc.products.add({
-      'name': name,
-      'brand': brand,
-      'category': category,
-      'emoji': emoji,
-      'unit': unit,
-      'priceHistory': <Map<String, dynamic>>[],
-    });
-    await _addPoints(PointsRules.addProduct);
-  }
+  // Community-side product creation goes through `product_requests` (see
+  // `ProductRequestScreen`) and lands in the catalog only after admin
+  // approval (`adminApproveRequest`). A direct `addProduct` here would
+  // always be denied by the Firestore rules (`products` create requires
+  // `isAdmin()`), so it was removed.
 
   // --- Admin: product management -----------------------------------------
 
@@ -1341,11 +1366,18 @@ class AppState extends ChangeNotifier {
       'decidedByUid': user?.uid ?? '',
     });
     if (req.requestedByUid.isNotEmpty) {
+      // Reward the requester for a successful catalog contribution.
+      // Admin context, so we can write the points field on someone else's
+      // user doc (rules: `allow update: if isAdmin() || ...`).
+      await _svc.userDoc(req.requestedByUid).set({
+        'points': FieldValue.increment(PointsRules.addProduct),
+      }, SetOptions(merge: true));
       await _svc
           .userNotifications(req.requestedByUid)
           .add({
         'title': 'Ürün talebin onaylandı',
-        'body': '${req.name} artık katalogta. Fiyat paylaşıp puan kazan.',
+        'body':
+            '${req.name} artık katalogta. +${PointsRules.addProduct} PT kazandın.',
         'createdAt': FieldValue.serverTimestamp(),
         'type': 'product_request_approved',
         'productId': productId,
@@ -1491,20 +1523,25 @@ class AppState extends ChangeNotifier {
       history[idx] = updated.toMap();
       tx.update(productRef, {'priceHistory': history});
 
-      // Reward the voter's trust bucket. Whether this vote is "correct" is
-      // decided by the entry's final status after this vote: community
-      // alignment boosts trust, disagreement dings it.
+      // Reward the voter. We do not touch trust totals until the entry
+      // actually reaches a terminal status (community_verified or rejected).
+      // The previous "soft-alignment" rule made the first vote on any
+      // entry guaranteed-correct (alignedSoft == true), which let users
+      // farm trust by always voting first. Firestore rules enforce
+      // trustVerifiedTotal + trustWrongTotal == trustTotalVotes, so all
+      // three buckets stay untouched when no terminal verdict was reached.
+      final reachedTerminal = next == PriceStatus.communityVerified ||
+          next == PriceStatus.rejected;
       final alignedWithStatus = (next == PriceStatus.communityVerified && up) ||
           (next == PriceStatus.rejected && !up);
-      final alignedSoft = (next == PriceStatus.pending) &&
-          ((newScore > 0 && up) || (newScore < 0 && !up));
-      final good = alignedWithStatus || alignedSoft;
       tx.set(
         voterRef,
         {
-          'trustTotalVotes': FieldValue.increment(1),
-          if (good) 'trustVerifiedTotal': FieldValue.increment(1),
-          if (!good) 'trustWrongTotal': FieldValue.increment(1),
+          if (reachedTerminal) 'trustTotalVotes': FieldValue.increment(1),
+          if (reachedTerminal && alignedWithStatus)
+            'trustVerifiedTotal': FieldValue.increment(1),
+          if (reachedTerminal && !alignedWithStatus)
+            'trustWrongTotal': FieldValue.increment(1),
           'points': FieldValue.increment(PointsRules.verifyVote),
         },
         SetOptions(merge: true),
@@ -1673,41 +1710,72 @@ class AppState extends ChangeNotifier {
     return total;
   }
 
-  /// Savings compared to each item's highest ever price.
+  /// Savings vs the *worst* current store for each cart line — i.e. how
+  /// much the user is saving today by going with the cheapest reported
+  /// price instead of the most expensive one. Replaces the previous
+  /// max-price-ever vs. min-price-ever calculation, which inflated the
+  /// number with stale data and didn't reflect a present-day choice.
   double get cartSavings {
     double s = 0;
     for (final c in cart) {
       if (c.product.priceHistory.isEmpty) continue;
-      final high = c.product.priceHistory
-          .map((e) => e.price)
-          .reduce((a, b) => a > b ? a : b);
-      final low = c.product.lowestPrice ?? high;
+      final pricesByStore = <String, double>{};
+      for (final e in c.product.priceHistory) {
+        if (e.status == PriceStatus.rejected) continue;
+        final key = e.store.trim().toLowerCase();
+        if (key.isEmpty) continue;
+        // Keep only the most recent price per store.
+        final existing = pricesByStore[key];
+        if (existing == null) {
+          pricesByStore[key] = e.price;
+        } else {
+          pricesByStore[key] = e.price; // priceHistory is in chronological order
+        }
+      }
+      if (pricesByStore.length < 2) continue;
+      final high = pricesByStore.values.reduce((a, b) => a > b ? a : b);
+      final low = pricesByStore.values.reduce((a, b) => a < b ? a : b);
       s += (high - low) * c.quantity;
     }
     return s;
   }
 
+  int get cartItemCount => cart.fold(0, (a, c) => a + c.quantity);
+
+  // The fields below (deliveryFee / redeemDiscount / cartTotal /
+  // pointsEarnedForCart / setRedeemPoints / checkout) are scaffolding for
+  // a real checkout flow that hasn't shipped yet — there is no checkout UI
+  // anywhere in the app. They're kept so the future basket flow can wire
+  // them without revisiting the data layer. Do NOT call them from UI code
+  // until the checkout screen lands; the existing `BasketTab` only uses
+  // `cartSubtotal` and `cartSavings`.
+
+  @Deprecated('No checkout UI yet — see basket flow roadmap.')
   double get deliveryFee => cartSubtotal >= 250 || cart.isEmpty ? 0 : 14.9;
 
+  @Deprecated('No checkout UI yet — see basket flow roadmap.')
   double get redeemDiscount => pointsToRedeem * PointsRules.pointValueTl;
 
+  @Deprecated('No checkout UI yet — see basket flow roadmap.')
   double get cartTotal {
+    // ignore: deprecated_member_use_from_same_package
     final t = cartSubtotal + deliveryFee - redeemDiscount;
     return t < 0 ? 0 : t;
   }
 
+  @Deprecated('No checkout UI yet — see basket flow roadmap.')
   int get pointsEarnedForCart => (cartSubtotal ~/ 10); // 1 puan per ₺10
 
-  int get cartItemCount => cart.fold(0, (a, c) => a + c.quantity);
-
+  @Deprecated('No checkout UI yet — see basket flow roadmap.')
   void setRedeemPoints(int p) {
     pointsToRedeem = p.clamp(0, points);
     notifyListeners();
   }
 
-  /// "Checkout": awards earned points, deducts redeemed points, clears cart.
+  @Deprecated('No checkout UI yet — see basket flow roadmap.')
   Future<void> checkout() async {
     if (user == null || cart.isEmpty) return;
+    // ignore: deprecated_member_use_from_same_package
     final earn = pointsEarnedForCart;
     final redeem = pointsToRedeem;
     final newPoints = (points - redeem + earn).clamp(0, 1 << 30);
@@ -1992,7 +2060,7 @@ class AppState extends ChangeNotifier {
     _isAdmin = false;
     _isBanned = false;
     banReason = null;
-    _addPricePresetProductId = null;
+    _addPricePresetProductIds.clear();
     _addPricePresetChainId = null;
     _addPricePresetChainName = null;
     _initialized = false;
@@ -2054,7 +2122,7 @@ class AppState extends ChangeNotifier {
     _isAdmin = false;
     _isBanned = false;
     banReason = null;
-    _addPricePresetProductId = null;
+    _addPricePresetProductIds.clear();
     _addPricePresetChainId = null;
     _addPricePresetChainName = null;
     _initialized = false;

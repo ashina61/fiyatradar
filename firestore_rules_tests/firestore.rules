@@ -249,6 +249,119 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /store_chains/{chainId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /store_places/{placeId} {
+      function hasSafeStorePlaceRequestPayload() {
+        return request.resource.data.keys().hasOnly([
+          'chainId',
+          'chainName',
+          'type',
+          'displayName',
+          'normalizedName',
+          'city',
+          'district',
+          'neighborhood',
+          'lat',
+          'lng',
+          'status',
+          'isActive',
+          'usageCount',
+          'legacyStoreId',
+          'createdByUid',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.type in ['chain_market', 'local_market', 'online_market', 'bazaar'] &&
+        request.resource.data.displayName is string &&
+        request.resource.data.normalizedName is string &&
+        request.resource.data.city is string &&
+        request.resource.data.district is string &&
+        (!('neighborhood' in request.resource.data) || request.resource.data.neighborhood == null || request.resource.data.neighborhood is string) &&
+        (!('lat' in request.resource.data) || request.resource.data.lat == null || request.resource.data.lat is number) &&
+        (!('lng' in request.resource.data) || request.resource.data.lng == null || request.resource.data.lng is number) &&
+        request.resource.data.usageCount == 0;
+      }
+
+      allow read: if true;
+      // Community can only create pending place requests; moderation is admin-only.
+      allow create: if signedIn() &&
+        hasSafeStorePlaceRequestPayload() &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.isActive == true &&
+        request.resource.data.createdByUid == request.auth.uid &&
+        (!('chainId' in request.resource.data) || request.resource.data.chainId == null || request.resource.data.chainId is string) &&
+        (!('chainName' in request.resource.data) || request.resource.data.chainName == null || request.resource.data.chainName is string);
+      allow update, delete: if isAdmin();
+    }
+
+    match /price_entries/{entryId} {
+      function hasSafePriceEntryCreatePayload() {
+        return request.resource.data.keys().hasOnly([
+          'productId',
+          'productNameSnapshot',
+          'productBrandSnapshot',
+          'price',
+          'scope',
+          'sourceType',
+          'chainId',
+          'chainName',
+          'placeId',
+          'placeDisplayName',
+          'city',
+          'district',
+          'lat',
+          'lng',
+          'createdAt',
+          'expiresAt',
+          'reportedByUid',
+          'reportedByName',
+          'status',
+          'upvotes',
+          'downvotes',
+          'voters',
+          'trustWeightedScore',
+          'note',
+          'proofImageUrl',
+          'legacy'
+        ]) &&
+        request.resource.data.productId is string &&
+        ((request.resource.data.price is int) || (request.resource.data.price is float)) &&
+        request.resource.data.sourceType in ['physical', 'online', 'bazaar'] &&
+        request.resource.data.scope in ['local', 'city', 'online', 'bazaar'] &&
+        request.resource.data.reportedByUid is string &&
+        request.resource.data.reportedByName is string &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.upvotes == 0 &&
+        request.resource.data.downvotes == 0 &&
+        request.resource.data.trustWeightedScore == 0 &&
+        request.resource.data.voters is map &&
+        (!('chainId' in request.resource.data) || request.resource.data.chainId == null || request.resource.data.chainId is string) &&
+        (!('chainName' in request.resource.data) || request.resource.data.chainName == null || request.resource.data.chainName is string) &&
+        (!('placeId' in request.resource.data) || request.resource.data.placeId == null || request.resource.data.placeId is string) &&
+        (!('city' in request.resource.data) || request.resource.data.city == null || request.resource.data.city is string) &&
+        (!('district' in request.resource.data) || request.resource.data.district == null || request.resource.data.district is string) &&
+        (!('note' in request.resource.data) || request.resource.data.note == null || request.resource.data.note is string) &&
+        (!('proofImageUrl' in request.resource.data) || request.resource.data.proofImageUrl == null || request.resource.data.proofImageUrl is string);
+      }
+
+      allow read: if true;
+      // Client create allowed for now; status/trust moderation remains admin-only.
+      allow create: if signedIn() &&
+        request.resource.data.reportedByUid == request.auth.uid &&
+        hasSafePriceEntryCreatePayload();
+      allow update, delete: if isAdmin();
+    }
+
+    match /price_summaries/{summaryId} {
+      allow read: if true;
+      // Write path should be Cloud Functions/admin jobs.
+      allow create, update, delete: if isAdmin();
+    }
+
     match /brands/{brandId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -309,6 +422,26 @@ service cloud.firestore {
       (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
     }
 
+
+    function hasSafeRegionalPriceReportCreatePayload() {
+      return request.resource.data.keys().hasAll([
+        'productId',
+        'chainId',
+        'cityId',
+        'districtId',
+        'price',
+        'userId',
+        'localDateKey'
+      ]) &&
+      request.resource.data.productId is string &&
+      request.resource.data.chainId is string &&
+      request.resource.data.cityId is string &&
+      request.resource.data.districtId is string &&
+      ((request.resource.data.price is int) || (request.resource.data.price is float)) &&
+      request.resource.data.userId is string &&
+      request.resource.data.localDateKey is string;
+    }
+
     match /priceReports/{priceId} {
       function hasOnlyPriceReportOwnerWritableKeys() {
         return request.resource.data.diff(resource.data).changedKeys().hasOnly([
@@ -325,22 +458,37 @@ service cloud.firestore {
       allow get: if isAdmin() ||
         (signedIn() && priceId.matches('^' + request.auth.uid + '_.*'));
       allow list: if isAdmin();
-      allow create: if signedIn() &&
-        hasSafePriceReportCreatePayload() &&
-        priceId == (request.auth.uid + '_' + request.resource.data.entryId) &&
-        request.resource.data.createdByUid == request.auth.uid &&
-        (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
-        (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified');
+      allow create: if signedIn() && (
+        (
+          hasSafePriceReportCreatePayload() &&
+          priceId == (request.auth.uid + '_' + request.resource.data.entryId) &&
+          request.resource.data.createdByUid == request.auth.uid &&
+          (!('status' in request.resource.data) || request.resource.data.status == 'active') &&
+          (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == 'unverified')
+        ) || (
+          hasSafeRegionalPriceReportCreatePayload() &&
+          request.resource.data.userId == request.auth.uid &&
+          (!('status' in request.resource.data) || request.resource.data.status == 'active')
+        )
+      );
       allow update: if isAdmin() || (
         signedIn() &&
-        resource.data.createdByUid == request.auth.uid &&
-        request.resource.data.createdByUid == resource.data.createdByUid &&
-        request.resource.data.productId == resource.data.productId &&
-        request.resource.data.entryId == resource.data.entryId &&
-        hasOnlyPriceReportOwnerWritableKeys() &&
-        hasSafePriceReportCreatePayload() &&
-        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
-        (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == resource.data.verificationStatus)
+        (
+          (
+            resource.data.createdByUid == request.auth.uid &&
+            request.resource.data.createdByUid == resource.data.createdByUid &&
+            request.resource.data.productId == resource.data.productId &&
+            request.resource.data.entryId == resource.data.entryId &&
+            hasOnlyPriceReportOwnerWritableKeys() &&
+            hasSafePriceReportCreatePayload() &&
+            (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
+            (!('verificationStatus' in request.resource.data) || request.resource.data.verificationStatus == resource.data.verificationStatus)
+          ) || (
+            resource.data.userId == request.auth.uid &&
+            request.resource.data.userId == resource.data.userId &&
+            hasSafeRegionalPriceReportCreatePayload()
+          )
+        )
       );
       allow delete: if isAdmin();
 
@@ -349,6 +497,21 @@ service cloud.firestore {
         allow read: if signedIn();
         allow create, update, delete: if isAdmin() || (signedIn() && voteUid == request.auth.uid);
       }
+    }
+
+
+    match /priceGroups/{groupId} {
+      allow read: if true;
+      // Regional aggregation docs are updated by signed-in contributors via
+      // transaction together with priceReports/priceReportDedupes.
+      allow create, update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /priceReportDedupes/{dedupeId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if isAdmin();
     }
 
     match /price_votes/{priceId}/votes/{voteUid} {

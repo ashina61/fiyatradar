@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../models/price_v1.dart';
@@ -195,7 +196,15 @@ class _AddPriceTabState extends State<AddPriceTab> {
           '${result.sourceLabel}',
         );
         if (mounted) {
-          setState(() => _selectedProduct = null);
+          setState(() {
+            _selectedProduct = null;
+            _priceCtrl.clear();
+            _noteCtrl.clear();
+          });
+          // If the basket "fill missing for chain X" CTA queued more
+          // products, drain the next one and keep the chain pre-selected
+          // so the user can stay in flow.
+          _consumeNextQueuedProduct(state);
         }
       }
     } catch (e) {
@@ -203,6 +212,24 @@ class _AddPriceTabState extends State<AddPriceTab> {
       _snack('Fiyat gönderilemedi: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _consumeNextQueuedProduct(AppState state) {
+    if (state.addPricePresetQueueLength == 0) return;
+    final preset = state.consumeAddPricePreset();
+    final pid = preset.productId;
+    if (pid == null) return;
+    final product = state.findById(pid);
+    if (product == null) return;
+    setState(() {
+      _selectedProduct = product;
+    });
+    final left = preset.remaining;
+    if (left > 0) {
+      _snack('Kuyrukta $left ürün daha var. Sıradaki: ${product.name}');
+    } else {
+      _snack('Son ürünü de eklemeye başla: ${product.name}');
     }
   }
 
@@ -243,9 +270,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
   Future<void> _useCurrentLocation(AppState state) async {
     setState(() => _locating = true);
+    String? resolvedCity;
+    String? resolvedDistrict;
     try {
-      // GPS coordinates are still useful as branch metadata even when the
-      // city/district has to be picked from the whitelist.
       try {
         var permission = await Geolocator.checkPermission();
         if (permission == LocationPermission.denied) {
@@ -257,10 +284,45 @@ class _AddPriceTabState extends State<AddPriceTab> {
           _regionLat = pos.latitude;
           _regionLng = pos.longitude;
           _gpsAccuracyMeters = pos.accuracy;
+          // Reverse geocode + canonicalise so we can set the region
+          // directly without forcing the user through the manual picker.
+          try {
+            final marks = await placemarkFromCoordinates(
+              pos.latitude,
+              pos.longitude,
+            );
+            final mark = marks.isNotEmpty ? marks.first : null;
+            final cityRaw = (mark?.administrativeArea ?? mark?.locality ?? '').trim();
+            final districtRaw =
+                (mark?.subAdministrativeArea ?? mark?.subLocality ?? '').trim();
+            final city = TurkeyLocations.canonicalCity(cityRaw);
+            if (city != null) {
+              final district = TurkeyLocations.canonicalDistrict(city, districtRaw);
+              resolvedCity = city;
+              resolvedDistrict = district;
+            }
+          } catch (_) {
+            // Reverse geocoding plugin can fail silently on some devices;
+            // we'll fall back to the manual picker below.
+          }
         }
       } catch (_) {
-        // GPS is best-effort; continue to the manual picker either way.
+        // GPS is best-effort; fall through to the manual picker.
       }
+
+      if (resolvedCity != null && resolvedDistrict != null) {
+        await state.updateRegionSettings(
+          cityName: resolvedCity,
+          districtName: resolvedDistrict,
+        );
+        if (!mounted) return;
+        _snack('Bölge ayarlandı: $resolvedCity / $resolvedDistrict');
+        return;
+      }
+
+      // GPS hit returned a city but not a usable district, or we couldn't
+      // resolve it at all → drop into the manual picker so the user can
+      // finish the selection.
       await _pickRegionManually(state);
     } finally {
       if (mounted) setState(() => _locating = false);
@@ -328,10 +390,11 @@ class _AddPriceTabState extends State<AddPriceTab> {
         all[d.id] = StorePlace.fromDoc(d);
       }
     } catch (e) {
-      // Surface to console; we'll still try the user's own pending places so
-      // the picker isn't completely empty if a Firestore index is missing.
-      // ignore: avoid_print
-      print('add_price: place query failed → $e');
+      // Surface via Flutter's debug log so it shows up in `flutter logs`
+      // (and gets stripped from release builds), instead of writing to
+      // stdout. We still try the user's own pending places below so the
+      // picker isn't completely empty if a Firestore index is missing.
+      debugPrint('add_price: place query failed → $e');
     }
 
     if (_sourceType != PriceSourceType.online && ownUid != null && ownUid.isNotEmpty) {

@@ -1,11 +1,20 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
+
+/// Versioned consent metadata. Bump [_kConsentVersion] whenever the legal
+/// text changes; the user's stored consent record gets the active version
+/// so we can ask them again on the next breaking change.
+const String _kConsentVersion = '2026.05';
+const String _kSozlesmeUrl = 'https://fiyatradar.netlify.app/sozlesme';
+const String _kGizlilikUrl = 'https://fiyatradar.netlify.app/gizlilik';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,10 +29,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _passwordConfirmCtrl = TextEditingController();
 
   bool _registerMode = false;
   bool _obscure = true;
   bool _submitting = false;
+  bool _consentAccepted = false;
   String? _error;
 
   @override
@@ -32,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _usernameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _passwordConfirmCtrl.dispose();
     super.dispose();
   }
 
@@ -39,6 +51,17 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_submitting) return;
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
+
+    if (_registerMode && !_consentAccepted) {
+      setState(() => _error = 'Devam etmek için kullanıcı sözleşmesini ve '
+          'gizlilik politikasını onaylaman gerekiyor.');
+      return;
+    }
+    if (_registerMode &&
+        _passwordCtrl.text.trim() != _passwordConfirmCtrl.text.trim()) {
+      setState(() => _error = 'Şifreler eşleşmiyor.');
+      return;
+    }
 
     final state = AppStateScope.of(context);
     final svc = FirebaseService.instance;
@@ -56,6 +79,18 @@ class _LoginScreenState extends State<LoginScreen> {
           username: _usernameCtrl.text.trim(),
         );
         signedUser = cred.user;
+        // Persist KVKK / consent record with version + timestamp so we have
+        // an audit trail and can re-prompt on policy changes.
+        final uid = cred.user?.uid;
+        if (uid != null && uid.isNotEmpty) {
+          await svc.userDoc(uid).set({
+            'consents': {
+              'termsVersion': _kConsentVersion,
+              'privacyVersion': _kConsentVersion,
+              'acceptedAt': FieldValue.serverTimestamp(),
+            },
+          }, SetOptions(merge: true));
+        }
       } else {
         final cred = await svc.signInWithEmail(email: email, password: password);
         signedUser = cred.user;
@@ -286,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           hint: 'Şifre',
                           icon: Icons.lock_outline_rounded,
                           obscure: _obscure,
-                          onSubmitted: (_) => _submit(),
+                          onSubmitted: _registerMode ? null : (_) => _submit(),
                           trailing: IconButton(
                             onPressed: () => setState(() => _obscure = !_obscure),
                             icon: Icon(
@@ -301,6 +336,32 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
+                        if (_registerMode) ...[
+                          const SizedBox(height: 10),
+                          _field(
+                            controller: _passwordConfirmCtrl,
+                            hint: 'Şifre tekrar',
+                            icon: Icons.lock_reset_rounded,
+                            obscure: _obscure,
+                            onSubmitted: (_) => _submit(),
+                            validator: (v) {
+                              if (!_registerMode) return null;
+                              if (v == null || v.isEmpty) {
+                                return 'Şifreyi tekrar gir.';
+                              }
+                              if (v.trim() != _passwordCtrl.text.trim()) {
+                                return 'Şifreler eşleşmiyor.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _ConsentRow(
+                            value: _consentAccepted,
+                            onChanged: (v) =>
+                                setState(() => _consentAccepted = v ?? false),
+                          ),
+                        ],
                         if (!_registerMode)
                           Align(
                             alignment: Alignment.centerRight,
@@ -384,6 +445,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             : () => setState(() {
                                   _registerMode = !_registerMode;
                                   _error = null;
+                                  // Reset register-only state when toggling
+                                  // back to login mode so a stale checkbox /
+                                  // confirm value can't carry over.
+                                  if (!_registerMode) {
+                                    _consentAccepted = false;
+                                    _passwordConfirmCtrl.clear();
+                                  }
                                 }),
                         child: Text(
                           _registerMode ? 'Giriş Yap' : 'Kayıt Ol',
@@ -425,6 +493,75 @@ class _LoginScreenState extends State<LoginScreen> {
         prefixIcon: Icon(icon, size: 19, color: FR.ink3),
         suffixIcon: trailing,
       ),
+    );
+  }
+}
+
+/// KVKK / consent row that gates the register CTA. Tapping a link opens
+/// the legal text in the system browser; the checkbox itself records the
+/// user's affirmative acceptance which we persist alongside the user doc.
+class _ConsentRow extends StatelessWidget {
+  const _ConsentRow({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+
+  Future<void> _open(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bağlantı açılamadı.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Checkbox(
+          value: value,
+          onChanged: onChanged,
+          side: BorderSide(color: FR.hairline, width: 1.4),
+          activeColor: FR.gold,
+          checkColor: FR.onGold,
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '18 yaşından büyüğüm; ',
+                  style: frText(11.5, FontWeight.w600, color: FR.ink2, height: 1.5),
+                ),
+                InkWell(
+                  onTap: () => _open(context, _kSozlesmeUrl),
+                  child: Text(
+                    'Kullanıcı Sözleşmesi',
+                    style: frText(11.5, FontWeight.w800, color: FR.gold, height: 1.5),
+                  ),
+                ),
+                Text(' ve ',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink2, height: 1.5)),
+                InkWell(
+                  onTap: () => _open(context, _kGizlilikUrl),
+                  child: Text(
+                    'Gizlilik Politikası',
+                    style: frText(11.5, FontWeight.w800, color: FR.gold, height: 1.5),
+                  ),
+                ),
+                Text(
+                  '\'nı okudum, kabul ediyorum (KVKK).',
+                  style: frText(11.5, FontWeight.w600, color: FR.ink2, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
