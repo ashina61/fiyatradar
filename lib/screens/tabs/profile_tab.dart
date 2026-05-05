@@ -153,7 +153,7 @@ class ProfileTab extends StatelessWidget {
                 )),
           if (!state.isAdmin) const SizedBox(height: 14),
           InkWell(
-            onTap: () => state.logout(),
+            onTap: () => _confirmLogout(context, state),
             borderRadius: FRRad.all(FRRad.m),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -172,6 +172,39 @@ class ProfileTab extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Confirms a logout request before tearing down the session, so a stray
+/// tap on the destructive CTA doesn't drop the user back to the login
+/// screen unexpectedly.
+Future<void> _confirmLogout(BuildContext context, AppState state) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: FR.surface,
+      title: Text('Çıkış yap', style: frDisplay(20, FontWeight.w700)),
+      content: Text(
+        'Hesabından çıkmak istediğine emin misin? Sepetin ve favorilerin '
+        'hesabına bağlı kalır.',
+        style: frText(12.5, FontWeight.w600, color: FR.ink2, height: 1.45),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('Vazgeç',
+              style: frText(13, FontWeight.w800, color: FR.ink3)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text('Çıkış yap',
+              style: frText(13, FontWeight.w800, color: FR.bad)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) {
+    await state.logout();
   }
 }
 

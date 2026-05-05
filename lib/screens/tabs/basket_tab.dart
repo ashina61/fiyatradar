@@ -54,8 +54,11 @@ class _BasketTabState extends State<BasketTab> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
             child: _Segmented(
+              // Both tabs reflect the same physical cart, so the count must
+              // match. Use the unique-product count (cart.length) on both
+              // sides — that's what each tab actually renders.
               labels: const ['Sepetim', 'Karşılaştır'],
-              counts: [state.cartItemCount, cart.isEmpty ? 0 : state.cart.length],
+              counts: [cart.length, cart.length],
               index: _tab,
               onChange: _setTab,
             ),
@@ -278,7 +281,17 @@ class _CartRow extends StatelessWidget {
                     style: frText(13.5, FontWeight.w800)),
                 const SizedBox(height: 2),
                 Text(
-                  '${item.product.priceHistory.length} mağaza · ${item.product.brand}',
+                  // priceHistory.length is the total number of price entries,
+                  // not the number of distinct stores — counting unique store
+                  // names matches the user's expectation.
+                  () {
+                    final uniqueStores = item.product.priceHistory
+                        .map((e) => e.store.trim().toLowerCase())
+                        .where((s) => s.isNotEmpty)
+                        .toSet()
+                        .length;
+                    return '$uniqueStores mağaza · ${item.product.brand}';
+                  }(),
                   style: frText(11.5, FontWeight.w600, color: FR.ink3),
                 ),
                 const SizedBox(height: 4),
@@ -575,8 +588,10 @@ class _ComparePanelState extends State<_ComparePanel> {
     AppState state,
   ) {
     if (estimate.missingProductIds.isEmpty) return;
-    state.setAddPricePreset(
-      productId: estimate.missingProductIds.first,
+    // Queue every missing product for sequential add-price consumption so
+    // the user can fill the gap for the whole chain in one sitting.
+    state.queueAddPricePreset(
+      productIds: estimate.missingProductIds,
       chainName: estimate.chainName,
     );
     Navigator.of(context).pushReplacement(

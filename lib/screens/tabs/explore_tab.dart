@@ -69,6 +69,17 @@ class _ExploreTabState extends State<ExploreTab> {
         });
     } else if (_filter == 3) {
       list = list.where((p) => state.isFavorite(p.id));
+    } else if (_filter == 4) {
+      // "Yakınımda": only show products that have a recent regional report in
+      // the user's selected city/district. Falls back to the AppState's
+      // current scoped product ids (already filtered by region in
+      // app_state.dart's `_bindRegionalPriceFeed`).
+      final scoped = state.homeScopedProductIds;
+      if (scoped.isEmpty) {
+        list = const <Product>[];
+      } else {
+        list = list.where((p) => scoped.contains(p.id));
+      }
     }
     return list.toList();
   }
@@ -136,17 +147,26 @@ class _ExploreTabState extends State<ExploreTab> {
                       ),
                     ),
                   ),
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: FR.surfaceHi,
+                  if (_query.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        _controller.clear();
+                        setState(() => _query = '');
+                      },
                       borderRadius: FRRad.all(10),
-                      border: Border.all(color: FR.hairline),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: FR.surfaceHi,
+                          borderRadius: FRRad.all(10),
+                          border: Border.all(color: FR.hairline),
+                        ),
+                        child: Icon(Icons.close_rounded,
+                            color: FR.ink2, size: 17),
+                      ),
                     ),
-                    child: Icon(Icons.qr_code_scanner_rounded,
-                        color: FR.ink2, size: 17),
-                  ),
                 ],
               ),
             ),
@@ -209,11 +229,27 @@ class _ExploreTabState extends State<ExploreTab> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.radar_rounded, color: FR.ink3, size: 36),
+                          Icon(
+                            _filter == 4
+                                ? Icons.location_off_outlined
+                                : Icons.radar_rounded,
+                            color: FR.ink3,
+                            size: 36,
+                          ),
                           const SizedBox(height: 10),
-                          Text('Radar bu filtrede ürün bulamadı.',
-                              textAlign: TextAlign.center,
-                              style: frText(13, FontWeight.w700, color: FR.ink3)),
+                          Text(
+                            _filter == 4 &&
+                                    ((state.cityName ?? '').trim().isEmpty ||
+                                        (state.districtName ?? '')
+                                            .trim()
+                                            .isEmpty)
+                                ? 'Bölgeni seç — yakınındaki ürünler bu listede görünür.'
+                                : _filter == 4
+                                    ? 'Bu bölgede henüz fiyat paylaşımı olan ürün yok.'
+                                    : 'Radar bu filtrede ürün bulamadı.',
+                            textAlign: TextAlign.center,
+                            style: frText(13, FontWeight.w700, color: FR.ink3),
+                          ),
                         ],
                       ),
                     ),

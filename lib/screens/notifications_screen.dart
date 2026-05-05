@@ -5,13 +5,22 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  bool _onlyUnread = false;
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final items = state.notifications;
+    final all = state.notifications;
+    final visible =
+        _onlyUnread ? all.where((n) => !n.isRead).toList() : all;
 
     return Scaffold(
       backgroundColor: FR.bg,
@@ -50,25 +59,30 @@ class NotificationsScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: Row(
                 children: [
-                  _Pill(label: 'Tümü · ${items.length}', active: true),
+                  _Pill(
+                    label: 'Tümü · ${all.length}',
+                    active: !_onlyUnread,
+                    onTap: () => setState(() => _onlyUnread = false),
+                  ),
                   const SizedBox(width: 8),
                   _Pill(
                     label: 'Okunmamış · ${state.unreadNotificationCount}',
-                    active: false,
+                    active: _onlyUnread,
+                    onTap: () => setState(() => _onlyUnread = true),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: items.isEmpty
-                  ? _EmptyState()
+              child: visible.isEmpty
+                  ? const _EmptyState()
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-                      itemCount: items.length,
+                      itemCount: visible.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (_, i) => _NotificationTile(
-                        notification: items[i],
-                        onTap: () => state.markNotificationRead(items[i].id),
+                        notification: visible[i],
+                        onTap: () => state.markNotificationRead(visible[i].id),
                       ),
                     ),
             ),
@@ -80,21 +94,26 @@ class NotificationsScreen extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.active});
+  const _Pill({required this.label, required this.active, this.onTap});
   final String label;
   final bool active;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: active ? FR.gold : FR.surface,
-        borderRadius: FRRad.all(999),
-        border: Border.all(color: active ? FR.gold : FR.hairline),
-      ),
-      child: Text(
-        label,
-        style: frText(11.5, FontWeight.w800, color: active ? FR.bg : FR.ink2),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? FR.gold : FR.surface,
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: active ? FR.gold : FR.hairline),
+        ),
+        child: Text(
+          label,
+          style: frText(11.5, FontWeight.w800, color: active ? FR.bg : FR.ink2),
+        ),
       ),
     );
   }
@@ -200,6 +219,7 @@ class _NotificationTile extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  const _EmptyState();
   @override
   Widget build(BuildContext context) {
     return Padding(
