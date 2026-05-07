@@ -181,7 +181,7 @@ class _AdminStoreCrudScreenState extends State<AdminStoreCrudScreen> {
   Widget build(BuildContext context) {
     return AdminCrudScaffold(
       title: 'Market yönetimi (legacy)',
-      onAdd: () => _showTextEditSheet(
+      onAdd: () => showAdminTextEditSheet(
         context,
         title: 'Market ekle',
         onSave: _createStore,
@@ -215,14 +215,14 @@ class _AdminStoreCrudScreenState extends State<AdminStoreCrudScreen> {
           if (!_initialized && _loading)
             const Center(child: CircularProgressIndicator())
           else if (_filteredDocs.isEmpty)
-            _empty('Legacy market kaydı yok.')
+            adminEmpty('Legacy market kaydı yok.')
           else
-            _rowList([
+            adminRowList([
               for (final d in _filteredDocs)
                 CrudRow(
                   title: (d.data()['name'] ?? '').toString(),
                   subtitle: (d.data()['isActive'] ?? true) ? 'Aktif' : 'Pasif',
-                  onEdit: () => _showTextEditSheet(
+                  onEdit: () => showAdminTextEditSheet(
                     context,
                     title: 'Market düzenle',
                     initial: (d.data()['name'] ?? '').toString(),
@@ -294,7 +294,7 @@ class AdminCategoryCrudScreen extends StatelessWidget {
     final categories = FirebaseService.instance.categories.snapshots();
     return AdminCrudScaffold(
       title: 'Kategori yönetimi',
-      onAdd: () => _showTextEditSheet(
+      onAdd: () => showAdminTextEditSheet(
         context,
         title: 'Kategori ekle',
         onSave: (name) => FirebaseService.instance.categories.add({
@@ -306,7 +306,7 @@ class AdminCategoryCrudScreen extends StatelessWidget {
       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: categories,
         builder: (_, snap) {
-          if (snap.hasError) return _empty('Kategori verisi yüklenemedi.');
+          if (snap.hasError) return adminEmpty('Kategori verisi yüklenemedi.');
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -319,13 +319,13 @@ class AdminCategoryCrudScreen extends StatelessWidget {
               final bn = (b.data()['name'] ?? '').toString().toLowerCase();
               return an.compareTo(bn);
             });
-          if (docs.isEmpty) return _empty('Kategori kaydı yok.');
-          return _rowList([
+          if (docs.isEmpty) return adminEmpty('Kategori kaydı yok.');
+          return adminRowList([
             for (final d in docs)
               CrudRow(
                 title: (d.data()['name'] ?? '').toString(),
                 subtitle: (d.data()['isActive'] ?? true) ? 'Aktif' : 'Pasif',
-                onEdit: () => _showTextEditSheet(
+                onEdit: () => showAdminTextEditSheet(
                   context,
                   title: 'Kategori düzenle',
                   initial: (d.data()['name'] ?? '').toString(),

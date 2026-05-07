@@ -41,6 +41,52 @@ Widget adminRowList(List<Widget> rows) {
   );
 }
 
+Future<void> showAdminTextEditSheet(
+  BuildContext context, {
+  required String title,
+  String initial = '',
+  required Future<void> Function(String value) onSave,
+}) async {
+  final ctrl = TextEditingController(text: initial);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: FR.surface,
+      title: Text(title, style: frDisplay(20, FontWeight.w700)),
+      content: TextField(
+        controller: ctrl,
+        decoration: InputDecoration(
+          hintText: 'Ad',
+          hintStyle: frText(12, FontWeight.w600, color: FR.ink3),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('İptal',
+              style: frText(12.5, FontWeight.w800, color: FR.ink3)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text('Kaydet',
+              style: frText(12.5, FontWeight.w800, color: FR.gold)),
+        ),
+      ],
+    ),
+  );
+  if (ok == true && ctrl.text.trim().isNotEmpty) {
+    try {
+      await onSave(ctrl.text.trim());
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+  ctrl.dispose();
+}
+
 class AdminCrudScaffold extends StatelessWidget {
   const AdminCrudScaffold({
     required this.title,
