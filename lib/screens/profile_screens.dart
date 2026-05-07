@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/price_reporting.dart';
 import '../models/product.dart';
 import '../services/firebase_service.dart';
 import '../services/messaging_service.dart';
@@ -776,76 +777,91 @@ class ContributionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final uid = state.user?.uid ?? '';
-    final entries = <(Product, PriceEntry)>[];
-    for (final p in state.products) {
-      for (final e in p.priceHistory) {
-        if (e.reportedByUid == uid && uid.isNotEmpty) {
-          entries.add((p, e));
-        }
-      }
-    }
-    entries.sort((a, b) => b.$2.date.compareTo(a.$2.date));
-
     return _ProfileSubScaffold(
       overline: 'KATKILARIM',
       title: 'Fiyat paylaşımlarım',
-      child: entries.isEmpty
-          ? _emptyBlock('Henüz fiyat paylaşmadın. Radar sekmesinden ekle.')
-          : ListView.separated(
-              padding: EdgeInsets.fromLTRB(
-                  20, 4, 20, frBottomScrollPadding(context)),
-              itemCount: entries.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final p = entries[i].$1;
-                final e = entries[i].$2;
-                return InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: p),
-                    ),
-                  ),
-                  borderRadius: FRRad.all(FRRad.l),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: frSurface(radius: FRRad.l),
-                    child: Row(
-                      children: [
-                        Text(p.emoji, style: const TextStyle(fontSize: 22)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${p.name} · ${e.store}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: frText(13, FontWeight.w800)),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  FRFreshChip(date: e.date),
-                                  const SizedBox(width: 6),
-                                  FRVerifyBadge.status(
-                                    status: statusToString(e.status),
-                                    trustPercent: e.trustPercent,
-                                    dense: true,
-                                  ),
-                                ],
-                              ),
-                            ],
+      // Yeni omurga: priceReports koleksiyonu üzerinden canlı stream.
+      // Eski versiyonu legacy `priceHistory` array'ini tarıyordu — mirror
+      // kalktığında veri kaybolurdu. Bu artık dayanıklı.
+      child: StreamBuilder<List<MyPriceContribution>>(
+        stream: state.watchMyContributions(),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting &&
+              !snap.hasData) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+            );
+          }
+          final entries = snap.data ?? const <MyPriceContribution>[];
+          if (entries.isEmpty) {
+            return _emptyBlock('Henüz fiyat paylaşmadın. Radar sekmesinden ekle.');
+          }
+          return ListView.separated(
+            padding: EdgeInsets.fromLTRB(
+                20, 4, 20, frBottomScrollPadding(context)),
+            itemCount: entries.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, i) {
+              final c = entries[i];
+              final product = state.findById(c.productId);
+              return InkWell(
+                onTap: product == null
+                    ? null
+                    : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ProductDetailScreen(product: product),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        FRPriceText(e.price, size: 15),
-                      ],
-                    ),
+                borderRadius: FRRad.all(FRRad.l),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: frSurface(radius: FRRad.l),
+                  child: Row(
+                    children: [
+                      Text(product?.emoji ?? '🧾',
+                          style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${c.productName.isEmpty ? (product?.name ?? "Ürün") : c.productName} · ${c.chainName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: frText(13, FontWeight.w800),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${c.districtName} / ${c.cityName} · ${priceReportSourceTypeLabelTr(c.sourceType)}'
+                              '${c.photoUrl == null ? "" : " · 📷"}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: frText(11, FontWeight.w700,
+                                  color: FR.ink3),
+                            ),
+                            if (c.createdAt != null) ...[
+                              const SizedBox(height: 4),
+                              FRFreshChip(date: c.createdAt!),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FRPriceText(c.price, size: 15),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

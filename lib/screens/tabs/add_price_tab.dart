@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../models/price_v1.dart';
 import '../../models/product.dart';
@@ -22,29 +25,32 @@ class AddPriceTab extends StatefulWidget {
 class _AddPriceTabState extends State<AddPriceTab> {
   static const _kStoreResultLimit = 30;
   static const double _kPriceWarnLow = 0.5;
-  static const double _kPriceWarnHigh = 5000.0;
+  // 5000 yerine 50000 — lüks et, kuruyemiş, alkollü içecek vb. uç ürünler
+  // için bile makul. Üst limit hâlâ "uyarı modal", hard reject değil.
+  static const double _kPriceWarnHigh = 50000.0;
   Product? _selectedProduct;
   StorePlace? _selectedPlace;
+  // Online flow şu an UI'da gizli ve kullanılmıyor — kalan branch'lar
+  // bilinçli olarak siliniyor (online dead branch). Spec şu sürümde
+  // sadece bölgesel ekleme istiyor; online ileride ayrı bir akış olacak.
   PriceSourceType _sourceType = PriceSourceType.physical;
   final _priceCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   final _storeQueryCtrl = TextEditingController();
+  // Free-text market fallback — eğer kullanıcı listede market bulamazsa
+  // raporu yine de gönderebilsin. Spec "şube zorunlu değil" diyor.
+  String? _freeTextStoreName;
   bool _submitting = false;
   bool _locating = false;
   bool _showOptional = false;
   double? _regionLat;
   double? _regionLng;
   double? _gpsAccuracyMeters;
+  // Opsiyonel rafta-fotoğraf akışı.
+  Uint8List? _proofPhotoBytes;
+  String? _proofPhotoContentType;
+  bool _uploadingPhoto = false;
   bool _presetConsumed = false;
-
-  bool get _needsRegion => _sourceType != PriceSourceType.online;
-
-  @override
-  void initState() {
-    super.initState();
-    _ensureOnlinePlacesBootstrapped();
-  }
-
 
   @override
   void didChangeDependencies() {
@@ -72,20 +78,35 @@ class _AddPriceTabState extends State<AddPriceTab> {
     super.dispose();
   }
 
-  Future<void> _ensureOnlinePlacesBootstrapped() async {
-    try {
-      await FirebaseService.instance.seedDefaultOnlinePlaces();
-    } catch (_) {
-      // non-admin/limited sessions are allowed to continue.
+  /// "1.234,56" / "1234,56" / "1234.56" / "1234" formlarını güvenli
+  /// şekilde double'a çevirir. Bin ayırıcı noktasıyla yanlış parse riskini
+  /// kapatır (önceki implementation `replaceAll(',', '.')` ile "1.234,56"'yı
+  /// 1.234'e indiriyordu).
+  static double? _parseTrPrice(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final lastComma = trimmed.lastIndexOf(',');
+    final lastDot = trimmed.lastIndexOf('.');
+    String normalized;
+    if (lastComma == -1 && lastDot == -1) {
+      normalized = trimmed;
+    } else if (lastComma > lastDot) {
+      // TR locale: virgül ondalık, nokta bin ayırıcı.
+      normalized = trimmed.replaceAll('.', '').replaceAll(',', '.');
+    } else {
+      // Nokta ondalık, virgül bin ayırıcı.
+      normalized = trimmed.replaceAll(',', '');
     }
+    return double.tryParse(normalized);
   }
 
   Future<void> _submit(AppState state) async {
     final pid = _selectedProduct?.id;
     final place = _selectedPlace;
-    final price = double.tryParse(_priceCtrl.text.replaceAll(',', '.'));
+    final price = _parseTrPrice(_priceCtrl.text);
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
+    final freeText = (_freeTextStoreName ?? '').trim();
 
     if (pid == null) {
       _snack('Önce ürün seç.');
@@ -95,16 +116,15 @@ class _AddPriceTabState extends State<AddPriceTab> {
       _snack('Geçerli bir fiyat gir.');
       return;
     }
-    if (place == null) {
-      _snack('Fiyatı göndermeden önce market seç.');
+    // Şube seçimi opsiyonel — kullanıcı liste yerine free-text market adı
+    // girmiş de olabilir. En azından chain adı (free-text) ya da bir place
+    // referansı olmalı; ikisi de yoksa zincir ismi belirsiz kalır.
+    if (place == null && freeText.isEmpty) {
+      _snack('Marketi seç ya da listede yoksa ismini yaz.');
       return;
     }
-    if (_needsRegion && (city.isEmpty || district.isEmpty)) {
+    if (city.isEmpty || district.isEmpty) {
       _snack('Bölgesel fiyat için il ve ilçe seç.');
-      return;
-    }
-    if (!_needsRegion) {
-      _snack('Bu sürümde fiyat ekleme yalnızca bölgesel bildirim olarak destekleniyor.');
       return;
     }
 
@@ -134,8 +154,11 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     setState(() => _submitting = true);
     try {
+      // Mevcut place varsa konum-uyum mesafesi hesaplanır; free-text market
+      // durumunda mesafe null kalır → sourceType = manualRegional.
       double? distanceToBranchMeters;
-      if (_regionLat != null &&
+      if (place != null &&
+          _regionLat != null &&
           _regionLng != null &&
           place.lat != null &&
           place.lng != null) {
@@ -146,16 +169,53 @@ class _AddPriceTabState extends State<AddPriceTab> {
           place.lng!,
         );
       }
+
+      // Opsiyonel fotoğraf upload'ı submit'ten ÖNCE yap; URL'i raporla
+      // birlikte aynı transaction'a yolla. Yükleme başarısızsa rapor yine
+      // de gönderilebilsin diye exception swallow ediyoruz, sadece kullanıcıyı
+      // uyarıyoruz.
+      String? proofUrl;
+      if (_proofPhotoBytes != null) {
+        setState(() => _uploadingPhoto = true);
+        try {
+          final uid = state.user?.uid;
+          if (uid == null || uid.isEmpty) {
+            throw StateError('Fotoğraf yüklemek için giriş gerekiyor.');
+          }
+          final res = await FirebaseService.instance.uploadPriceProofImage(
+            uid: uid,
+            bytes: _proofPhotoBytes!,
+            contentType: _proofPhotoContentType,
+          );
+          proofUrl = res.url;
+        } catch (e) {
+          _snack('Fotoğraf yüklenemedi, fiyat fotoğrafsız gönderiliyor: $e');
+          proofUrl = null;
+        } finally {
+          if (mounted) setState(() => _uploadingPhoto = false);
+        }
+      }
+
+      final storeDisplay = place?.displayName ?? freeText;
+      final chainId = place?.chainId ??
+          place?.displayName ??
+          freeText;
+      final chainName = place?.chainName ??
+          place?.displayName ??
+          freeText;
+
       final result = await state.addRegionalPrice(
         productId: pid,
-        store: place.displayName,
+        store: storeDisplay,
         price: price,
         note: _noteCtrl.text.trim(),
-        placeId: place.id,
+        placeId: place?.id,
         city: city,
         district: district,
-        chainId: place.chainId ?? place.displayName,
-        chainName: place.chainName ?? place.displayName,
+        chainId: chainId,
+        chainName: chainName,
+        sourceType: _sourceType,
+        proofImageUrl: proofUrl,
         lat: _regionLat,
         lng: _regionLng,
         distanceToBranchMeters: distanceToBranchMeters,
@@ -181,7 +241,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
         if (confirm == true) {
           await state.verifyRegionalPriceSeen(
             productId: pid,
-            chainId: place.chainId ?? place.displayName,
+            chainId: chainId,
             price: price,
             city: city,
             district: district,
@@ -192,12 +252,14 @@ class _AddPriceTabState extends State<AddPriceTab> {
       } else {
         _snack(
           'Fiyat eklendi · '
-          '${place.chainName ?? place.displayName} / $district bölgesine işlendi · '
+          '$chainName / $district bölgesine işlendi · '
           '${result.sourceLabel}',
         );
         if (mounted) {
           setState(() {
             _selectedProduct = null;
+            _proofPhotoBytes = null;
+            _proofPhotoContentType = null;
             _priceCtrl.clear();
             _noteCtrl.clear();
           });
@@ -213,6 +275,34 @@ class _AddPriceTabState extends State<AddPriceTab> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<void> _pickProofPhoto({required bool fromCamera}) async {
+    if (_uploadingPhoto || _submitting) return;
+    final picker = ImagePicker();
+    try {
+      final picked = await picker.pickImage(
+        source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1600,
+      );
+      if (picked == null) return;
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _proofPhotoBytes = bytes;
+        _proofPhotoContentType = picked.mimeType;
+      });
+    } catch (e) {
+      _snack('Fotoğraf seçilemedi: $e');
+    }
+  }
+
+  void _clearProofPhoto() {
+    setState(() {
+      _proofPhotoBytes = null;
+      _proofPhotoContentType = null;
+    });
   }
 
   void _consumeNextQueuedProduct(AppState state) {
@@ -241,18 +331,29 @@ class _AddPriceTabState extends State<AddPriceTab> {
   /// form is ready to send.
   String? _submitReadyHint(AppState state) {
     if (_selectedProduct == null) return 'Önce ürünü seç.';
-    final priceText = _priceCtrl.text.replaceAll(',', '.').trim();
-    final price = double.tryParse(priceText);
-    if (priceText.isEmpty || price == null || price <= 0) {
+    final price = _parseTrPrice(_priceCtrl.text);
+    if (price == null || price <= 0) {
       return 'Geçerli bir fiyat gir.';
     }
-    if (_selectedPlace == null) return 'Marketi seç.';
-    if (_needsRegion &&
-        ((state.cityName ?? '').trim().isEmpty ||
-            (state.districtName ?? '').trim().isEmpty)) {
+    final freeText = (_freeTextStoreName ?? '').trim();
+    if (_selectedPlace == null && freeText.isEmpty) {
+      return 'Marketi seç ya da listede yoksa ismini yaz.';
+    }
+    if ((state.cityName ?? '').trim().isEmpty ||
+        (state.districtName ?? '').trim().isEmpty) {
       return 'İl ve ilçe seç.';
     }
     return null;
+  }
+
+  /// "Listede yok, elle gir" akışı için kullanıcının yazdığı market adını
+  /// state'e bağlıyoruz. Free-text seçildiğinde mevcut place seçimi temizlenir.
+  void _useFreeTextStore(String name) {
+    final trimmed = name.trim();
+    setState(() {
+      _selectedPlace = null;
+      _freeTextStoreName = trimmed.isEmpty ? null : trimmed;
+    });
   }
 
   void _pickProduct(AppState state) async {
@@ -351,17 +452,14 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     Query<Map<String, dynamic>> q = coll.where('isActive', isEqualTo: true);
 
-    if (_sourceType == PriceSourceType.online) {
-      q = q
-          .where('type', isEqualTo: 'online_market')
-          .where('status', whereIn: const ['verified', 'trusted']);
-    } else {
-      q = _sourceType == PriceSourceType.physical
-          ? q.where('type', whereIn: const ['chain_market', 'local_market'])
-          : q.where('type', isEqualTo: 'bazaar');
-      q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
-      q = q.where('status', whereIn: const ['verified', 'trusted']);
-    }
+    // Online tipini bilinçli olarak kaldırdık (spec: "yalnızca bölgesel
+    // bildirim"). UI'da sadece physical/bazaar chip'leri görünüyor; online
+    // dead branch'a düşmüyoruz.
+    q = _sourceType == PriceSourceType.bazaar
+        ? q.where('type', isEqualTo: 'bazaar')
+        : q.where('type', whereIn: const ['chain_market', 'local_market']);
+    q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
+    q = q.where('status', whereIn: const ['verified', 'trusted']);
 
     final searchText = _storeQueryCtrl.text.trim().toLowerCase();
     if (search && searchText.isNotEmpty) {
@@ -373,9 +471,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
   }
 
   Stream<List<StorePlace>> _placeStream(AppState state) async* {
-    final needsRegion = _needsRegion;
-    if (needsRegion &&
-        ((state.cityName ?? '').trim().isEmpty || (state.districtName ?? '').trim().isEmpty)) {
+    if ((state.cityName ?? '').trim().isEmpty ||
+        (state.districtName ?? '').trim().isEmpty) {
       yield const <StorePlace>[];
       return;
     }
@@ -397,7 +494,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
       debugPrint('add_price: place query failed → $e');
     }
 
-    if (_sourceType != PriceSourceType.online && ownUid != null && ownUid.isNotEmpty) {
+    if (ownUid != null && ownUid.isNotEmpty) {
       try {
         final city = (state.cityName ?? '').trim();
         final district = (state.districtName ?? '').trim();
@@ -454,10 +551,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final state = AppStateScope.of(context);
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
-    final regionMissing = _needsRegion && (city.isEmpty || district.isEmpty);
-    final priceText = _priceCtrl.text.trim();
-    final priceValid =
-        double.tryParse(priceText.replaceAll(',', '.')) != null && priceText.isNotEmpty;
+    final regionMissing = city.isEmpty || district.isEmpty;
+    final priceVal = _parseTrPrice(_priceCtrl.text);
+    final priceValid = priceVal != null && priceVal > 0;
 
     return SafeArea(
       bottom: false,
@@ -669,10 +765,12 @@ class _AddPriceTabState extends State<AddPriceTab> {
                       );
                     },
                   ),
+                const SizedBox(height: 8),
+                _selectedStoreSummary(),
                 const SizedBox(height: 22),
 
-                // 4) Nerede gördün? — region
-                if (_needsRegion) ...[
+                // 4) Nerede gördün? — region (her zaman bölgesel)
+                ...[
                   _step(4, 'Nerede gördün?',
                       completed: city.isNotEmpty && district.isNotEmpty),
                   Padding(
@@ -791,6 +889,17 @@ class _AddPriceTabState extends State<AddPriceTab> {
                         ],
                       ),
                       const SizedBox(height: 14),
+                      _label('Raf fotoğrafı (opsiyonel — güveni artırır)'),
+                      _ProofPhotoPicker(
+                        bytes: _proofPhotoBytes,
+                        uploading: _uploadingPhoto,
+                        onPickCamera: () =>
+                            _pickProofPhoto(fromCamera: true),
+                        onPickGallery: () =>
+                            _pickProofPhoto(fromCamera: false),
+                        onClear: _clearProofPhoto,
+                      ),
+                      const SizedBox(height: 14),
                       _label('Not'),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
@@ -884,30 +993,100 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
   Widget _placesEmpty(AppState state) {
     final hasSearch = _storeQueryCtrl.text.trim().isNotEmpty;
-    final isOnline = _sourceType == PriceSourceType.online;
     final isBazaar = _sourceType == PriceSourceType.bazaar;
-    final title = isOnline
-        ? 'Online market kaydı yok.'
-        : isBazaar
-            ? (hasSearch
-                ? 'Arama ile eşleşen pazar yok.'
-                : 'Bu bölgede kayıtlı pazar yok.')
-            : (hasSearch
-                ? 'Arama ile eşleşen market yok.'
-                : 'Bu bölgede kayıtlı market yok.');
-    final suggestLabel = isBazaar ? 'Bu pazarı öner' : 'Bu marketi öner';
+    final title = isBazaar
+        ? (hasSearch
+            ? 'Arama ile eşleşen pazar yok.'
+            : 'Bu bölgede kayıtlı pazar yok.')
+        : (hasSearch
+            ? 'Arama ile eşleşen market yok.'
+            : 'Bu bölgede kayıtlı market yok.');
+    final suggestLabel = isBazaar ? 'Bu pazarı kaydet' : 'Bu marketi kaydet';
+    final freeTextLabel = hasSearch
+        ? 'Bu adı kullan: "${_storeQueryCtrl.text.trim()}"'
+        : 'Listede yok — elle yaz';
     return Container(
       padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: frSurface(radius: FRRad.m),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: frText(12.5, FontWeight.w700, color: FR.ink3)),
         const SizedBox(height: 10),
-        if (!isOnline || state.isAdmin)
-          FRCta(
-            label: suggestLabel,
-            icon: Icons.add_business_rounded,
-            onTap: _submitting ? null : () => _openSuggestPlaceSheet(state),
-          )
+        // Hızlı yol: free-text market adıyla ilerle (place doc oluşturma yok).
+        // Spec "şube zorunlu değil" diyor; kullanıcı market önermeye
+        // gerek duymadan fiyatı raporlayabilsin.
+        FRCta(
+          label: freeTextLabel,
+          icon: Icons.flash_on_rounded,
+          onTap: _submitting
+              ? null
+              : () {
+                  final raw = _storeQueryCtrl.text.trim();
+                  if (raw.isEmpty) {
+                    _snack('Önce arama kutusuna market adını yaz.');
+                    return;
+                  }
+                  _useFreeTextStore(raw);
+                  _snack(
+                      'Şimdilik "$raw" adıyla kaydediyoruz. Sonra moderasyon doğrulayacak.');
+                },
+        ),
+        const SizedBox(height: 8),
+        // İkinci adım: detaylı "öner" sheet'i, mahalle vs. doldurmak için.
+        FRCta(
+          label: suggestLabel,
+          icon: Icons.add_business_rounded,
+          filled: false,
+          onTap: _submitting ? null : () => _openSuggestPlaceSheet(state),
+        ),
+      ]),
+    );
+  }
+
+  /// Seçili market özet kartı altında küçük bilgi: "free-text" ya da
+  /// "kayıtlı yer" — kullanıcı hangi yola gittiğini hep bilsin.
+  Widget _selectedStoreSummary() {
+    if (_selectedPlace != null) {
+      final p = _selectedPlace!;
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: FR.surfaceLo,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Row(children: [
+          Icon(Icons.storefront_rounded, color: FR.gold, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text('${p.displayName} · seçildi',
+                  style: frText(12, FontWeight.w800, color: FR.ink2))),
+          InkWell(
+            onTap: () => setState(() => _selectedPlace = null),
+            child: Icon(Icons.close_rounded, color: FR.ink3, size: 16),
+          ),
+        ]),
+      );
+    }
+    final freeText = (_freeTextStoreName ?? '').trim();
+    if (freeText.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: FR.surfaceLo,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.warn.withOpacity(.4)),
+      ),
+      child: Row(children: [
+        Icon(Icons.edit_note_rounded, color: FR.warn, size: 16),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text('"$freeText" — moderasyon onayı bekleyecek.',
+              style: frText(11.5, FontWeight.w700, color: FR.ink2)),
+        ),
+        InkWell(
+          onTap: () => setState(() => _freeTextStoreName = null),
+          child: Icon(Icons.close_rounded, color: FR.ink3, size: 16),
+        ),
       ]),
     );
   }
@@ -978,9 +1157,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
       onTap: () => setState(() {
         _sourceType = type;
         _selectedPlace = null;
-        if (_sourceType == PriceSourceType.online) {
-          _ensureOnlinePlacesBootstrapped();
-        }
+        _freeTextStoreName = null;
       }),
       borderRadius: FRRad.all(999),
       child: Container(
@@ -1406,6 +1583,86 @@ class _ProductPickerState extends State<_ProductPicker> {
           ),
         ]),
       ),
+    );
+  }
+}
+
+
+class _ProofPhotoPicker extends StatelessWidget {
+  const _ProofPhotoPicker({
+    required this.bytes,
+    required this.uploading,
+    required this.onPickCamera,
+    required this.onPickGallery,
+    required this.onClear,
+  });
+  final Uint8List? bytes;
+  final bool uploading;
+  final VoidCallback onPickCamera;
+  final VoidCallback onPickGallery;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    if (bytes != null) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: FR.surfaceLo,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.gold.withOpacity(.45)),
+        ),
+        child: Row(children: [
+          ClipRRect(
+            borderRadius: FRRad.all(10),
+            child: Image.memory(
+              bytes!,
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Fotoğraf hazır',
+                    style: frText(12.5, FontWeight.w800, color: FR.ink)),
+                const SizedBox(height: 2),
+                Text(
+                  uploading ? 'Yükleniyor…' : 'Submit edince yüklenecek.',
+                  style: frText(11, FontWeight.w600, color: FR.ink3),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: uploading ? null : onClear,
+            icon: Icon(Icons.delete_outline_rounded, color: FR.bad, size: 18),
+            tooltip: 'Fotoğrafı kaldır',
+          ),
+        ]),
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FRCta(
+          label: 'Kamera ile çek',
+          icon: Icons.photo_camera_rounded,
+          height: 42,
+          onTap: uploading ? null : onPickCamera,
+        ),
+        FRCta(
+          label: 'Galeriden seç',
+          icon: Icons.photo_library_outlined,
+          filled: false,
+          height: 42,
+          onTap: uploading ? null : onPickGallery,
+        ),
+      ],
     );
   }
 }

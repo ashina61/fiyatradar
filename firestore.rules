@@ -111,6 +111,12 @@ service cloud.firestore {
     }
 
     function hasSafeUserGamificationMutation() {
+      // Per-call delta caps:
+      //   points          : <= +50  (single action: addProduct=25, addPrice=10, etc.)
+      //   trust counters  : <= +1   (one vote at a time)
+      //   contributions   : <= +1   (one report at a time)
+      // Without these caps any signed-in user can self-set `points: 9_999_999`
+      // in a single update — the leaderboard / trust UI would silently lie.
       return intFieldOrMissing(request.resource.data, 'points') &&
         intFieldOrMissing(request.resource.data, 'trustTotalVotes') &&
         intFieldOrMissing(request.resource.data, 'trustVerifiedTotal') &&
@@ -118,6 +124,7 @@ service cloud.firestore {
         intFieldOrMissing(request.resource.data, 'contributions') &&
         intFieldOrZero(request.resource.data, 'points') >= 0 &&
         intFieldOrZero(request.resource.data, 'points') >= intFieldOrZero(resource.data, 'points') &&
+        intFieldOrZero(request.resource.data, 'points') <= intFieldOrZero(resource.data, 'points') + 50 &&
         intFieldOrZero(request.resource.data, 'trustTotalVotes') >= intFieldOrZero(resource.data, 'trustTotalVotes') &&
         intFieldOrZero(request.resource.data, 'trustTotalVotes') <= intFieldOrZero(resource.data, 'trustTotalVotes') + 1 &&
         intFieldOrZero(request.resource.data, 'trustVerifiedTotal') >= intFieldOrZero(resource.data, 'trustVerifiedTotal') &&
@@ -131,10 +138,32 @@ service cloud.firestore {
     }
 
     function hasSafePriceHistoryMutation() {
+      // The legacy `products.priceHistory` array is being phased out in favour
+      // of the `priceReports` / `priceGroups` collections. Until the mirror
+      // writes in PriceReportService are removed we still allow community
+      // append + vote-update via this rule, but we constrain it tighter than
+      // before:
+      //   • Array can only grow by exactly 0 (vote update) or 1 (new entry).
+      //   • Hard cap on array length so a single product doc can't blow past
+      //     the Firestore 1MB doc limit (≈800 entries × 1.2KB each).
+      //   • Newly appended entries must have the caller as `reportedByUid`,
+      //     so a user can't impersonate someone else.
       return resource.data.priceHistory is list &&
         request.resource.data.priceHistory is list &&
         request.resource.data.priceHistory.size() >= resource.data.priceHistory.size() &&
-        request.resource.data.priceHistory.size() <= resource.data.priceHistory.size() + 1;
+        request.resource.data.priceHistory.size() <= resource.data.priceHistory.size() + 1 &&
+        request.resource.data.priceHistory.size() <= 800 &&
+        (
+          // Vote case: same length, no impersonation check needed (transaction
+          // enforces self-vote / duplicate-vote blocks).
+          request.resource.data.priceHistory.size() == resource.data.priceHistory.size() ||
+          // Append case: the new tail entry must belong to the caller.
+          (
+            request.resource.data.priceHistory[request.resource.data.priceHistory.size() - 1] is map &&
+            request.resource.data.priceHistory[request.resource.data.priceHistory.size() - 1].reportedByUid ==
+              request.auth.uid
+          )
+        );
     }
 
     match /users/{uid} {
@@ -424,6 +453,8 @@ service cloud.firestore {
 
 
     function hasSafeRegionalPriceReportCreatePayload() {
+      // hasAll → hasOnly so kötü niyetli istemci raporun yanına `isAdmin: true`
+      // ya da serbest metadata ekleyemesin.
       return request.resource.data.keys().hasAll([
         'productId',
         'chainId',
@@ -433,11 +464,26 @@ service cloud.firestore {
         'userId',
         'localDateKey'
       ]) &&
+      request.resource.data.keys().hasOnly([
+        'productId', 'productName',
+        'chainId', 'chainName',
+        'cityId', 'cityName',
+        'districtId', 'districtName',
+        'branchId', 'branchName',
+        'price', 'currency',
+        'sourceType', 'locationSource',
+        'distanceToBranchMeters', 'gpsAccuracyMeters',
+        'location', 'photoUrl', 'note', 'barcode',
+        'userId', 'userDisplayName',
+        'createdAt', 'updatedAt',
+        'localDateKey', 'status'
+      ]) &&
       request.resource.data.productId is string &&
       request.resource.data.chainId is string &&
       request.resource.data.cityId is string &&
       request.resource.data.districtId is string &&
       ((request.resource.data.price is int) || (request.resource.data.price is float)) &&
+      request.resource.data.price > 0 &&
       request.resource.data.userId is string &&
       request.resource.data.localDateKey is string;
     }
@@ -500,17 +546,107 @@ service cloud.firestore {
     }
 
 
+    // Regional aggregation docs. Writes happen only inside the
+    // PriceReportService transaction (alongside priceReports + dedupes).
+    // We can't fully prevent client tampering without moving aggregation to
+    // a Cloud Function (TODO: P1 onPriceReportCreate trigger), so we lock the
+    // write surface to a known field whitelist + monotonically-rising
+    // counters + the lastReporterId == auth.uid invariant. That blocks the
+    // worst class of attacks (resetting verifiedCount to 0, slamming
+    // trustedPrice to a fake value, deleting confidence).
+    function priceGroupAllowedFields() {
+      return [
+        'productId', 'productName',
+        'chainId', 'chainName',
+        'cityId', 'cityName',
+        'districtId', 'districtName',
+        'latestPrice', 'trustedPrice', 'avgPrice',
+        'minPrice', 'maxPrice',
+        'reportCount', 'verifiedCount', 'photoReportCount',
+        'lastReportedAt', 'lastReporterId',
+        'confidence', 'sourceType',
+        'displayTitle', 'updatedAt'
+      ];
+    }
+
+    function priceGroupCounterMonotonic(field) {
+      return !(field in resource.data) || (
+        request.resource.data[field] is int &&
+        request.resource.data[field] >= resource.data[field] &&
+        request.resource.data[field] <= resource.data[field] + 1
+      );
+    }
+
+    function hasSafePriceGroupPayload() {
+      return request.resource.data.keys().hasOnly(priceGroupAllowedFields()) &&
+        request.resource.data.lastReporterId == request.auth.uid &&
+        (!('reportCount' in request.resource.data) || request.resource.data.reportCount is int) &&
+        (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount is int) &&
+        (!('photoReportCount' in request.resource.data) || request.resource.data.photoReportCount is int) &&
+        (!('latestPrice' in request.resource.data) || request.resource.data.latestPrice is number) &&
+        (!('trustedPrice' in request.resource.data) || request.resource.data.trustedPrice is number) &&
+        (!('avgPrice' in request.resource.data) || request.resource.data.avgPrice is number) &&
+        (!('minPrice' in request.resource.data) || request.resource.data.minPrice is number) &&
+        (!('maxPrice' in request.resource.data) || request.resource.data.maxPrice is number) &&
+        (!('confidence' in request.resource.data) || request.resource.data.confidence in ['low', 'medium', 'high']);
+    }
+
     match /priceGroups/{groupId} {
       allow read: if true;
-      // Regional aggregation docs are updated by signed-in contributors via
-      // transaction together with priceReports/priceReportDedupes.
-      allow create, update: if signedIn();
+      // First-write: any signed-in user may create (counter is presumed 0).
+      allow create: if signedIn() &&
+        hasSafePriceGroupPayload() &&
+        (!('reportCount' in request.resource.data) || request.resource.data.reportCount == 1) &&
+        (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount == 0);
+      // Updates: counters can grow by at most +1 per call (one report or one
+      // verify at a time). Stops `verifiedCount: 99999` style attacks.
+      allow update: if signedIn() &&
+        hasSafePriceGroupPayload() &&
+        priceGroupCounterMonotonic('reportCount') &&
+        priceGroupCounterMonotonic('verifiedCount') &&
+        priceGroupCounterMonotonic('photoReportCount') &&
+        // chain/region/product identity must not be rewritten after creation.
+        request.resource.data.productId == resource.data.productId &&
+        request.resource.data.chainId == resource.data.chainId &&
+        request.resource.data.cityId == resource.data.cityId &&
+        request.resource.data.districtId == resource.data.districtId;
       allow delete: if isAdmin();
+    }
+
+    // Dedupe ledger. Used to (a) detect same-day repeat submissions and
+    // (b) hold the verifierUserIds map for the "ben de gördüm" flow.
+    function hasSafePriceDedupePayload() {
+      return request.resource.data.keys().hasOnly([
+        'groupId', 'reportId', 'dedupeKey',
+        'verifiedCount', 'verifierUserIds',
+        'createdAt', 'updatedAt'
+      ]) &&
+      (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount is int) &&
+      (!('verifierUserIds' in request.resource.data) || request.resource.data.verifierUserIds is map);
     }
 
     match /priceReportDedupes/{dedupeId} {
       allow read: if signedIn();
-      allow create, update: if signedIn();
+      // First write: caller marks themselves as a verifier for this dedupe.
+      allow create: if signedIn() &&
+        hasSafePriceDedupePayload() &&
+        (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount == 1) &&
+        (!('verifierUserIds' in request.resource.data) ||
+          (request.resource.data.verifierUserIds.keys().hasOnly([request.auth.uid]) &&
+           request.resource.data.verifierUserIds[request.auth.uid] == true));
+      // Updates: only +1 to verifiedCount and only adding self to map. Cannot
+      // remove other users, cannot bulk-set a fake count.
+      allow update: if signedIn() &&
+        hasSafePriceDedupePayload() &&
+        request.resource.data.dedupeKey == resource.data.dedupeKey &&
+        request.resource.data.groupId == resource.data.groupId &&
+        request.resource.data.verifiedCount is int &&
+        request.resource.data.verifiedCount >= resource.data.verifiedCount &&
+        request.resource.data.verifiedCount <= resource.data.verifiedCount + 1 &&
+        // Caller must not already be a verifier (no double-credit) AND must
+        // be present in the new map.
+        !(request.auth.uid in resource.data.verifierUserIds) &&
+        request.resource.data.verifierUserIds[request.auth.uid] == true;
       allow delete: if isAdmin();
     }
 

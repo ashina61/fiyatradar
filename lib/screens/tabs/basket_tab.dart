@@ -380,10 +380,22 @@ class _CartFooter extends StatelessWidget {
         ),
         child: Column(
           children: [
-            _line('Alt toplam', '₺${state.cartSubtotal.toStringAsFixed(2)}'),
+            // "Alt toplam" yerine "Tahmini toplam" — bu satır kasa fiyatı
+            // değil, bölgesel topluluk fiyatlarından üretilmiş bir tahmin.
+            _line('Tahmini toplam',
+                '₺${state.cartSubtotal.toStringAsFixed(2)}'),
             const SizedBox(height: 4),
             _line('Tahmini tasarruf', '₺${state.cartSavings.toStringAsFixed(2)}',
                 hl: FR.good),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Bölgesel topluluk fiyatlarına göre tahmin · kasa fiyatı garanti değildir.',
+                style: frText(10.5, FontWeight.w600,
+                    color: FR.ink3, height: 1.4),
+              ),
+            ),
             const SizedBox(height: 12),
             FRCta(
               label: 'Tahmini sepeti karşılaştır',
@@ -922,6 +934,25 @@ class _CompareWinnerCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               _coverageBar(coverage.toDouble(), estimate),
+              // Düşük kapsama uyarısı: kullanıcı %30 coverage'lı bir
+              // marketin "EN İYİ SEÇENEK" olduğunu sanmasın.
+              if (coverage < 0.7) ...[
+                const SizedBox(height: 10),
+                _warnRow(
+                  icon: Icons.info_outline_rounded,
+                  text: 'Bu marketin sepet kapsaması düşük — ${(coverage * 100).round()}% '
+                      'ürün için fiyat var. Tutar yanıltıcı olabilir.',
+                ),
+              ],
+              // Bayat fiyat uyarısı: en eski bildirim 30+ gün ise sinyal ver.
+              if (estimate.isStale) ...[
+                const SizedBox(height: 8),
+                _warnRow(
+                  icon: Icons.schedule_rounded,
+                  text: 'En eski fiyat ${estimate.oldestPriceAgeDays} gün önce '
+                      'bildirilmiş — gerçek raf fiyatı değişmiş olabilir.',
+                ),
+              ],
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -947,6 +978,29 @@ class _CompareWinnerCard extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _warnRow({required IconData icon, required String text}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: FR.warn.withOpacity(.10),
+        borderRadius: FRRad.all(10),
+        border: Border.all(color: FR.warn.withOpacity(.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 13, color: FR.warn),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: frText(11, FontWeight.w700,
+                    color: FR.ink2, height: 1.4)),
           ),
         ],
       ),

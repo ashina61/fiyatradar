@@ -16,14 +16,23 @@ import '../services/messaging_service.dart';
 import '../services/price_report_service.dart';
 
 /// Points awarded for different actions in the rewards system.
+///
+/// IMPORTANT: Tek bir aksiyonun puan ödülü 50'yi aşmamalı. Firestore rules
+/// (`hasSafeUserGamificationMutation`) tek update'te `points` artışını +50
+/// ile sınırlıyor; daha yüksek bir ödül vermek istersen önce rule'u güncelle.
 class PointsRules {
   static const int addPrice = 10;
   static const int addProduct = 25;
+  static const int photoBonus = 5; // Fotoğraflı fiyat ekstra ödülü
   static const int favorite = 2;
   static const int verifyVote = 1;
+
+  /// Daily login bonus — şu an çağrılmıyor (streak/login akışı henüz yok).
+  /// Streak özelliği eklendiğinde Cloud Function tarafından dağıtılmalı,
+  /// client tek başına self-credit verilemeyecek şekilde tasarlanmalı.
   static const int dailyLogin = 5;
 
-  /// 100 puan = ₺5 indirim
+  /// 100 puan = ₺5 indirim (gelecekteki Premium / kupon akışı için tutuluyor).
   static const double pointValueTl = 0.05;
 }
 
@@ -1012,7 +1021,11 @@ class AppState extends ChangeNotifier {
     String note = '',
     String? proofImageUrl,
     String? barcode,
+    // placeId opsiyonel — spec "şube zorunlu değil" diyor. Yoksa rapor
+    // sourceType=manualRegional olarak kayıt edilir; chain + city + district
+    // bağlantısı zaten yeterli.
     String? placeId,
+    PriceSourceType sourceType = PriceSourceType.physical,
     double? lat,
     double? lng,
     double? distanceToBranchMeters,
@@ -1032,14 +1045,12 @@ class AppState extends ChangeNotifier {
       throw StateError(
           'Geçersiz ilçe: "$district". $cityTrim ilçelerinden seç.');
     }
-    if ((placeId ?? '').trim().isEmpty) {
-      throw StateError('A valid place must be selected before submit.');
-    }
     final resolvedChainId = chainId.trim().isEmpty ? store : chainId;
     final resolvedChainName = chainName.trim().isEmpty ? store : chainName;
     final resolvedReporterName = user?.displayName?.trim().isNotEmpty == true
         ? user!.displayName!
         : displayName;
+    final resolvedPlaceId = (placeId ?? '').trim();
     final now = DateTime.now();
     final entryId = '${productId}_${now.millisecondsSinceEpoch}_${_rand4()}';
     final legacyEntry = PriceEntry(
@@ -1056,7 +1067,6 @@ class AppState extends ChangeNotifier {
       status: PriceStatus.pending,
       statusUpdatedAt: now,
     );
-    const sourceType = PriceSourceType.physical;
     final legacyEntryPayload = <String, dynamic>{
       'productId': productId,
       'productNameSnapshot': p.name,
@@ -1066,7 +1076,7 @@ class AppState extends ChangeNotifier {
       'sourceType': priceSourceTypeToString(sourceType),
       'chainId': resolvedChainId,
       'chainName': resolvedChainName,
-      'placeId': placeId!.trim(),
+      'placeId': resolvedPlaceId.isEmpty ? null : resolvedPlaceId,
       'placeDisplayName': store,
       'city': cityTrim,
       'district': districtTrim,
@@ -1100,7 +1110,7 @@ class AppState extends ChangeNotifier {
       price: price,
       userId: uid,
       userDisplayName: resolvedReporterName,
-      branchId: placeId,
+      branchId: resolvedPlaceId.isEmpty ? null : resolvedPlaceId,
       branchName: store,
       distanceToBranchMeters: distanceToBranchMeters,
       gpsAccuracyMeters: gpsAccuracyMeters,
@@ -1137,6 +1147,27 @@ class AppState extends ChangeNotifier {
     return result;
   }
 
+  /// Doğrulama oyu vermek için ön-koşul kontrolü. UI'nın "Ben de gördüm"
+  /// butonunu disable etmesi için kullanılır — `null` döndürürse oy
+  /// verilebilir; metin döndürürse o sebep kullanıcıya gösterilmeli.
+  String? canVerifyRegionalPrice({
+    required String city,
+    required String district,
+  }) {
+    final uid = user?.uid ?? '';
+    if (uid.isEmpty) return 'Doğrulama için giriş yapmalısın.';
+    final activeCity = (cityName ?? '').trim();
+    final activeDistrict = (districtName ?? '').trim();
+    if (activeCity.isEmpty || activeDistrict.isEmpty) {
+      return 'Önce kendi bölgeni seç.';
+    }
+    if (activeCity.toLowerCase() != city.trim().toLowerCase() ||
+        activeDistrict.toLowerCase() != district.trim().toLowerCase()) {
+      return 'Sadece kendi bölgen ($activeDistrict / $activeCity) için doğrulayabilirsin.';
+    }
+    return null;
+  }
+
   Future<void> verifyRegionalPriceSeen({
     required String productId,
     required String chainId,
@@ -1144,19 +1175,9 @@ class AppState extends ChangeNotifier {
     required String city,
     required String district,
   }) async {
-    final uid = user?.uid ?? '';
-    if (uid.isEmpty) throw StateError('Doğrulama için giriş yapmalısın.');
-    final activeCity = (cityName ?? '').trim();
-    final activeDistrict = (districtName ?? '').trim();
-    if (activeCity.isEmpty || activeDistrict.isEmpty) {
-      throw StateError('Önce kendi bölgeni seçmelisin.');
-    }
-    if (activeCity.toLowerCase() != city.trim().toLowerCase() ||
-        activeDistrict.toLowerCase() != district.trim().toLowerCase()) {
-      throw StateError(
-        'Yalnızca kendi bölgen ($activeDistrict / $activeCity) için doğrulama yapabilirsin.',
-      );
-    }
+    final blocked = canVerifyRegionalPrice(city: city, district: district);
+    if (blocked != null) throw StateError(blocked);
+    final uid = user!.uid;
     await _priceReportService.verifySeenToday(
       productId: productId,
       chainId: chainId,
@@ -1170,6 +1191,24 @@ class AppState extends ChangeNotifier {
     // rewards UI doesn't lie when "Fiyat ekle · +10 PT" pivots into a
     // verification on duplicate.
     await _addPoints(PointsRules.verifyVote);
+  }
+
+  /// Kullanıcının kendi gönderdiği fiyat raporlarını canlı izler. Profil
+  /// "Katkılarım" sekmesi için ana veri kaynağıdır — eskiden legacy
+  /// `products.priceHistory` array'i tarıyordu, mirror kalktığında veri
+  /// kayboluyordu. Yeni omurga `priceReports` koleksiyonu üzerinden çalışır.
+  Stream<List<MyPriceContribution>> watchMyContributions({int limit = 100}) {
+    final uid = user?.uid;
+    if (uid == null || uid.isEmpty) {
+      return const Stream<List<MyPriceContribution>>.empty();
+    }
+    return _svc.priceReports
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map(MyPriceContribution.fromDoc).toList(growable: false));
   }
 
   Stream<List<PriceGroupModel>> watchRegionalPriceGroups({
@@ -1888,6 +1927,11 @@ class AppState extends ChangeNotifier {
     if (user == null) return;
     final existing = productAlerts[productId];
     await _svc.userProductAlerts(user!.uid).doc(productId).set({
+      // `productId` alanını da yazıyoruz: Cloud Function (`onProductPriceDrop`)
+      // collectionGroup('productAlerts').where('productId', '==', id) ile
+      // indexli sorgu yapabilsin, doc id eşleşmesi yerine. Eski full-scan
+      // her ürün update'inde tüm alert dokümanlarını okuyordu.
+      'productId': productId,
       'targetPrice': targetPrice,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': existing == null

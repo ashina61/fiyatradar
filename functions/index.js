@@ -57,10 +57,28 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
   const productId = event.params.productId;
   const productName = (after.name || 'Ürün').toString();
 
-  // Find every user that has set an alert on this product. Doc id is the
-  // productId so we can use a collection group query and match by id.
-  const alertsSnap = await db.collectionGroup('productAlerts').get();
-  const interested = alertsSnap.docs.filter((d) => d.id === productId);
+  // ÖNCE: full collectionGroup scan + client-side `d.id === productId`.
+  // Bu her ürün update'inde TÜM kullanıcıların TÜM alarmlarını okuyordu →
+  // 100 alarm = 100 read × her drop. Dakikada 10 drop olsa bile maliyet
+  // patlıyor.
+  // SONRA: `productId` field'ı üzerinden indexli sorgu. Client tarafı
+  // `setProductAlert` artık bu field'ı da yazıyor; eski dokümanlarda
+  // alan yoksa fallback olarak doc id'ye düşüyoruz (geri uyumluluk).
+  let interested = [];
+  try {
+    const alertsSnap = await db
+      .collectionGroup('productAlerts')
+      .where('productId', '==', productId)
+      .get();
+    interested = alertsSnap.docs;
+  } catch (e) {
+    logger.warn('productAlerts indexed query failed, falling back to scan', {
+      error: e.message,
+      productId,
+    });
+    const scan = await db.collectionGroup('productAlerts').get();
+    interested = scan.docs.filter((d) => d.id === productId);
+  }
   if (interested.length === 0) {
     logger.info('Fiyat düştü ama alarm kuran kullanıcı yok.', {
       productId,
@@ -153,5 +171,148 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
     pushSent: response.successCount,
     pushFailed: response.failureCount,
     cleanedTokens: cleanupPromises.length,
+  });
+});
+
+/**
+ * Yeni bölgesel omurga için fiyat düşüş tetikleyicisi.
+ *
+ * `priceGroups/{groupId}` bir update aldığında, eğer `trustedPrice` (yoksa
+ * `latestPrice`) düştüyse aynı bölgedeki ürünü takip eden kullanıcılara
+ * notification doc + FCM push gönderiyoruz. Eski `onProductPriceDrop`
+ * legacy `priceHistory` array'ine bağlıydı; mirror kaldırıldığında bu
+ * fonksiyon devreye girip sessizce ölmesini engeller.
+ *
+ * Şema notu: priceGroups doc'unun `productId`, `cityId`, `districtId`,
+ * `trustedPrice`, `latestPrice`, `chainName` alanları olmak zorunda.
+ * Kullanıcı alarmları `users/{uid}/productAlerts/{productId}` altında ve
+ * `productId` field'ı doc'ta indexli olarak yazılı (bkz: setProductAlert).
+ */
+exports.onPriceGroupUpdate = onDocumentUpdated('priceGroups/{groupId}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+
+  const oldPrice = Number(before.trustedPrice ?? before.latestPrice);
+  const newPrice = Number(after.trustedPrice ?? after.latestPrice);
+  if (!Number.isFinite(oldPrice) || !Number.isFinite(newPrice)) return;
+  if (newPrice >= oldPrice) return;
+
+  const productId = (after.productId || '').toString();
+  if (!productId) return;
+  const cityName = (after.cityName || '').toString();
+  const districtName = (after.districtName || '').toString();
+  const chainName = (after.chainName || '').toString();
+
+  // Sadece bu ürünü takip eden kullanıcıları çek (indexed).
+  let alerts;
+  try {
+    const snap = await db
+      .collectionGroup('productAlerts')
+      .where('productId', '==', productId)
+      .get();
+    alerts = snap.docs;
+  } catch (e) {
+    logger.warn('priceGroup alerts query failed', {
+      groupId: event.params.groupId,
+      error: e.message,
+    });
+    return;
+  }
+  if (alerts.length === 0) return;
+
+  const tokens = [];
+  const tokenToRefs = new Map();
+  const writes = alerts.map(async (doc) => {
+    const data = doc.data() || {};
+    const target = Number(data.targetPrice);
+    if (Number.isFinite(target) && target > 0 && newPrice > target) return;
+    const userId = doc.ref.parent.parent.id;
+
+    // Bölge filtresi: alarm sahibinin profil bölgesi grubun bölgesiyle
+    // eşleşmiyorsa bildirme. Aksi halde Adana'da yaşayan kullanıcı
+    // Ankara'daki bir grupta düşüş için push alıyor — gürültü olur.
+    let userCity = '';
+    let userDistrict = '';
+    let fcmToken = '';
+    try {
+      const userSnap = await db.collection('users').doc(userId).get();
+      const u = userSnap.data() || {};
+      userCity = (u.cityName || u.city || '').toString();
+      userDistrict = (u.district || u.neighborhood || '').toString();
+      fcmToken = (u.fcmToken || '').toString().trim();
+    } catch (e) {
+      logger.warn('priceGroup: user fetch failed', { userId, error: e.message });
+      return;
+    }
+    if (
+      userCity &&
+      userDistrict &&
+      cityName &&
+      districtName &&
+      (userCity.toLowerCase() !== cityName.toLowerCase() ||
+        userDistrict.toLowerCase() !== districtName.toLowerCase())
+    ) {
+      return;
+    }
+
+    await db
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .add({
+        title: 'Bölgende fiyat düştü',
+        body: `${chainName ? chainName + ' · ' : ''}${oldPrice.toFixed(2)}₺ → ${newPrice.toFixed(2)}₺`,
+        productId,
+        groupId: event.params.groupId,
+        type: 'regional_price_drop',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    if (fcmToken) {
+      tokens.push(fcmToken);
+      if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
+      tokenToRefs.get(fcmToken).push(db.collection('users').doc(userId));
+    }
+  });
+  await Promise.all(writes);
+
+  if (tokens.length === 0) return;
+
+  const response = await messaging.sendEachForMulticast({
+    tokens,
+    notification: {
+      title: 'Bölgende fiyat düştü',
+      body: `${chainName ? chainName + ' · ' : ''}${newPrice.toFixed(2)}₺`,
+    },
+    data: {
+      productId,
+      groupId: event.params.groupId,
+      type: 'regional_price_drop',
+    },
+  });
+
+  const cleanupPromises = [];
+  response.responses.forEach((result, index) => {
+    if (!result.error) return;
+    const code = result.error.code;
+    if (!INVALID_TOKEN_ERROR_CODES.has(code)) return;
+    const token = tokens[index];
+    const refs = tokenToRefs.get(token) || [];
+    refs.forEach((ref) =>
+      cleanupPromises.push(ref.update({ fcmToken: admin.firestore.FieldValue.delete() }))
+    );
+  });
+  await Promise.all(cleanupPromises);
+
+  logger.info('Bölgesel fiyat düşüş bildirimleri işlendi', {
+    groupId: event.params.groupId,
+    productId,
+    cityName,
+    districtName,
+    oldPrice,
+    newPrice,
+    recipients: alerts.length,
+    pushSent: response.successCount,
+    pushFailed: response.failureCount,
   });
 });

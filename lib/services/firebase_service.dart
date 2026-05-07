@@ -124,6 +124,48 @@ class FirebaseService {
     return (url: url, path: path);
   }
 
+  /// Upload a price-proof photo under `price_proofs/{uid}/…`.
+  ///
+  /// Storage rules (`storage.rules` `match /price_proofs/{uid}/{file=**}`)
+  /// only allow the owner to write — so the uid path segment must equal
+  /// `auth.currentUser.uid`. Returns the public download URL + storage path
+  /// so the price report can stash both for inline rendering and admin
+  /// cleanup later.
+  Future<({String url, String path})> uploadPriceProofImage({
+    required String uid,
+    required Uint8List bytes,
+    String? contentType,
+  }) async {
+    final current = auth.currentUser;
+    if (current == null || current.uid != uid) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'unauthenticated',
+        message: 'Fotoğraf yüklemek için tekrar giriş yapman gerekiyor.',
+      );
+    }
+    if (bytes.length > 5 * 1024 * 1024) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'image-too-large',
+        message: 'Fotoğraf 5 MB üstünde, daha küçük bir dosya seç.',
+      );
+    }
+    final detected = _detectImageType(bytes, fallback: contentType);
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path = 'price_proofs/$uid/$ts.${detected.extension}';
+    final ref = storage.ref(path);
+    final snap = await ref.putData(
+      bytes,
+      SettableMetadata(
+        contentType: detected.contentType,
+        cacheControl: 'public, max-age=86400',
+      ),
+    );
+    final url = await snap.ref.getDownloadURL();
+    return (url: url, path: path);
+  }
+
   ({String contentType, String extension}) _detectImageType(
     Uint8List bytes, {
     String? fallback,

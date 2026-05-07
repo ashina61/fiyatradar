@@ -175,3 +175,52 @@ class PriceGroupModel {
 
   bool get hasPhotoEvidence => photoReportCount > 0;
 }
+
+/// Profil "Katkılarım" listesi için yalın view-model. `priceReports`
+/// koleksiyonunun bir doc'undan beslenir — legacy `priceHistory` array'ine
+/// bağımlı değildir, yani mirror kalksa bile çalışır.
+class MyPriceContribution {
+  final String id;
+  final String productId;
+  final String productName;
+  final String chainName;
+  final String cityName;
+  final String districtName;
+  final double price;
+  final String? photoUrl;
+  final PriceReportSourceType sourceType;
+  final DateTime? createdAt;
+
+  const MyPriceContribution({
+    required this.id,
+    required this.productId,
+    required this.productName,
+    required this.chainName,
+    required this.cityName,
+    required this.districtName,
+    required this.price,
+    required this.photoUrl,
+    required this.sourceType,
+    required this.createdAt,
+  });
+
+  factory MyPriceContribution.fromDoc(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
+    final m = doc.data() ?? <String, dynamic>{};
+    final ts = m['createdAt'];
+    return MyPriceContribution(
+      id: doc.id,
+      productId: (m['productId'] ?? '') as String,
+      productName: (m['productName'] ?? '') as String,
+      chainName: (m['chainName'] ?? '') as String,
+      cityName: (m['cityName'] ?? '') as String,
+      districtName: (m['districtName'] ?? '') as String,
+      price: (m['price'] as num?)?.toDouble() ?? 0,
+      photoUrl: (m['photoUrl'] as String?)?.trim().isNotEmpty == true
+          ? (m['photoUrl'] as String)
+          : null,
+      sourceType: priceReportSourceTypeFromValue(m['sourceType'] as String?),
+      createdAt: ts is Timestamp ? ts.toDate() : null,
+    );
+  }
+}

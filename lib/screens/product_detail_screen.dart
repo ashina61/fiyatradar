@@ -642,64 +642,116 @@ class _RegionalGroupCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _TinyAction(
-                  icon: Icons.thumb_up_alt_outlined,
-                  label: 'Ben de gördüm',
-                  onTap: () async {
-                    final state = AppStateScope.of(context);
-                    try {
-                      await state.verifyRegionalPriceSeen(
+          Builder(builder: (ctx) {
+            final state = AppStateScope.of(ctx);
+            // Region-mismatch'te sessizce fail bırakmak yerine butonu disable
+            // edip sebebini badge olarak göster — kullanıcı baştan görsün.
+            final blockReason = state.canVerifyRegionalPrice(
+              city: group.cityName,
+              district: group.districtName,
+            );
+            return Row(
+              children: [
+                Expanded(
+                  child: _TinyAction(
+                    icon: Icons.thumb_up_alt_outlined,
+                    label: blockReason == null
+                        ? 'Ben de gördüm'
+                        : 'Bölgen değil',
+                    enabled: blockReason == null,
+                    onTap: () async {
+                      try {
+                        await state.verifyRegionalPriceSeen(
+                          productId: product.id,
+                          chainId: group.chainId,
+                          price: group.preferredPrice ??
+                              group.latestPrice ??
+                              0,
+                          city: group.cityName,
+                          district: group.districtName,
+                        );
+                        if (!ctx.mounted) return;
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(
+                              content: Text('Doğrulaman kaydedildi.')),
+                        );
+                      } catch (e) {
+                        if (!ctx.mounted) return;
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(content: Text('$e')),
+                        );
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _TinyAction(
+                    icon: Icons.edit_outlined,
+                    label: 'Farklı fiyat',
+                    onTap: () async {
+                      // Eskiden bölgeyi sessizce karşı gruba çekiyorduk —
+                      // Adana'daki kullanıcı Ankara grubunda "farklı fiyat"
+                      // deyince home/feed'i Ankara'ya kayıyordu. Artık
+                      // kullanıcıya "kendi bölgen mi, grup bölgesi mi?"
+                      // diye soruyoruz.
+                      final myCity = (state.cityName ?? '').trim();
+                      final myDistrict = (state.districtName ?? '').trim();
+                      final regionDiffers = myCity.toLowerCase() !=
+                              group.cityName.trim().toLowerCase() ||
+                          myDistrict.toLowerCase() !=
+                              group.districtName.trim().toLowerCase();
+                      if (regionDiffers) {
+                        final useGroupRegion = await showDialog<bool>(
+                          context: ctx,
+                          builder: (_) => AlertDialog(
+                            title: const Text(
+                                'Bölgeyi değiştirmek ister misin?'),
+                            content: Text(
+                              'Bu fiyat ${group.districtName} / ${group.cityName} için. '
+                              'Senin bölgen ${myDistrict.isEmpty ? "—" : "$myDistrict / $myCity"}. '
+                              'Farklı fiyatı hangi bölgeye ekleyelim?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: Text(myDistrict.isEmpty
+                                    ? 'Önce bölgemi seç'
+                                    : 'Kendi bölgem'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: Text(
+                                    '${group.districtName} / ${group.cityName}'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (useGroupRegion == null) return;
+                        if (useGroupRegion) {
+                          await state.updateRegionSettings(
+                            cityName: group.cityName,
+                            districtName: group.districtName,
+                          );
+                        }
+                      }
+                      state.setAddPricePreset(
                         productId: product.id,
                         chainId: group.chainId,
-                        price: group.preferredPrice ??
-                            group.latestPrice ??
-                            0,
-                        city: group.cityName,
-                        district: group.districtName,
+                        chainName: group.chainName,
                       );
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Doğrulaman kaydedildi.')),
+                      if (!ctx.mounted) return;
+                      Navigator.of(ctx).pushReplacement(
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const MainScreen(initialIndex: 2)),
                       );
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('$e')),
-                      );
-                    }
-                  },
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _TinyAction(
-                  icon: Icons.edit_outlined,
-                  label: 'Farklı fiyat',
-                  onTap: () {
-                    final state = AppStateScope.of(context);
-                    state.setAddPricePreset(
-                      productId: product.id,
-                      chainId: group.chainId,
-                      chainName: group.chainName,
-                    );
-                    state.updateRegionSettings(
-                      cityName: group.cityName,
-                      districtName: group.districtName,
-                    );
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                          builder: (_) =>
-                              const MainScreen(initialIndex: 2)),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -741,43 +793,49 @@ class _TinyAction extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.icon,
+    this.enabled = true,
   });
 
   final String label;
   final IconData? icon;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
+    final color = enabled ? FR.ink2 : FR.ink3;
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       borderRadius: FRRad.all(12),
-      child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: FR.bgElev,
-          borderRadius: FRRad.all(12),
-          border: Border.all(color: FR.hairline),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 13, color: FR.ink2),
-              const SizedBox(width: 6),
-            ],
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: frText(11, FontWeight.w800, color: FR.ink2),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.55,
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: FR.bgElev,
+            borderRadius: FRRad.all(12),
+            border: Border.all(color: FR.hairline),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 13, color: color),
+                const SizedBox(width: 6),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: frText(11, FontWeight.w800, color: color),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
