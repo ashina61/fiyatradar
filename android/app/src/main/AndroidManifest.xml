@@ -3,18 +3,22 @@
     <!-- Internet permission -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
-    <!-- Location permissions -->
+    <!-- Foreground location only — kullanıcı fiyat eklerken bölge/şube
+         tahmini için. ACCESS_BACKGROUND_LOCATION istemiyoruz; arka planda
+         konum okumuyoruz, böylece Play Store policy review tetiklenmez. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
-    <!-- Camera permission -->
+    <!-- Camera (image_picker proof + ileride barcode tarayıcı) -->
     <uses-permission android:name="android.permission.CAMERA"/>
 
-    <!-- Storage permissions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <!-- SDK 33+ için sadece READ_MEDIA_IMAGES; eski izinler maxSdkVersion
+         ile sınırlandı (modern cihazlarda istenmez). -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29"/>
 
     <!-- Notification permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -31,8 +35,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true"
-        android:requestLegacyExternalStorage="true">
+        android:usesCleartextTraffic="false">
 
         <activity
             android:name=".MainActivity"

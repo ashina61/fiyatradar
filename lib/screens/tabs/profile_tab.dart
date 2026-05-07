@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../models/gamification.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../admin_screen.dart';
 import '../login_screen.dart';
 import '../main_screen.dart';
+import '../paywall_screen.dart';
+import '../regional_leaderboard_screen.dart';
 import '../notifications_screen.dart';
 import '../profile_screens.dart';
 import '../product_request_screen.dart';
+import '../watchlist_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -16,13 +20,13 @@ class ProfileTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final rankPoints = state.points % 1000;
-    final rankPct = rankPoints / 1000.0;
     final isGuest = state.user?.isAnonymous ?? true;
 
     if (isGuest) {
       return const _GuestProfile();
     }
+
+    final snap = state.gamification;
 
     return SafeArea(
       bottom: false,
@@ -45,7 +49,15 @@ class ProfileTab extends StatelessWidget {
           const SizedBox(height: 14),
           _TrustCard(state: state),
           const SizedBox(height: 14),
-          _RankProgress(pct: rankPct, earned: rankPoints),
+          _LevelProgressCard(snap: snap),
+          const SizedBox(height: 14),
+          _StreakCard(snap: snap),
+          const SizedBox(height: 14),
+          _BadgesStrip(snap: snap),
+          const SizedBox(height: 14),
+          _RegionalRankCta(state: state),
+          const SizedBox(height: 14),
+          _PremiumCta(state: state),
           const SizedBox(height: 20),
           _StatGrid(state: state),
           const SizedBox(height: 20),
@@ -57,22 +69,20 @@ class ProfileTab extends StatelessWidget {
           const SizedBox(height: 10),
           _ListGroup(
             items: [
+              // Tek "Takiplerim" girişi — favoriler + alarmlar tek panelde
+              // sekmelerle. Eski iki ayrı satır ("Favoriler" + "Alarmlarım")
+              // kullanıcıya kafa karışıklığı veriyordu (hangisini kullanmak
+              // gerek?). Eski FavoritesScreen / AlertsScreen sınıfları geri
+              // uyum için duruyor, doğrudan deep-link açabilir.
               _ListItem(
-                icon: Icons.favorite_rounded,
-                title: 'Favoriler',
-                subtitle: '${state.favorites.length} ürün takipte',
+                icon: Icons.bookmark_rounded,
+                title: 'Takiplerim',
+                subtitle:
+                    '${state.favorites.length} favori · ${state.productAlerts.length} alarm',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const FavoritesScreen()),
-                ),
-              ),
-              _ListItem(
-                icon: Icons.notifications_active_rounded,
-                title: 'Alarmlarım',
-                subtitle: '${state.productAlerts.length} aktif fiyat alarmı',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AlertsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const WatchlistScreen()),
                 ),
               ),
               _ListItem(
@@ -312,26 +322,44 @@ class _IdentityCard extends StatelessWidget {
   }
 }
 
-class _RankProgress extends StatelessWidget {
-  const _RankProgress({required this.pct, required this.earned});
-  final double pct;
-  final int earned;
+class _LevelProgressCard extends StatelessWidget {
+  const _LevelProgressCard({required this.snap});
+  final GamificationSnapshot snap;
 
   @override
   Widget build(BuildContext context) {
-    return FRCard(
-      radius: FRRad.l,
+    final level = snap.level;
+    final next = FRLevels.nextOf(level);
+    final pct = snap.levelProgress;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text('SONRAKİ RÜTBEYE',
-                  style: frOverline(color: FR.ink3, size: 9.5)),
+              Text('SEVİYE · ${level.index + 1}',
+                  style: frOverline(color: FR.gold, size: 9.5)),
               const Spacer(),
-              Text('$earned / 1000 PT',
-                  style: frText(11.5, FontWeight.w800, color: FR.gold)),
+              Text(
+                next == null
+                    ? '${snap.points} PT · MAKSİMUM'
+                    : '${snap.points} / ${next.minPoints} PT',
+                style: frText(11.5, FontWeight.w800, color: FR.gold),
+              ),
             ],
           ),
+          const SizedBox(height: 4),
+          Text(level.name, style: frDisplay(20, FontWeight.w700)),
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: FRRad.all(999),
@@ -342,6 +370,13 @@ class _RankProgress extends StatelessWidget {
               backgroundColor: FR.bgElev,
             ),
           ),
+          if (next != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Bir sonraki: ${next.name} · ${(next.minPoints - snap.points)} PT kaldı',
+              style: frText(11, FontWeight.w700, color: FR.ink3),
+            ),
+          ],
         ],
       ),
     );
@@ -362,7 +397,8 @@ class _StatGrid extends StatelessWidget {
           'FAVORİ',
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+            MaterialPageRoute(
+                builder: (_) => const WatchlistScreen(initialTab: 0)),
           ),
         ),
         const SizedBox(width: 10),
@@ -372,7 +408,8 @@ class _StatGrid extends StatelessWidget {
           'ALARM',
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const AlertsScreen()),
+            MaterialPageRoute(
+                builder: (_) => const WatchlistScreen(initialTab: 1)),
           ),
         ),
         const SizedBox(width: 10),
@@ -781,6 +818,273 @@ class _ThemeToggleCardState extends State<_ThemeToggleCard> {
                     color: active ? FR.gold : FR.ink2)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _StreakCard extends StatelessWidget {
+  const _StreakCard({required this.snap});
+  final GamificationSnapshot snap;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = snap.streakActive;
+    final flame = snap.currentStreak >= 30
+        ? '🏆'
+        : snap.currentStreak >= 7
+            ? '⚡'
+            : snap.currentStreak >= 3
+                ? '🔥'
+                : '🌱';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: frSurface(radius: FRRad.l),
+      child: Row(children: [
+        Text(flame, style: const TextStyle(fontSize: 26)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('STREAK',
+                  style: frOverline(color: FR.ink3, size: 9.5)),
+              const SizedBox(height: 4),
+              Text(
+                snap.currentStreak == 0
+                    ? 'Streak yok — bugün ilk fiyatı ekleyebilirsin.'
+                    : '${snap.currentStreak} gün${active ? "" : " (kaybolmuş)"}',
+                style: frText(14, FontWeight.w800),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'En uzun: ${snap.longestStreak} gün · ${snap.contributions} fiyat · ${snap.verifyContributions} doğrulama',
+                style: frText(11, FontWeight.w600, color: FR.ink3),
+              ),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _BadgesStrip extends StatelessWidget {
+  const _BadgesStrip({required this.snap});
+  final GamificationSnapshot snap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: frSurface(radius: FRRad.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Text('ROZETLER',
+                style: frOverline(color: FR.ink3, size: 9.5)),
+            const Spacer(),
+            Text('${snap.badges.length} / ${FRBadges.all.length}',
+                style: frText(11, FontWeight.w800, color: FR.ink3)),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: FRBadges.all.map((b) {
+              final earned = snap.badges.contains(b.id);
+              return _BadgeChip(badge: b, earned: earned);
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeChip extends StatelessWidget {
+  const _BadgeChip({required this.badge, required this.earned});
+  final FRBadge badge;
+  final bool earned;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${badge.emoji} ${badge.name} · ${badge.description} · +${badge.rewardPoints} PT',
+            ),
+          ),
+        );
+      },
+      borderRadius: FRRad.all(999),
+      child: Opacity(
+        opacity: earned ? 1 : 0.45,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: earned ? FR.gold.withOpacity(.12) : FR.bgElev,
+            borderRadius: FRRad.all(999),
+            border: Border.all(
+              color: earned ? FR.gold.withOpacity(.45) : FR.hairline,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(badge.emoji, style: const TextStyle(fontSize: 14)),
+              const SizedBox(width: 6),
+              Text(
+                badge.name,
+                style: frText(11.5, FontWeight.w800,
+                    color: earned ? FR.gold : FR.ink3),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RegionalRankCta extends StatelessWidget {
+  const _RegionalRankCta({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final city = (state.cityName ?? '').trim();
+    final district = (state.districtName ?? '').trim();
+    final region = (city.isEmpty || district.isEmpty)
+        ? 'Bölgeni seç'
+        : '$district / $city';
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => const RegionalLeaderboardScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: FR.surface,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.gold.withOpacity(.45)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FR.gold.withOpacity(.16),
+              borderRadius: FRRad.all(12),
+              border: Border.all(color: FR.gold.withOpacity(.45)),
+            ),
+            child: Icon(Icons.emoji_events_rounded, color: FR.gold, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Bölgemde sıralamam',
+                    style: frText(13.5, FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                  region,
+                  style: frText(11.5, FontWeight.w700, color: FR.ink3),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_rounded, size: 18, color: FR.gold),
+        ]),
+      ),
+    );
+  }
+}
+
+class _PremiumCta extends StatelessWidget {
+  const _PremiumCta({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final premium = state.premium;
+    final active = premium.isActive;
+    final remaining = premium.remaining;
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: active
+              ? LinearGradient(
+                  colors: [FR.surfaceHi, FR.surfaceLo],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : LinearGradient(
+                  colors: [FR.gold, FR.goldDeep],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(
+            color: active ? FR.goldDeep.withOpacity(.45) : FR.goldDeep,
+          ),
+          boxShadow: frGoldGlow(opacity: active ? .12 : .25),
+        ),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: active ? FR.gold.withOpacity(.16) : FR.bg,
+              borderRadius: FRRad.all(12),
+              border: Border.all(
+                color: active ? FR.gold.withOpacity(.45) : FR.gold,
+              ),
+            ),
+            child: Icon(Icons.workspace_premium_rounded,
+                color: FR.gold, size: 19),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  active ? premium.planLabel : 'FiyatRadar Pro\'ya geç',
+                  style: frText(13.5, FontWeight.w800,
+                      color: active ? FR.ink : FR.onGold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  active
+                      ? (remaining == null
+                          ? 'Aktif abonelik'
+                          : 'Yenilemeye ${remaining.inDays} gün')
+                      : 'Bayat-fiyat alarmı, leaderboard top-100, reklamsız',
+                  style: frText(11, FontWeight.w700,
+                      color: active ? FR.ink3 : FR.onGold.withOpacity(.85)),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_rounded,
+              size: 18, color: active ? FR.gold : FR.onGold),
+        ]),
       ),
     );
   }

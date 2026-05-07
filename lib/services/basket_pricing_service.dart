@@ -30,6 +30,10 @@ class BasketStoreEstimate {
   final String confidence;
   final String usedPriceSource;
   final List<String> missingProductIds;
+  /// Bu marketteki en eski "preferred" fiyatın yaşı (gün). null → tarih
+  /// bilgisi yok / hesap edilemedi. UI bu değeri "freshness" badge'i olarak
+  /// gösterip 30 gün üstü için "bayat fiyat" uyarısı yapar.
+  final int? oldestPriceAgeDays;
 
   const BasketStoreEstimate({
     required this.chainName,
@@ -39,7 +43,17 @@ class BasketStoreEstimate {
     required this.confidence,
     required this.usedPriceSource,
     required this.missingProductIds,
+    required this.oldestPriceAgeDays,
   });
+
+  /// Sepetin yüzde kaçı bu marketten karşılanabiliyor (0.0 .. 1.0).
+  double get coverage {
+    final total = foundItemCount + missingItemCount;
+    return total <= 0 ? 0 : foundItemCount / total;
+  }
+
+  bool get isStale =>
+      oldestPriceAgeDays != null && oldestPriceAgeDays! > 30;
 }
 
 class BasketMixedEstimate {
@@ -98,7 +112,9 @@ class BasketPricingService {
   List<BasketStoreEstimate> calculateSingleStoreTotals({
     required List<({String productId, int quantity})> items,
     required List<PriceGroupModel> groups,
+    DateTime? now,
   }) {
+    final reference = now ?? DateTime.now();
     final byChain = <String, List<PriceGroupModel>>{};
     for (final g in groups) {
       if (g.chainName.trim().isEmpty) continue;
@@ -116,6 +132,7 @@ class BasketPricingService {
       final missing = <String>[];
       final sources = <String>[];
       final confidenceScores = <int>[];
+      int? oldestAgeDays;
       for (final item in items) {
         final g = groupByProduct[item.productId];
         final unit = g?.preferredPrice;
@@ -127,6 +144,12 @@ class BasketPricingService {
         found += 1;
         sources.add(g!.preferredPriceSource);
         confidenceScores.add(_confidenceScore(g.confidence));
+        if (g.lastReportedAt != null) {
+          final ageDays = reference.difference(g.lastReportedAt!).inDays;
+          if (oldestAgeDays == null || ageDays > oldestAgeDays) {
+            oldestAgeDays = ageDays;
+          }
+        }
       }
 
       out.add(
@@ -138,15 +161,22 @@ class BasketPricingService {
           confidence: _confidenceLabel(confidenceScores),
           usedPriceSource: _dominant(sources),
           missingProductIds: missing,
+          oldestPriceAgeDays: oldestAgeDays,
         ),
       );
     }
 
+    // Sıralama:
+    //   1) Coverage en yüksek olan kazanır — eksik ürünlerle "ucuz" görünmek
+    //      en sık şikayet olan UX bug'ı.
+    //   2) Eşitlikte: bayat olmayan (ageDays<=30) önce.
+    //   3) Yine eşitlikte: ucuz olan.
     out.sort((a, b) {
-      final coverageA = a.foundItemCount / (a.foundItemCount + a.missingItemCount + 0.0001);
-      final coverageB = b.foundItemCount / (b.foundItemCount + b.missingItemCount + 0.0001);
-      final byCoverage = coverageB.compareTo(coverageA);
+      final byCoverage = b.coverage.compareTo(a.coverage);
       if (byCoverage != 0) return byCoverage;
+      final aStale = a.isStale ? 1 : 0;
+      final bStale = b.isStale ? 1 : 0;
+      if (aStale != bStale) return aStale - bStale;
       return a.estimatedTotal.compareTo(b.estimatedTotal);
     });
     return out;
@@ -193,9 +223,17 @@ class BasketPricingService {
     if (singles.isEmpty || mixed == null) return null;
     final bestSingle = singles.first;
     final diff = bestSingle.estimatedTotal - mixed.estimatedTotal;
-    final message = diff < 60
-        ? '${diff.toStringAsFixed(0)} TL fark için ${mixed.marketCount} market gezmek gerekebilir. Tek market daha mantıklı olabilir.'
-        : 'Yaklaşık ${diff.toStringAsFixed(0)} TL fark var. Sepeti ${mixed.marketCount} markete bölmek mantıklı görünüyor.';
+    // Eşik artık sabit ₺60 değil — best-single toplamının %10'u veya
+    // ₺80'den hangisi büyükse o. Pahalı sepetlerde küçük yüzde fark için
+    // 4 market gezdirmek mantıksız; ucuz sepetlerde ₺60 farkın bile
+    // değeri var.
+    final threshold = (bestSingle.estimatedTotal * 0.10).clamp(80.0, 250.0);
+    // Mixed öneri 3+ markete bölünüyorsa kullanıcı pratikte yapmaz —
+    // tek market öner.
+    final tooManyStops = mixed.marketCount >= 3;
+    final message = (diff < threshold || tooManyStops)
+        ? '~₺${diff.toStringAsFixed(0)} fark için ${mixed.marketCount} market gezmek pratik değil. Tek market daha mantıklı.'
+        : 'Yaklaşık ₺${diff.toStringAsFixed(0)} fark var. Sepeti ${mixed.marketCount} markete bölmek mantıklı görünüyor.';
     return BasketSmartSuggestion(
       bestSingleMarket: bestSingle,
       cheapestMixed: mixed,

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Light-mode splash. FR brand bg + center logo so the user doesn't stare
-     at a blank white frame between OS-launch and Flutter's first frame. -->
+<!-- Dark-mode splash variant. Same FR logo on a dark surface so the system
+     splash doesn't blast a white frame on devices in dark mode. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/fr_splash_bg"/>
+    <item android:drawable="@color/fr_splash_bg_dark"/>
     <item>
         <bitmap
             android:gravity="center"

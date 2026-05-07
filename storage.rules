@@ -29,6 +29,19 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Community price-proof photos. Stored under
+    //   price_proofs/{uid}/{groupId}/{ts}.jpg
+    // so any authenticated user can write their own proofs but cannot
+    // overwrite someone else's; reads are public so the price card can
+    // render the proof inline.
+    match /price_proofs/{uid}/{file=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // Default deny.
     match /{path=**} {
       allow read, write: if false;

@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'admin/admin_crud_screens.dart';
+import 'admin/admin_price_groups_screen.dart';
 import 'admin/admin_price_reports_screen.dart';
 import 'admin/admin_shared_widgets.dart';
 import 'admin/admin_store_management_screen.dart';
@@ -1267,6 +1268,27 @@ class _SettingsTab extends StatelessWidget {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminUserEditScreen()),
+        ),
+      ),
+      _GenericRow(
+        title: 'Bölgesel fiyat grupları',
+        subtitle: 'priceGroups · sayaç sıfırla · şüpheli grup işaretle',
+        icon: Icons.hub_outlined,
+        withActions: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminPriceGroupsScreen()),
+        ),
+      ),
+      _GenericRow(
+        title: 'Bekleyen marketler',
+        subtitle: 'Topluluk önerilen yerleri onayla / reddet',
+        icon: Icons.storefront_outlined,
+        withActions: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const AdminStorePlacesPendingScreen()),
         ),
       ),
       _GenericRow(

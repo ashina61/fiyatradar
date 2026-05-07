@@ -727,3 +727,168 @@ describe('adminActions rules', () => {
     );
   });
 });
+
+describe('priceGroups rules', () => {
+  test('signed-in user can create with own uid as lastReporterId', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'priceGroups/g_a'), {
+        productId: 'p1',
+        productName: 'Süt 1L',
+        chainId: 'a101',
+        chainName: 'A101',
+        cityId: 'adana',
+        cityName: 'Adana',
+        districtId: 'seyhan',
+        districtName: 'Seyhan',
+        latestPrice: 14.99,
+        avgPrice: 14.99,
+        reportCount: 1,
+        verifiedCount: 0,
+        photoReportCount: 0,
+        confidence: 'low',
+        lastReporterId: 'user1',
+      }),
+    );
+  });
+
+  test('cannot impersonate another user as lastReporterId', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(
+      setDoc(doc(db, 'priceGroups/g_b'), {
+        productId: 'p1',
+        chainId: 'a101',
+        cityId: 'adana',
+        districtId: 'seyhan',
+        reportCount: 1,
+        verifiedCount: 0,
+        confidence: 'low',
+        lastReporterId: 'someoneElse',
+      }),
+    );
+  });
+
+  test('cannot inflate verifiedCount by more than +1', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'priceGroups/g_inflate'), {
+        productId: 'p1',
+        chainId: 'a101',
+        cityId: 'adana',
+        districtId: 'seyhan',
+        reportCount: 1,
+        verifiedCount: 0,
+        confidence: 'low',
+        lastReporterId: 'user1',
+      });
+    });
+    await assertFails(
+      updateDoc(doc(db, 'priceGroups/g_inflate'), {
+        verifiedCount: 99999,
+        lastReporterId: 'user1',
+      }),
+    );
+  });
+
+  test('cannot rewrite chain identity after creation', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'priceGroups/g_immut'), {
+        productId: 'p1',
+        chainId: 'a101',
+        cityId: 'adana',
+        districtId: 'seyhan',
+        reportCount: 1,
+        verifiedCount: 0,
+        confidence: 'low',
+        lastReporterId: 'user1',
+      });
+    });
+    await assertFails(
+      updateDoc(doc(db, 'priceGroups/g_immut'), {
+        chainId: 'a101_evil',
+        lastReporterId: 'user1',
+      }),
+    );
+  });
+});
+
+describe('priceReportDedupes rules', () => {
+  test('first verifier may create with self-only verifierUserIds map', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'priceReportDedupes/dk1'), {
+        groupId: 'g1',
+        reportId: 'r1',
+        dedupeKey: 'dk1',
+        verifiedCount: 1,
+        verifierUserIds: { user1: true },
+      }),
+    );
+  });
+
+  test('cannot impersonate other user in verifierUserIds', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(
+      setDoc(doc(db, 'priceReportDedupes/dk2'), {
+        groupId: 'g1',
+        reportId: 'r1',
+        dedupeKey: 'dk2',
+        verifiedCount: 1,
+        verifierUserIds: { user2: true },
+      }),
+    );
+  });
+
+  test('cannot double-credit yourself on update', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'priceReportDedupes/dk3'), {
+        groupId: 'g1',
+        reportId: 'r1',
+        dedupeKey: 'dk3',
+        verifiedCount: 1,
+        verifierUserIds: { user1: true },
+      });
+    });
+    await assertFails(
+      updateDoc(doc(db, 'priceReportDedupes/dk3'), {
+        dedupeKey: 'dk3',
+        groupId: 'g1',
+        verifiedCount: 2,
+        verifierUserIds: { user1: true },
+      }),
+    );
+  });
+});
+
+describe('users.points delta cap', () => {
+  test('cannot self-bump points beyond +50 in one update', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(
+      updateDoc(doc(db, 'users/user1'), {
+        points: 9999,
+      }),
+    );
+  });
+
+  test('can bump points by +10 (one report worth)', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/user1'), {
+        points: 10,
+      }),
+    );
+  });
+
+  test('streak/badge fields are writable by owner', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/user1'), {
+        currentStreak: 1,
+        longestStreak: 1,
+        badges: ['first_report'],
+      }),
+    );
+  });
+});

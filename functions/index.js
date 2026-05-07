@@ -1,5 +1,9 @@
 const admin = require('firebase-admin');
-const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+} = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions');
 
 admin.initializeApp();
@@ -57,10 +61,28 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
   const productId = event.params.productId;
   const productName = (after.name || 'Ürün').toString();
 
-  // Find every user that has set an alert on this product. Doc id is the
-  // productId so we can use a collection group query and match by id.
-  const alertsSnap = await db.collectionGroup('productAlerts').get();
-  const interested = alertsSnap.docs.filter((d) => d.id === productId);
+  // ÖNCE: full collectionGroup scan + client-side `d.id === productId`.
+  // Bu her ürün update'inde TÜM kullanıcıların TÜM alarmlarını okuyordu →
+  // 100 alarm = 100 read × her drop. Dakikada 10 drop olsa bile maliyet
+  // patlıyor.
+  // SONRA: `productId` field'ı üzerinden indexli sorgu. Client tarafı
+  // `setProductAlert` artık bu field'ı da yazıyor; eski dokümanlarda
+  // alan yoksa fallback olarak doc id'ye düşüyoruz (geri uyumluluk).
+  let interested = [];
+  try {
+    const alertsSnap = await db
+      .collectionGroup('productAlerts')
+      .where('productId', '==', productId)
+      .get();
+    interested = alertsSnap.docs;
+  } catch (e) {
+    logger.warn('productAlerts indexed query failed, falling back to scan', {
+      error: e.message,
+      productId,
+    });
+    const scan = await db.collectionGroup('productAlerts').get();
+    interested = scan.docs.filter((d) => d.id === productId);
+  }
   if (interested.length === 0) {
     logger.info('Fiyat düştü ama alarm kuran kullanıcı yok.', {
       productId,
@@ -96,11 +118,15 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-    // 2) Push token (best-effort).
+    // 2) Push token (best-effort) + opt-in kontrolleri.
     try {
       const userSnap = await db.collection('users').doc(userId).get();
-      const fcmToken = ((userSnap.data() || {}).fcmToken || '').toString().trim();
-      if (fcmToken) {
+      const u = userSnap.data() || {};
+      const fcmToken = (u.fcmToken || '').toString().trim();
+      const settings = (u.settings || {}).notifications || {};
+      const pushEnabled = settings.pushEnabled !== false;
+      const priceAlertsEnabled = settings.priceAlertsEnabled !== false;
+      if (fcmToken && pushEnabled && priceAlertsEnabled) {
         tokens.push(fcmToken);
         if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
         tokenToRefs.get(fcmToken).push(userSnap.ref);
@@ -155,3 +181,364 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
     cleanedTokens: cleanupPromises.length,
   });
 });
+
+/**
+ * Yeni bölgesel omurga için fiyat düşüş tetikleyicisi.
+ *
+ * `priceGroups/{groupId}` bir update aldığında, eğer `trustedPrice` (yoksa
+ * `latestPrice`) düştüyse aynı bölgedeki ürünü takip eden kullanıcılara
+ * notification doc + FCM push gönderiyoruz. Eski `onProductPriceDrop`
+ * legacy `priceHistory` array'ine bağlıydı; mirror kaldırıldığında bu
+ * fonksiyon devreye girip sessizce ölmesini engeller.
+ *
+ * Şema notu: priceGroups doc'unun `productId`, `cityId`, `districtId`,
+ * `trustedPrice`, `latestPrice`, `chainName` alanları olmak zorunda.
+ * Kullanıcı alarmları `users/{uid}/productAlerts/{productId}` altında ve
+ * `productId` field'ı doc'ta indexli olarak yazılı (bkz: setProductAlert).
+ */
+exports.onPriceGroupUpdate = onDocumentUpdated('priceGroups/{groupId}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+
+  const oldPrice = Number(before.trustedPrice ?? before.latestPrice);
+  const newPrice = Number(after.trustedPrice ?? after.latestPrice);
+  if (!Number.isFinite(oldPrice) || !Number.isFinite(newPrice)) return;
+  if (newPrice >= oldPrice) return;
+
+  const productId = (after.productId || '').toString();
+  if (!productId) return;
+  const cityName = (after.cityName || '').toString();
+  const districtName = (after.districtName || '').toString();
+  const chainName = (after.chainName || '').toString();
+
+  // Sadece bu ürünü takip eden kullanıcıları çek (indexed).
+  let alerts;
+  try {
+    const snap = await db
+      .collectionGroup('productAlerts')
+      .where('productId', '==', productId)
+      .get();
+    alerts = snap.docs;
+  } catch (e) {
+    logger.warn('priceGroup alerts query failed', {
+      groupId: event.params.groupId,
+      error: e.message,
+    });
+    return;
+  }
+  if (alerts.length === 0) return;
+
+  const tokens = [];
+  const tokenToRefs = new Map();
+  const writes = alerts.map(async (doc) => {
+    const data = doc.data() || {};
+    const target = Number(data.targetPrice);
+    if (Number.isFinite(target) && target > 0 && newPrice > target) return;
+    const userId = doc.ref.parent.parent.id;
+
+    // Bölge filtresi: alarm sahibinin profil bölgesi grubun bölgesiyle
+    // eşleşmiyorsa bildirme. Aksi halde Adana'da yaşayan kullanıcı
+    // Ankara'daki bir grupta düşüş için push alıyor — gürültü olur.
+    let userCity = '';
+    let userDistrict = '';
+    let fcmToken = '';
+    let regionalDropPushEnabled = true;
+    let pushEnabled = true;
+    try {
+      const userSnap = await db.collection('users').doc(userId).get();
+      const u = userSnap.data() || {};
+      userCity = (u.cityName || u.city || '').toString();
+      userDistrict = (u.district || u.neighborhood || '').toString();
+      fcmToken = (u.fcmToken || '').toString().trim();
+      const settings = (u.settings || {}).notifications || {};
+      // Opt-in flag'leri default true (kullanıcı hiç dokunmadıysa açık);
+      // explicit false ise push'u atlıyoruz ama in-app notification doc'u
+      // yine yazıyoruz — bildirim merkezi sinyali kaybolmasın.
+      pushEnabled = settings.pushEnabled !== false;
+      regionalDropPushEnabled =
+        settings.regionalDropPushEnabled !== false;
+    } catch (e) {
+      logger.warn('priceGroup: user fetch failed', { userId, error: e.message });
+      return;
+    }
+    if (
+      userCity &&
+      userDistrict &&
+      cityName &&
+      districtName &&
+      (userCity.toLowerCase() !== cityName.toLowerCase() ||
+        userDistrict.toLowerCase() !== districtName.toLowerCase())
+    ) {
+      return;
+    }
+
+    await db
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .add({
+        title: 'Bölgende fiyat düştü',
+        body: `${chainName ? chainName + ' · ' : ''}${oldPrice.toFixed(2)}₺ → ${newPrice.toFixed(2)}₺`,
+        productId,
+        groupId: event.params.groupId,
+        type: 'regional_price_drop',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    // Push'u sadece opt-in kullanıcılara gönder; in-app doc yine yazıldı.
+    if (fcmToken && pushEnabled && regionalDropPushEnabled) {
+      tokens.push(fcmToken);
+      if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
+      tokenToRefs.get(fcmToken).push(db.collection('users').doc(userId));
+    }
+  });
+  await Promise.all(writes);
+
+  if (tokens.length === 0) return;
+
+  const response = await messaging.sendEachForMulticast({
+    tokens,
+    notification: {
+      title: 'Bölgende fiyat düştü',
+      body: `${chainName ? chainName + ' · ' : ''}${newPrice.toFixed(2)}₺`,
+    },
+    data: {
+      productId,
+      groupId: event.params.groupId,
+      type: 'regional_price_drop',
+    },
+  });
+
+  const cleanupPromises = [];
+  response.responses.forEach((result, index) => {
+    if (!result.error) return;
+    const code = result.error.code;
+    if (!INVALID_TOKEN_ERROR_CODES.has(code)) return;
+    const token = tokens[index];
+    const refs = tokenToRefs.get(token) || [];
+    refs.forEach((ref) =>
+      cleanupPromises.push(ref.update({ fcmToken: admin.firestore.FieldValue.delete() }))
+    );
+  });
+  await Promise.all(cleanupPromises);
+
+  logger.info('Bölgesel fiyat düşüş bildirimleri işlendi', {
+    groupId: event.params.groupId,
+    productId,
+    cityName,
+    districtName,
+    oldPrice,
+    newPrice,
+    recipients: alerts.length,
+    pushSent: response.successCount,
+    pushFailed: response.failureCount,
+  });
+});
+
+/**
+ * FiyatRadar Pro satın alma doğrulayıcı.
+ *
+ * `purchaseQueue/{uid_productId_purchaseId}` doc create edildiğinde devreye
+ * girer. Üretimde Google Play Developer API
+ * (`androidpublisher.purchases.subscriptionsv2.get`) ile token doğrulanır
+ * ve subscription metadata (`expiryTimeMillis`, `autoRenewing`) okunur.
+ * Bu iskelet **stub** — gerçek Play Developer client setup'ı için service
+ * account key Cloud Functions config'ine eklenmesi gerek
+ * (`firebase functions:config:set play.serviceaccount=...`).
+ *
+ * Stub davranışı: gelen verificationData boş değilse purchase'ı
+ * "geçerli" kabul eder ve subscription productId'ye göre 30 / 365 gün
+ * eklenir; üretimde Play API döndüğü gerçek expiry kullanılır.
+ *
+ * `users/{uid}` rules `immutable('isPremium')` koyduğu için bu function
+ * admin SDK kullanmak zorunda — istemci aynı write'ı yapamaz.
+ */
+exports.verifyPurchase = onDocumentCreated(
+  'purchaseQueue/{purchaseDoc}',
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+    if (data.consumed === true) return;
+    const userId = (data.userId || '').toString();
+    if (!userId) return;
+    const productId = (data.productId || '').toString();
+    const verificationData = (data.verificationData || '').toString();
+    if (!verificationData) {
+      logger.warn('verifyPurchase: empty verificationData', {
+        purchaseDoc: event.params.purchaseDoc,
+      });
+      return;
+    }
+
+    // TODO(prod): Play Developer API çağrısı — şu an stub.
+    // const auth = new google.auth.GoogleAuth({
+    //   scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+    // });
+    // const sub = await androidpublisher.purchases.subscriptionsv2.get({
+    //   packageName: 'com.fiyatradar', token: verificationData,
+    // });
+    // const expiryMs = Number(sub.data.lineItems[0].expiryTime);
+    // const autoRenew = sub.data.lineItems[0].autoRenewingPlan != null;
+
+    // Stub: productId'ye göre süre.
+    const now = Date.now();
+    const days = productId === 'fr_pro_yearly'
+      ? 365
+      : productId === 'fr_pro_monthly'
+      ? 30
+      : 0;
+    if (days <= 0) {
+      logger.warn('verifyPurchase: unknown productId', { productId });
+      return;
+    }
+    const expiry = new Date(now + days * 24 * 60 * 60 * 1000);
+
+    try {
+      await db.collection('users').doc(userId).set(
+        {
+          isPremium: true,
+          premiumUntil: admin.firestore.Timestamp.fromDate(expiry),
+          premiumPlan: productId,
+          premiumProductId: productId,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      await event.data.ref.set(
+        {
+          consumed: true,
+          verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          stub: true,
+        },
+        { merge: true },
+      );
+      logger.info('Premium aktivasyon (stub)', {
+        userId,
+        productId,
+        expiresAt: expiry.toISOString(),
+      });
+    } catch (e) {
+      logger.error('verifyPurchase write failed', { error: e.message });
+    }
+  },
+);
+
+/**
+ * Haftalık özet bildirimi.
+ *
+ * Her Pazartesi 09:00 Europe/Istanbul'da çalışır. Aktif kullanıcılara
+ * (settings.weeklySummaryEnabled !== false) son 7 günde bölgelerinde
+ * bildirilen yeni fiyat sayısını + Cloud Function tetikçisinin tamamladığı
+ * push'u gönderir.
+ *
+ * Üretimde maliyet kontrolü için kullanıcı segment'leme önerilir
+ * (örn. son 30 gün giriş yapmış kullanıcılar). Şu an basit: tüm
+ * kullanıcı doc'larını tarar.
+ */
+exports.weeklySummary = onSchedule(
+  {
+    schedule: '0 9 * * 1', // Pazartesi 09:00
+    timeZone: 'Europe/Istanbul',
+  },
+  async () => {
+    const cutoff = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    );
+    const usersSnap = await db.collection('users').get();
+    const tokens = [];
+    const tokenToRefs = new Map();
+    let inAppSent = 0;
+
+    for (const u of usersSnap.docs) {
+      const m = u.data() || {};
+      const settings = (m.settings || {}).notifications || {};
+      const weeklyEnabled = settings.weeklySummaryEnabled !== false;
+      const pushEnabled = settings.pushEnabled !== false;
+      const cityName = (m.cityName || m.city || '').toString();
+      const districtName = (m.district || m.neighborhood || '').toString();
+      if (!cityName || !districtName) continue;
+      if (!weeklyEnabled) continue;
+
+      const cityId = cityName.trim().toLowerCase().replace(/\s+/g, '_');
+      const districtId = districtName.trim().toLowerCase().replace(/\s+/g, '_');
+      let count = 0;
+      try {
+        const reportsSnap = await db
+          .collection('priceReports')
+          .where('cityId', '==', cityId)
+          .where('districtId', '==', districtId)
+          .where('createdAt', '>=', cutoff)
+          .limit(100)
+          .get();
+        count = reportsSnap.size;
+      } catch (e) {
+        logger.warn('weeklySummary count failed', {
+          userId: u.id,
+          error: e.message,
+        });
+        continue;
+      }
+      if (count <= 0) continue;
+
+      // 1) In-app doc.
+      try {
+        await db
+          .collection('users')
+          .doc(u.id)
+          .collection('notifications')
+          .add({
+            title: 'Haftalık özet',
+            body:
+              `${districtName} bölgesinde 7 günde ${count} yeni fiyat bildirildi.`,
+            type: 'weekly_summary',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        inAppSent++;
+      } catch (e) {
+        logger.warn('weeklySummary in-app write failed', {
+          userId: u.id,
+          error: e.message,
+        });
+      }
+
+      // 2) Push token (opt-in).
+      const fcmToken = (m.fcmToken || '').toString().trim();
+      if (fcmToken && pushEnabled) {
+        tokens.push(fcmToken);
+        if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
+        tokenToRefs.get(fcmToken).push(u.ref);
+      }
+    }
+
+    if (tokens.length > 0) {
+      const response = await messaging.sendEachForMulticast({
+        tokens,
+        notification: {
+          title: 'Haftalık özet',
+          body: 'Bölgendeki son 7 günün fiyat raporu hazır.',
+        },
+        data: { type: 'weekly_summary' },
+      });
+      const cleanupPromises = [];
+      response.responses.forEach((result, index) => {
+        if (!result.error) return;
+        const code = result.error.code;
+        if (!INVALID_TOKEN_ERROR_CODES.has(code)) return;
+        const token = tokens[index];
+        const refs = tokenToRefs.get(token) || [];
+        refs.forEach((ref) =>
+          cleanupPromises.push(
+            ref.update({ fcmToken: admin.firestore.FieldValue.delete() }),
+          ),
+        );
+      });
+      await Promise.all(cleanupPromises);
+      logger.info('weeklySummary gönderildi', {
+        inAppSent,
+        pushSent: response.successCount,
+      });
+    } else {
+      logger.info('weeklySummary: push yok, in-app yazıldı', { inAppSent });
+    }
+  },
+);

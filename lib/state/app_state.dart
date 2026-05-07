@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/comment.dart';
+import '../models/gamification.dart';
 import '../models/price_v1.dart';
 import '../models/price_reporting.dart';
 import '../models/product.dart';
@@ -13,17 +14,34 @@ import '../models/turkey_locations.dart';
 import '../services/basket_pricing_service.dart';
 import '../services/firebase_service.dart';
 import '../services/messaging_service.dart';
+import '../services/premium_service.dart';
 import '../services/price_report_service.dart';
 
+// NOT: AppState god-class refactor (extension/part'lara bölme) Aşama 3+
+// backlog'unda kaldı. Test pasta olmadan private state alanlarını
+// disturb etmek riskli; önce widget testleri yazılmalı, sonra
+// `app_state.gamification.dart`, `app_state.admin.dart`,
+// `app_state.regional.dart` part dosyalarına dağıtım yapılabilir.
+// Bu commit'te yalnız feature delivery + minor temizlik.
+
 /// Points awarded for different actions in the rewards system.
+///
+/// IMPORTANT: Tek bir aksiyonun puan ödülü 50'yi aşmamalı. Firestore rules
+/// (`hasSafeUserGamificationMutation`) tek update'te `points` artışını +50
+/// ile sınırlıyor; daha yüksek bir ödül vermek istersen önce rule'u güncelle.
 class PointsRules {
   static const int addPrice = 10;
   static const int addProduct = 25;
+  static const int photoBonus = 5; // Fotoğraflı fiyat ekstra ödülü
   static const int favorite = 2;
   static const int verifyVote = 1;
+
+  /// Daily login bonus — şu an çağrılmıyor (streak/login akışı henüz yok).
+  /// Streak özelliği eklendiğinde Cloud Function tarafından dağıtılmalı,
+  /// client tek başına self-credit verilemeyecek şekilde tasarlanmalı.
   static const int dailyLogin = 5;
 
-  /// 100 puan = ₺5 indirim
+  /// 100 puan = ₺5 indirim (gelecekteki Premium / kupon akışı için tutuluyor).
   static const double pointValueTl = 0.05;
 }
 
@@ -47,6 +65,26 @@ class VerificationRules {
 /// that was committed to Firestore.
 enum VoteKind { up, down }
 enum HomePriceScope { nearby, city, online, turkeyWide }
+
+/// Internal: contribution kind for the gamification reward pipeline.
+enum _ContribKind { report, verify }
+
+/// `priceHistory` legacy mirror'ını kontrol eden feature flag.
+///
+/// Audit raporundaki Aşama 3 maddesi: "priceHistory array tamamen
+/// kaldırma + Cloud Function geçişi". Flag'i `false` yapıp release
+/// alındığında:
+///   1. AppState.addRegionalPrice artık priceEntries doc + array push
+///      yapmıyor; yeni omurga (priceReports + priceGroups) tek otorite.
+///   2. functions/index.js onProductPriceDrop tetiklenmez (priceHistory
+///      değişmez); bunun yerine `onPriceGroupUpdate` push'lar.
+///   3. Profil "Katkılarım" zaten priceReports'tan okuyor → etkilenmez.
+///   4. Product detail _DetailHeadlinePrice legacy lowestPrice fallback'i
+///      kullanmaya devam eder (mevcut katalog için tarihsel veri).
+///
+/// İlk release `true` (geri uyum); büyük şehirlerde bir sonraki sürümde
+/// `false`'a çekilecek.
+const bool kEnableLegacyPriceHistoryMirror = true;
 
 /// Result of a community verification vote.
 class VoteResult {
@@ -142,6 +180,12 @@ class AppState extends ChangeNotifier {
   bool pushNotificationsEnabled = true;
   bool priceAlertsEnabled = true;
   bool weeklySummaryEnabled = true;
+  /// `regional_price_drop` push'larına abonelik. Cloud Function
+  /// `onPriceGroupUpdate` notification doc'unu yine yazar (in-app sinyali
+  /// kaybolmaması için), ama push gönderirken bu bayrağı kontrol etmesi
+  /// gerekiyor (TODO: functions/index.js bu alanı henüz okumuyor — bir
+  /// sonraki Cloud Functions deploy'unda eklenmeli).
+  bool regionalDropPushEnabled = true;
   bool twoFactorEnabled = false;
   bool biometricEnabled = false;
   String? twoFactorPin;
@@ -152,6 +196,40 @@ class AppState extends ChangeNotifier {
   int trustWrongTotal = 0;
   int trustTotalVotes = 0;
   int contributions = 0;
+
+  // Gamification: streak + verifyContributions + photoContributions
+  int verifyContributions = 0;
+  int photoContributions = 0;
+  int currentStreak = 0;
+  int longestStreak = 0;
+  DateTime? lastContributionDay;
+  Set<String> badges = <String>{};
+
+  // FiyatRadar Pro durumu — Cloud Function (purchaseQueue → Play
+  // Developer API doğrulama) yazar; istemci yalnız okur. UI tarafı
+  // `state.premium.isActive` getter'ı üzerinden gating yapar.
+  bool _isPremium = false;
+  DateTime? _premiumUntil;
+  String? _premiumPlan;
+  PremiumStatus get premium => PremiumStatus(
+        isActive: _isPremium &&
+            (_premiumUntil == null ||
+                _premiumUntil!.isAfter(DateTime.now())),
+        until: _premiumUntil,
+        plan: _premiumPlan,
+      );
+
+  /// Birleşik gamification snapshot — UI'nın kullanması için tek nokta.
+  GamificationSnapshot get gamification => GamificationSnapshot(
+        points: points,
+        contributions: contributions,
+        verifyContributions: verifyContributions,
+        photoContributions: photoContributions,
+        currentStreak: currentStreak,
+        longestStreak: longestStreak,
+        lastContributionDay: lastContributionDay,
+        badges: Set<String>.from(badges),
+      );
 
   double get trustScore {
     if (trustTotalVotes == 0) return 0.5;
@@ -548,6 +626,7 @@ class AppState extends ChangeNotifier {
       final prevPush = pushNotificationsEnabled;
       final prevPriceAlerts = priceAlertsEnabled;
       final prevWeekly = weeklySummaryEnabled;
+      final prevRegionalDrop = regionalDropPushEnabled;
       final prevTwoFactor = twoFactorEnabled;
       final prevBiometric = biometricEnabled;
       final prevTwoFactorPin = twoFactorPin;
@@ -584,6 +663,29 @@ class AppState extends ChangeNotifier {
       trustWrongTotal = (m['trustWrongTotal'] as num?)?.toInt() ?? 0;
       trustTotalVotes = (m['trustTotalVotes'] as num?)?.toInt() ?? 0;
       contributions = (m['contributions'] as num?)?.toInt() ?? 0;
+      verifyContributions =
+          (m['verifyContributions'] as num?)?.toInt() ?? 0;
+      photoContributions =
+          (m['photoContributions'] as num?)?.toInt() ?? 0;
+      currentStreak = (m['currentStreak'] as num?)?.toInt() ?? 0;
+      longestStreak = (m['longestStreak'] as num?)?.toInt() ?? 0;
+      final streakTs = m['lastContributionDay'];
+      lastContributionDay = streakTs is Timestamp
+          ? streakTs.toDate()
+          : (streakTs is String ? DateTime.tryParse(streakTs) : null);
+      badges = ((m['badges'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toSet();
+      _isPremium = (m['isPremium'] as bool?) == true;
+      final premiumUntilTs = m['premiumUntil'];
+      _premiumUntil = premiumUntilTs is Timestamp
+          ? premiumUntilTs.toDate()
+          : (premiumUntilTs is String
+              ? DateTime.tryParse(premiumUntilTs)
+              : null);
+      _premiumPlan = (m['premiumPlan'] as String?)?.trim().isNotEmpty == true
+          ? (m['premiumPlan'] as String)
+          : null;
       final homeScopeRaw = (m['homeScope'] as String?)?.trim();
       activeHomeScope = switch (homeScopeRaw) {
         'city' => HomePriceScope.city,
@@ -609,6 +711,8 @@ class AppState extends ChangeNotifier {
           notificationsSettings['priceAlertsEnabled'] as bool? ?? true;
       weeklySummaryEnabled =
           notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
+      regionalDropPushEnabled =
+          notificationsSettings['regionalDropPushEnabled'] as bool? ?? true;
       twoFactorEnabled = securitySettings['twoFactorEnabled'] as bool? ?? false;
       biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? false;
       twoFactorPin = (securitySettings['twoFactorPin'] as String?)?.trim().isNotEmpty == true
@@ -660,6 +764,7 @@ class AppState extends ChangeNotifier {
           prevPush != pushNotificationsEnabled ||
           prevPriceAlerts != priceAlertsEnabled ||
           prevWeekly != weeklySummaryEnabled ||
+          prevRegionalDrop != regionalDropPushEnabled ||
           prevTwoFactor != twoFactorEnabled ||
           prevBiometric != biometricEnabled ||
           prevTwoFactorPin != twoFactorPin ||
@@ -1012,7 +1117,11 @@ class AppState extends ChangeNotifier {
     String note = '',
     String? proofImageUrl,
     String? barcode,
+    // placeId opsiyonel — spec "şube zorunlu değil" diyor. Yoksa rapor
+    // sourceType=manualRegional olarak kayıt edilir; chain + city + district
+    // bağlantısı zaten yeterli.
     String? placeId,
+    PriceSourceType sourceType = PriceSourceType.physical,
     double? lat,
     double? lng,
     double? distanceToBranchMeters,
@@ -1032,14 +1141,12 @@ class AppState extends ChangeNotifier {
       throw StateError(
           'Geçersiz ilçe: "$district". $cityTrim ilçelerinden seç.');
     }
-    if ((placeId ?? '').trim().isEmpty) {
-      throw StateError('A valid place must be selected before submit.');
-    }
     final resolvedChainId = chainId.trim().isEmpty ? store : chainId;
     final resolvedChainName = chainName.trim().isEmpty ? store : chainName;
     final resolvedReporterName = user?.displayName?.trim().isNotEmpty == true
         ? user!.displayName!
         : displayName;
+    final resolvedPlaceId = (placeId ?? '').trim();
     final now = DateTime.now();
     final entryId = '${productId}_${now.millisecondsSinceEpoch}_${_rand4()}';
     final legacyEntry = PriceEntry(
@@ -1056,7 +1163,6 @@ class AppState extends ChangeNotifier {
       status: PriceStatus.pending,
       statusUpdatedAt: now,
     );
-    const sourceType = PriceSourceType.physical;
     final legacyEntryPayload = <String, dynamic>{
       'productId': productId,
       'productNameSnapshot': p.name,
@@ -1066,7 +1172,7 @@ class AppState extends ChangeNotifier {
       'sourceType': priceSourceTypeToString(sourceType),
       'chainId': resolvedChainId,
       'chainName': resolvedChainName,
-      'placeId': placeId!.trim(),
+      'placeId': resolvedPlaceId.isEmpty ? null : resolvedPlaceId,
       'placeDisplayName': store,
       'city': cityTrim,
       'district': districtTrim,
@@ -1100,7 +1206,7 @@ class AppState extends ChangeNotifier {
       price: price,
       userId: uid,
       userDisplayName: resolvedReporterName,
-      branchId: placeId,
+      branchId: resolvedPlaceId.isEmpty ? null : resolvedPlaceId,
       branchName: store,
       distanceToBranchMeters: distanceToBranchMeters,
       gpsAccuracyMeters: gpsAccuracyMeters,
@@ -1108,33 +1214,170 @@ class AppState extends ChangeNotifier {
       note: note.trim().isEmpty ? null : note.trim(),
       photoUrl: proofImageUrl,
       barcode: barcode,
-      // Legacy mirror writes happen inside the same transaction so we never
-      // leave priceReports/priceGroups out of sync with priceEntries +
-      // products.priceHistory. Once home queries and the price-drop Cloud
-      // Function migrate off the legacy paths, drop this callback.
-      onTransactionWrites: (tx, _) async {
-        final productSnap = await tx.get(productRef);
-        if (!productSnap.exists) {
-          throw StateError('Ürün bulunamadı.');
-        }
-        final rawHistory =
-            (productSnap.data()?['priceHistory'] as List?) ?? const [];
-        final newHist = [
-          ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
-          legacyEntry.toMap(),
-        ];
-        tx.set(legacyEntryRef, legacyEntryPayload);
-        tx.update(productRef, {'priceHistory': newHist});
-      },
+      // Legacy mirror writes — `kEnableLegacyPriceHistoryMirror` flag'i
+      // `false` olduğunda atlanır. Yeni omurga (priceReports +
+      // priceGroups) zaten tüm UX yollarına bağlı; mirror sadece eski
+      // ProductDetail headline ve `onProductPriceDrop` Cloud Function
+      // için var. Aşama 3 phase-out: bu callback kaldırıldığında
+      // products.priceHistory artık büyümez ve 1MB doc-limit baskısı
+      // yok olur.
+      onTransactionWrites: kEnableLegacyPriceHistoryMirror
+          ? (tx, _) async {
+              final productSnap = await tx.get(productRef);
+              if (!productSnap.exists) {
+                throw StateError('Ürün bulunamadı.');
+              }
+              final rawHistory =
+                  (productSnap.data()?['priceHistory'] as List?) ?? const [];
+              final newHist = [
+                ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
+                legacyEntry.toMap(),
+              ];
+              tx.set(legacyEntryRef, legacyEntryPayload);
+              tx.update(productRef, {'priceHistory': newHist});
+            }
+          : null,
     );
 
     if (result.createdReport) {
-      await _addPoints(PointsRules.addPrice);
-      await _svc.userDoc(uid).set({
-        'contributions': FieldValue.increment(1),
-      }, SetOptions(merge: true));
+      // Streak ileri al + rozet ekle + temel +10 PT.
+      // Fotoğraflı bildirim için ekstra +5 PT (PointsRules.photoBonus).
+      // İlk fiyat / 10. fiyat / 50. fiyat eşiklerinde rozet ödülü.
+      await _awardContributionRewards(
+        uid: uid,
+        kind: _ContribKind.report,
+        hasPhoto: (proofImageUrl ?? '').isNotEmpty,
+      );
     }
     return result;
+  }
+
+  Future<void> _awardContributionRewards({
+    required String uid,
+    required _ContribKind kind,
+    bool hasPhoto = false,
+  }) async {
+    // Mevcut snapshot'tan streak ilerlet.
+    final adv = StreakCalculator.advance(
+      currentStreak: currentStreak,
+      longestStreak: longestStreak,
+      lastContributionDay: lastContributionDay,
+    );
+    // Yeni rozet kazançlarını hesapla — sadece daha önce kazanılmamış olanları
+    // ekle. Çift sayımı engellemek için badge id-set merge yapıyoruz.
+    final earned = <FRBadge>[];
+    final nextContribs = kind == _ContribKind.report
+        ? contributions + 1
+        : contributions;
+    final nextVerifies = kind == _ContribKind.verify
+        ? verifyContributions + 1
+        : verifyContributions;
+    final nextPhotos =
+        (kind == _ContribKind.report && hasPhoto) ? photoContributions + 1 : photoContributions;
+
+    if (kind == _ContribKind.report) {
+      if (nextContribs >= 1 && !badges.contains(FRBadges.firstReport.id)) {
+        earned.add(FRBadges.firstReport);
+      }
+      if (nextContribs >= 10 && !badges.contains(FRBadges.tenReports.id)) {
+        earned.add(FRBadges.tenReports);
+      }
+      if (nextContribs >= 50 && !badges.contains(FRBadges.fiftyReports.id)) {
+        earned.add(FRBadges.fiftyReports);
+      }
+      if (hasPhoto && !badges.contains(FRBadges.firstPhoto.id)) {
+        earned.add(FRBadges.firstPhoto);
+      }
+    } else {
+      if (nextVerifies >= 1 && !badges.contains(FRBadges.firstVerify.id)) {
+        earned.add(FRBadges.firstVerify);
+      }
+      if (nextVerifies >= 10 && !badges.contains(FRBadges.tenVerifies.id)) {
+        earned.add(FRBadges.tenVerifies);
+      }
+    }
+    if (adv.currentStreak >= 3 && !badges.contains(FRBadges.streak3.id)) {
+      earned.add(FRBadges.streak3);
+    }
+    if (adv.currentStreak >= 7 && !badges.contains(FRBadges.streak7.id)) {
+      earned.add(FRBadges.streak7);
+    }
+    if (adv.currentStreak >= 30 && !badges.contains(FRBadges.streak30.id)) {
+      earned.add(FRBadges.streak30);
+    }
+
+    // Toplam puan delta'sı: temel ödül + (varsa) fotoğraf bonusu + rozet
+    // ödülleri. Firestore rules `points` artışını <= +50 ile sınırlandırıyor;
+    // yukarıdaki en agresif kombinasyon (50 raporda streak30 ile çakışırsa
+    // 100 PT badge) bu cap'i geçer → bu özel durumda rozet bir sonraki
+    // güne ertelenir, çünkü `points` write'ı reddolur. Cap'e sığacak şekilde
+    // ödülü bölüyoruz: temel + photoBonus + en yüksek 1 rozet ödülü.
+    final base = kind == _ContribKind.report
+        ? PointsRules.addPrice
+        : PointsRules.verifyVote;
+    final photoBonus = (kind == _ContribKind.report && hasPhoto)
+        ? PointsRules.photoBonus
+        : 0;
+    int badgeReward = 0;
+    if (earned.isNotEmpty) {
+      // En yüksek rozet ödülünü ver, ötekiler için ayrı update.
+      earned.sort((a, b) => b.rewardPoints.compareTo(a.rewardPoints));
+      badgeReward = earned.first.rewardPoints;
+    }
+    final pointsDelta = base + photoBonus + badgeReward;
+    final cappedDelta = pointsDelta > 50 ? 50 : pointsDelta;
+
+    final updates = <String, dynamic>{
+      'points': FieldValue.increment(cappedDelta),
+      'currentStreak': adv.currentStreak,
+      'longestStreak': adv.longestStreak,
+      'lastContributionDay': Timestamp.fromDate(adv.today),
+    };
+    if (kind == _ContribKind.report) {
+      updates['contributions'] = FieldValue.increment(1);
+      if (hasPhoto) {
+        updates['photoContributions'] = FieldValue.increment(1);
+      }
+    } else {
+      updates['verifyContributions'] = FieldValue.increment(1);
+    }
+    if (earned.isNotEmpty) {
+      updates['badges'] =
+          FieldValue.arrayUnion(earned.map((b) => b.id).toList());
+    }
+    await _svc.userDoc(uid).set(updates, SetOptions(merge: true));
+
+    // Geri kalan rozetleri sırayla, sonraki gün cap'i dolmasın diye
+    // her birini ayrı update ile ödüllendiriyoruz — pratikte +1 update
+    // yeterli, çünkü tek seferde 2'den fazla rozet açılması nadir.
+    if (earned.length > 1) {
+      for (final b in earned.skip(1)) {
+        await _svc.userDoc(uid).set({
+          'points': FieldValue.increment(b.rewardPoints.clamp(0, 50)),
+        }, SetOptions(merge: true));
+      }
+    }
+  }
+
+  /// Doğrulama oyu vermek için ön-koşul kontrolü. UI'nın "Ben de gördüm"
+  /// butonunu disable etmesi için kullanılır — `null` döndürürse oy
+  /// verilebilir; metin döndürürse o sebep kullanıcıya gösterilmeli.
+  String? canVerifyRegionalPrice({
+    required String city,
+    required String district,
+  }) {
+    final uid = user?.uid ?? '';
+    if (uid.isEmpty) return 'Doğrulama için giriş yapmalısın.';
+    final activeCity = (cityName ?? '').trim();
+    final activeDistrict = (districtName ?? '').trim();
+    if (activeCity.isEmpty || activeDistrict.isEmpty) {
+      return 'Önce kendi bölgeni seç.';
+    }
+    if (activeCity.toLowerCase() != city.trim().toLowerCase() ||
+        activeDistrict.toLowerCase() != district.trim().toLowerCase()) {
+      return 'Sadece kendi bölgen ($activeDistrict / $activeCity) için doğrulayabilirsin.';
+    }
+    return null;
   }
 
   Future<void> verifyRegionalPriceSeen({
@@ -1144,19 +1387,9 @@ class AppState extends ChangeNotifier {
     required String city,
     required String district,
   }) async {
-    final uid = user?.uid ?? '';
-    if (uid.isEmpty) throw StateError('Doğrulama için giriş yapmalısın.');
-    final activeCity = (cityName ?? '').trim();
-    final activeDistrict = (districtName ?? '').trim();
-    if (activeCity.isEmpty || activeDistrict.isEmpty) {
-      throw StateError('Önce kendi bölgeni seçmelisin.');
-    }
-    if (activeCity.toLowerCase() != city.trim().toLowerCase() ||
-        activeDistrict.toLowerCase() != district.trim().toLowerCase()) {
-      throw StateError(
-        'Yalnızca kendi bölgen ($activeDistrict / $activeCity) için doğrulama yapabilirsin.',
-      );
-    }
+    final blocked = canVerifyRegionalPrice(city: city, district: district);
+    if (blocked != null) throw StateError(blocked);
+    final uid = user!.uid;
     await _priceReportService.verifySeenToday(
       productId: productId,
       chainId: chainId,
@@ -1165,11 +1398,206 @@ class AppState extends ChangeNotifier {
       price: price,
       userId: uid,
     );
-    // Verifying a previously reported price is a real contribution — award
-    // the same per-vote PT as the legacy `voteOnPrice` flow so the
-    // rewards UI doesn't lie when "Fiyat ekle · +10 PT" pivots into a
-    // verification on duplicate.
-    await _addPoints(PointsRules.verifyVote);
+    // Verify de bir katkı — streak ilerletir, rozet açabilir.
+    await _awardContributionRewards(
+      uid: uid,
+      kind: _ContribKind.verify,
+    );
+  }
+
+  /// Bölgesel katkıcı sıralaması — `scope` ve `windowDays`'e göre
+  /// `priceReports`'tan aggregate çıkarır. UI'nın hem ilçe / şehir /
+  /// Türkiye geneli hem de 7 / 30 gün filtresi yapabilmesi için.
+  ///
+  /// Index gereksinimleri (firestore.indexes.json):
+  ///   • district scope:  (cityId, districtId, createdAt DESC)
+  ///   • city scope:      (cityId, createdAt DESC)
+  ///   • turkey scope:    (createdAt DESC) — built-in
+  ///
+  /// Pro-only: limit 200 (ücretsiz) → Pro kullanıcılar için 500'e çıkar
+  /// (top-100 görüntüleme audit'te Pro feature olarak tanımlandı).
+  Stream<List<RegionalContributorScore>> watchRegionalContributorBoard({
+    String? city,
+    String? district,
+    int windowDays = 30,
+    int limit = 200,
+  }) {
+    final cutoff =
+        DateTime.now().subtract(Duration(days: windowDays.clamp(1, 90)));
+    Query<Map<String, dynamic>> q = _svc.priceReports
+        .where('createdAt', isGreaterThan: Timestamp.fromDate(cutoff));
+    if (city != null && city.trim().isNotEmpty) {
+      q = q.where('cityId', isEqualTo: PriceReportService.normalizeId(city));
+    }
+    if (district != null && district.trim().isNotEmpty) {
+      q = q.where(
+        'districtId',
+        isEqualTo: PriceReportService.normalizeId(district),
+      );
+    }
+    return q
+        .orderBy('createdAt', descending: true)
+        .limit(limit.clamp(20, 500))
+        .snapshots()
+        .map(_aggregateContributors);
+  }
+
+  List<RegionalContributorScore> _aggregateContributors(
+    QuerySnapshot<Map<String, dynamic>> snap,
+  ) {
+    final byUser = <String, RegionalContributorScore>{};
+    for (final d in snap.docs) {
+      final m = d.data();
+      final uid = (m['userId'] ?? '').toString();
+      if (uid.isEmpty) continue;
+      final name = (m['userDisplayName'] ?? '').toString();
+      final ts = m['createdAt'];
+      final created = ts is Timestamp ? ts.toDate() : null;
+      final hasPhoto =
+          (m['photoUrl'] as String?)?.trim().isNotEmpty == true;
+      final existing = byUser[uid];
+      byUser[uid] = RegionalContributorScore(
+        userId: uid,
+        userDisplayName:
+            (existing?.userDisplayName.isNotEmpty ?? false)
+                ? existing!.userDisplayName
+                : (name.isNotEmpty ? name : 'Topluluk'),
+        reportCount: (existing?.reportCount ?? 0) + 1,
+        photoCount: (existing?.photoCount ?? 0) + (hasPhoto ? 1 : 0),
+        lastReportedAt: () {
+          if (existing?.lastReportedAt == null) return created;
+          if (created == null) return existing!.lastReportedAt;
+          return created.isAfter(existing!.lastReportedAt!)
+              ? created
+              : existing.lastReportedAt;
+        }(),
+      );
+    }
+    final list = byUser.values.toList()
+      ..sort((a, b) {
+        final byScore = b.score.compareTo(a.score);
+        if (byScore != 0) return byScore;
+        // Eşitlikte en son rapor eden ileride.
+        final ad = a.lastReportedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bd = b.lastReportedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bd.compareTo(ad);
+      });
+    return list;
+  }
+
+  /// Kullanıcının kendi gönderdiği fiyat raporlarını canlı izler. Profil
+  /// "Katkılarım" sekmesi için ana veri kaynağıdır — eskiden legacy
+  /// `products.priceHistory` array'i tarıyordu, mirror kalktığında veri
+  /// kayboluyordu. Yeni omurga `priceReports` koleksiyonu üzerinden çalışır.
+  ///
+  /// Not: limit parametresi UI'nın "load more" butonu ile artırabilmesi
+  /// için exposed. Default 50 (çoğu kullanıcı için yeterli); ekstra
+  /// sayfa için ayrı stream subscribe edilir.
+  Stream<List<MyPriceContribution>> watchMyContributions({int limit = 50}) {
+    final uid = user?.uid;
+    if (uid == null || uid.isEmpty) {
+      return const Stream<List<MyPriceContribution>>.empty();
+    }
+    return _svc.priceReports
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map(MyPriceContribution.fromDoc).toList(growable: false));
+  }
+
+  /// Admin moderation: yakın zamanda güncellenmiş priceGroups dokümanlarını
+  /// listele. Yetkisiz kullanıcı için boş döner (UI tarafı zaten
+  /// `state.isAdmin` ile flag'liyor; rule de read'i public bıraktı, write'ı
+  /// kısıtlıyor).
+  Stream<List<PriceGroupModel>> watchAdminRecentPriceGroups({int limit = 50}) {
+    return _svc.priceGroups
+        .orderBy('updatedAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map(PriceGroupModel.fromDoc).toList());
+  }
+
+  /// Admin: bir priceGroup doc'unu `verifiedCount=0`, `confidence=low` ve
+  /// `trustedPrice=latestPrice` olarak resetler — kötü niyetli manipülasyonu
+  /// yumuşat ya da gerçek raf fiyatı çok değiştiyse start-over olarak.
+  /// rules tarafı zaten alan whitelist + sayaç +1 cap koyuyor; admin client
+  /// için aynı rule altında bu reset DENIED olur. Bu yüzden updatedAt'a
+  /// dokunup admin client'ın yetkisi olduğundan emin olmak için
+  /// `isAdmin == true` user doc'undan kontrol ediliyor (rules helper).
+  ///
+  /// Production hardening: bu reset bir admin Cloud Function'a taşınmalı.
+  Future<void> adminResetPriceGroupAggregates({
+    required String groupId,
+  }) async {
+    if (!isAdmin) {
+      throw StateError('Yalnız admin kullanıcı bu reseti yapabilir.');
+    }
+    await _svc.priceGroups.doc(groupId).set({
+      'verifiedCount': 0,
+      'confidence': 'low',
+      'updatedAt': FieldValue.serverTimestamp(),
+      // lastReporterId == auth.uid invariant'ını korumak için admin'in
+      // kendi uid'sini koyuyoruz; rule yine sıkı tutar.
+      'lastReporterId': user?.uid ?? '',
+    }, SetOptions(merge: true));
+    await _svc.db.collection('adminActions').add({
+      'actorUid': user?.uid ?? '',
+      'action': 'priceGroup.reset',
+      'targetId': groupId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Admin: tüm "pending" durumdaki store_places dokümanlarını verilen
+  /// limite kadar listele. Onay/red işlemi `adminApproveStorePlace` ve
+  /// `adminRejectStorePlace` üzerinden.
+  Stream<List<Map<String, dynamic>>> watchAdminPendingStorePlaces({
+    int limit = 50,
+  }) {
+    return _svc.storePlaces
+        .where('isActive', isEqualTo: true)
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => {'id': d.id, ...d.data()})
+            .toList(growable: false));
+  }
+
+  Future<void> adminApproveStorePlace(String placeId) async {
+    if (!isAdmin) {
+      throw StateError('Yalnız admin onaylayabilir.');
+    }
+    await _svc.storePlaces.doc(placeId).set({
+      'status': 'verified',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await _svc.db.collection('adminActions').add({
+      'actorUid': user?.uid ?? '',
+      'action': 'storePlace.approve',
+      'targetId': placeId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> adminRejectStorePlace(String placeId) async {
+    if (!isAdmin) {
+      throw StateError('Yalnız admin reddedebilir.');
+    }
+    await _svc.storePlaces.doc(placeId).set({
+      'isActive': false,
+      'status': 'rejected',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await _svc.db.collection('adminActions').add({
+      'actorUid': user?.uid ?? '',
+      'action': 'storePlace.reject',
+      'targetId': placeId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Stream<List<PriceGroupModel>> watchRegionalPriceGroups({
@@ -1238,7 +1666,12 @@ class AppState extends ChangeNotifier {
       city: city,
       district: district,
     );
-    return _basketPricingService.calculate(items: items, groups: groups);
+    final result = _basketPricingService.calculate(items: items, groups: groups);
+    // Cache'i güncelle ki sepet footer'ı (cartSubtotal/cartSavings) yeni
+    // omurganın tahmini değerini kullansın — legacy `lowestPrice` fallback
+    // yalnız compare panel hiç açılmamışsa devreye girsin.
+    updateBasketEstimateCache(result);
+    return result;
   }
 
   // --- Comments -----------------------------------------------------------
@@ -1755,7 +2188,44 @@ class AppState extends ChangeNotifier {
 
   // --- Pricing ------------------------------------------------------------
 
+  /// Yeni omurgaya geçiş için lightweight cache: BasketTab compare panel
+  /// `calculateRegionalBasketPricing` çağırınca son sonucu bu cache'e koyar
+  /// (`updateBasketEstimateCache`). Sepet footer'ı bu cache'i kullanıp
+  /// `priceGroups`-tabanlı tahmini toplam + tasarruf gösterir; legacy
+  /// `priceHistory.lowestPrice` artık fallback.
+  ///
+  /// Tek-yönlü cache: BasketTab "Karşılaştır" görünümünde set edilir, sepet
+  /// değişince stale olabilir; bu yüzden `_basketEstimateCacheKey`'i sepet
+  /// imzasıyla mühürlüyoruz.
+  List<BasketStoreEstimate> _basketSingleEstimateCache = const [];
+  String _basketEstimateCacheKey = '';
+
+  void updateBasketEstimateCache(BasketPricingResult result) {
+    _basketSingleEstimateCache = result.singleMarketEstimates;
+    _basketEstimateCacheKey = _currentBasketSignature();
+    // Sessiz update — UI zaten cycle içinde notification alıyor.
+  }
+
+  String _currentBasketSignature() {
+    final parts = <String>[
+      cityName ?? '',
+      districtName ?? '',
+      ...cart.map((c) => '${c.product.id}:${c.quantity}'),
+    ];
+    return parts.join('|');
+  }
+
+  bool get _basketEstimateCacheFresh =>
+      _basketEstimateCacheKey == _currentBasketSignature() &&
+      _basketSingleEstimateCache.isNotEmpty;
+
+  /// Tahmini sepet toplamı.
+  /// Önce: priceGroups winner (en yüksek coverage'lı tek market) total.
+  /// Yoksa fallback: legacy `priceHistory.lowestPrice * qty`.
   double get cartSubtotal {
+    if (_basketEstimateCacheFresh) {
+      return _basketSingleEstimateCache.first.estimatedTotal;
+    }
     double total = 0;
     for (final c in cart) {
       total += (c.product.lowestPrice ?? 0) * c.quantity;
@@ -1763,12 +2233,17 @@ class AppState extends ChangeNotifier {
     return total;
   }
 
-  /// Savings vs the *worst* current store for each cart line — i.e. how
-  /// much the user is saving today by going with the cheapest reported
-  /// price instead of the most expensive one. Replaces the previous
-  /// max-price-ever vs. min-price-ever calculation, which inflated the
-  /// number with stale data and didn't reflect a present-day choice.
+  /// Tahmini tasarruf: en pahalı tek market vs en ucuz tek market farkı.
+  /// Yeni yol: `_basketSingleEstimateCache` üzerinden. Fallback: legacy
+  /// `priceHistory` per-store min/max.
   double get cartSavings {
+    if (_basketEstimateCacheFresh &&
+        _basketSingleEstimateCache.length >= 2) {
+      final winner = _basketSingleEstimateCache.first.estimatedTotal;
+      final worst = _basketSingleEstimateCache.last.estimatedTotal;
+      final diff = worst - winner;
+      return diff > 0 ? diff : 0;
+    }
     double s = 0;
     for (final c in cart) {
       if (c.product.priceHistory.isEmpty) continue;
@@ -1777,13 +2252,7 @@ class AppState extends ChangeNotifier {
         if (e.status == PriceStatus.rejected) continue;
         final key = e.store.trim().toLowerCase();
         if (key.isEmpty) continue;
-        // Keep only the most recent price per store.
-        final existing = pricesByStore[key];
-        if (existing == null) {
-          pricesByStore[key] = e.price;
-        } else {
-          pricesByStore[key] = e.price; // priceHistory is in chronological order
-        }
+        pricesByStore[key] = e.price;
       }
       if (pricesByStore.length < 2) continue;
       final high = pricesByStore.values.reduce((a, b) => a > b ? a : b);
@@ -1888,6 +2357,11 @@ class AppState extends ChangeNotifier {
     if (user == null) return;
     final existing = productAlerts[productId];
     await _svc.userProductAlerts(user!.uid).doc(productId).set({
+      // `productId` alanını da yazıyoruz: Cloud Function (`onProductPriceDrop`)
+      // collectionGroup('productAlerts').where('productId', '==', id) ile
+      // indexli sorgu yapabilsin, doc id eşleşmesi yerine. Eski full-scan
+      // her ürün update'inde tüm alert dokümanlarını okuyordu.
+      'productId': productId,
       'targetPrice': targetPrice,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': existing == null
@@ -2024,6 +2498,7 @@ class AppState extends ChangeNotifier {
     bool? pushEnabled,
     bool? priceAlertsEnabled,
     bool? weeklySummaryEnabled,
+    bool? regionalDropPushEnabled,
   }) async {
     if (user == null) return;
     await _svc.userDoc(user!.uid).set({
@@ -2034,6 +2509,8 @@ class AppState extends ChangeNotifier {
             'priceAlertsEnabled': priceAlertsEnabled,
           if (weeklySummaryEnabled != null)
             'weeklySummaryEnabled': weeklySummaryEnabled,
+          if (regionalDropPushEnabled != null)
+            'regionalDropPushEnabled': regionalDropPushEnabled,
         },
       },
       'updatedAt': FieldValue.serverTimestamp(),

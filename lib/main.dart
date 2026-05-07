@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -11,7 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/ads_service.dart';
 import 'services/messaging_service.dart';
+import 'services/premium_service.dart';
 import 'state/app_state.dart';
 import 'ui/components.dart';
 import 'ui/fr_theme.dart';
@@ -23,6 +27,21 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     await FRThemeController.instance.load();
+    // Crashlytics: debug build'lerde göndermiyoruz (kullanıcı self-test
+    // yaparken false-pozitif yığmasın). Release/profile build'lerde
+    // otomatik açık. FlutterError.onError ile uncaught Flutter hatalarını,
+    // PlatformDispatcher.onError ile native zone error'larını yakalıyoruz.
+    final crashlytics = FirebaseCrashlytics.instance;
+    await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
+    FlutterError.onError = crashlytics.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      crashlytics.recordError(error, stack, fatal: true);
+      return true;
+    };
+    // Analytics: ekran/aksiyon log'u gerektiğinde
+    // FirebaseAnalytics.instance.log... ile çağırıyoruz; default config
+    // yeterli olduğu için burada extra setup yok.
+    FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(!kDebugMode);
   } catch (e, st) {
     // Surface to logs but keep the app alive — `_AuthGate` will render the
     // error screen so the user gets actionable feedback instead of a white
@@ -50,8 +69,11 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
       throw widget.bootError!;
     }
     await _state.init();
-    // FCM wiring is best-effort — a failure here must not block the splash.
+    // FCM + IAP wiring is best-effort — bir başlatma hatası splash'ı
+    // bloklamasın. PremiumService Play Billing yoksa silently no-op olur.
     unawaited(MessagingService.instance.init());
+    unawaited(PremiumService.instance.init());
+    unawaited(AdsService.instance.init());
     final prefs = await SharedPreferences.getInstance();
     return _Init(showOnboarding: !(prefs.getBool('onboarding_done') ?? false));
   }
