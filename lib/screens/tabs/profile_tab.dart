@@ -7,6 +7,7 @@ import '../../ui/tokens.dart';
 import '../admin_screen.dart';
 import '../login_screen.dart';
 import '../main_screen.dart';
+import '../paywall_screen.dart';
 import '../regional_leaderboard_screen.dart';
 import '../notifications_screen.dart';
 import '../profile_screens.dart';
@@ -55,6 +56,8 @@ class ProfileTab extends StatelessWidget {
           _BadgesStrip(snap: snap),
           const SizedBox(height: 14),
           _RegionalRankCta(state: state),
+          const SizedBox(height: 14),
+          _PremiumCta(state: state),
           const SizedBox(height: 20),
           _StatGrid(state: state),
           const SizedBox(height: 20),
@@ -1000,6 +1003,87 @@ class _RegionalRankCta extends StatelessWidget {
             ),
           ),
           Icon(Icons.arrow_forward_rounded, size: 18, color: FR.gold),
+        ]),
+      ),
+    );
+  }
+}
+
+class _PremiumCta extends StatelessWidget {
+  const _PremiumCta({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final premium = state.premium;
+    final active = premium.isActive;
+    final remaining = premium.remaining;
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: active
+              ? LinearGradient(
+                  colors: [FR.surfaceHi, FR.surfaceLo],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : LinearGradient(
+                  colors: [FR.gold, FR.goldDeep],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(
+            color: active ? FR.goldDeep.withOpacity(.45) : FR.goldDeep,
+          ),
+          boxShadow: frGoldGlow(opacity: active ? .12 : .25),
+        ),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: active ? FR.gold.withOpacity(.16) : FR.bg,
+              borderRadius: FRRad.all(12),
+              border: Border.all(
+                color: active ? FR.gold.withOpacity(.45) : FR.gold,
+              ),
+            ),
+            child: Icon(Icons.workspace_premium_rounded,
+                color: FR.gold, size: 19),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  active ? premium.planLabel : 'FiyatRadar Pro\'ya geç',
+                  style: frText(13.5, FontWeight.w800,
+                      color: active ? FR.ink : FR.onGold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  active
+                      ? (remaining == null
+                          ? 'Aktif abonelik'
+                          : 'Yenilemeye ${remaining.inDays} gün')
+                      : 'Bayat-fiyat alarmı, leaderboard top-100, reklamsız',
+                  style: frText(11, FontWeight.w700,
+                      color: active ? FR.ink3 : FR.onGold.withOpacity(.85)),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_rounded,
+              size: 18, color: active ? FR.gold : FR.onGold),
         ]),
       ),
     );

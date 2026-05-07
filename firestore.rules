@@ -74,7 +74,10 @@ service cloud.firestore {
         (!('trustScorePercent' in request.resource.data) || request.resource.data.trustScorePercent == 0) &&
         (!('trustTotalVotes' in request.resource.data) || request.resource.data.trustTotalVotes == 0) &&
         (!('trustVerifiedTotal' in request.resource.data) || request.resource.data.trustVerifiedTotal == 0) &&
-        (!('trustWrongTotal' in request.resource.data) || request.resource.data.trustWrongTotal == 0);
+        (!('trustWrongTotal' in request.resource.data) || request.resource.data.trustWrongTotal == 0) &&
+        // Premium kapısı doğum anında açık olamaz; Cloud Function aktifleştirir.
+        (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false) &&
+        (!('premiumUntil' in request.resource.data) || request.resource.data.premiumUntil == null);
     }
 
     function hasSafeCommentCreateDefaults() {
@@ -189,6 +192,13 @@ service cloud.firestore {
           immutable('banReason') &&
           immutable('role') &&
           immutable('email') &&
+          // Premium durumu istemcide DEĞİŞTİRİLEMEZ. Cloud Function
+          // (in_app_purchase webhook + restore akışı) admin SDK ile yazar;
+          // istemci sadece okur ve UI'da kapı/açık gösterir.
+          immutable('isPremium') &&
+          immutable('premiumUntil') &&
+          immutable('premiumPlan') &&
+          immutable('premiumProductId') &&
           immutable('priceEntries') &&
           immutable('validations') &&
           immutable('inviteCount') &&
@@ -630,6 +640,25 @@ service cloud.firestore {
       ]) &&
       (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount is int) &&
       (!('verifierUserIds' in request.resource.data) || request.resource.data.verifierUserIds is map);
+    }
+
+    // FiyatRadar Pro satın alma kuyruğu.
+    // İstemci `PremiumService._enqueueForServerVerification` ile yazar:
+    // doc id `${uid}_${productId}_${purchaseId}` → idempotent. Cloud
+    // Function (`verifyPurchase`) Play Developer API üzerinden
+    // doğrular ve `users/{uid}.isPremium` yazar; doc'u `consumed=true`
+    // olarak işaretler. İstemci yalnız kendi prefix'ini okur/yazar.
+    match /purchaseQueue/{purchaseDoc} {
+      function purchaseAuthor() {
+        return request.auth != null &&
+          purchaseDoc.matches('^' + request.auth.uid + '_.*');
+      }
+      allow read: if isAdmin() || purchaseAuthor();
+      allow create: if purchaseAuthor() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.consumed == false;
+      // Update: yalnız admin (Cloud Function admin SDK ile yazar).
+      allow update, delete: if isAdmin();
     }
 
     match /priceReportDedupes/{dedupeId} {

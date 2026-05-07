@@ -7,6 +7,7 @@ import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../main_screen.dart';
+import '../paywall_screen.dart';
 import '../widgets/region_picker_sheet.dart';
 
 class BasketTab extends StatefulWidget {
@@ -396,7 +397,15 @@ class _CartFooter extends StatelessWidget {
                     color: FR.ink3, height: 1.4),
               ),
             ),
-            const SizedBox(height: 12),
+            // Pro değilse reklamsız CTA görünür; Pro ise no-op (SizedBox).
+            FRAdSlot(
+              isPremium: state.premium.isActive,
+              onUpgradeTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              ),
+            ),
+            const SizedBox(height: 6),
             FRCta(
               label: 'Tahmini sepeti karşılaştır',
               icon: Icons.bolt_rounded,

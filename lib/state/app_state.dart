@@ -14,7 +14,15 @@ import '../models/turkey_locations.dart';
 import '../services/basket_pricing_service.dart';
 import '../services/firebase_service.dart';
 import '../services/messaging_service.dart';
+import '../services/premium_service.dart';
 import '../services/price_report_service.dart';
+
+// NOT: AppState god-class refactor (extension/part'lara bölme) Aşama 3+
+// backlog'unda kaldı. Test pasta olmadan private state alanlarını
+// disturb etmek riskli; önce widget testleri yazılmalı, sonra
+// `app_state.gamification.dart`, `app_state.admin.dart`,
+// `app_state.regional.dart` part dosyalarına dağıtım yapılabilir.
+// Bu commit'te yalnız feature delivery + minor temizlik.
 
 /// Points awarded for different actions in the rewards system.
 ///
@@ -60,6 +68,23 @@ enum HomePriceScope { nearby, city, online, turkeyWide }
 
 /// Internal: contribution kind for the gamification reward pipeline.
 enum _ContribKind { report, verify }
+
+/// `priceHistory` legacy mirror'ını kontrol eden feature flag.
+///
+/// Audit raporundaki Aşama 3 maddesi: "priceHistory array tamamen
+/// kaldırma + Cloud Function geçişi". Flag'i `false` yapıp release
+/// alındığında:
+///   1. AppState.addRegionalPrice artık priceEntries doc + array push
+///      yapmıyor; yeni omurga (priceReports + priceGroups) tek otorite.
+///   2. functions/index.js onProductPriceDrop tetiklenmez (priceHistory
+///      değişmez); bunun yerine `onPriceGroupUpdate` push'lar.
+///   3. Profil "Katkılarım" zaten priceReports'tan okuyor → etkilenmez.
+///   4. Product detail _DetailHeadlinePrice legacy lowestPrice fallback'i
+///      kullanmaya devam eder (mevcut katalog için tarihsel veri).
+///
+/// İlk release `true` (geri uyum); büyük şehirlerde bir sonraki sürümde
+/// `false`'a çekilecek.
+const bool kEnableLegacyPriceHistoryMirror = true;
 
 /// Result of a community verification vote.
 class VoteResult {
@@ -179,6 +204,20 @@ class AppState extends ChangeNotifier {
   int longestStreak = 0;
   DateTime? lastContributionDay;
   Set<String> badges = <String>{};
+
+  // FiyatRadar Pro durumu — Cloud Function (purchaseQueue → Play
+  // Developer API doğrulama) yazar; istemci yalnız okur. UI tarafı
+  // `state.premium.isActive` getter'ı üzerinden gating yapar.
+  bool _isPremium = false;
+  DateTime? _premiumUntil;
+  String? _premiumPlan;
+  PremiumStatus get premium => PremiumStatus(
+        isActive: _isPremium &&
+            (_premiumUntil == null ||
+                _premiumUntil!.isAfter(DateTime.now())),
+        until: _premiumUntil,
+        plan: _premiumPlan,
+      );
 
   /// Birleşik gamification snapshot — UI'nın kullanması için tek nokta.
   GamificationSnapshot get gamification => GamificationSnapshot(
@@ -637,6 +676,16 @@ class AppState extends ChangeNotifier {
       badges = ((m['badges'] as List?) ?? const [])
           .map((e) => e.toString())
           .toSet();
+      _isPremium = (m['isPremium'] as bool?) == true;
+      final premiumUntilTs = m['premiumUntil'];
+      _premiumUntil = premiumUntilTs is Timestamp
+          ? premiumUntilTs.toDate()
+          : (premiumUntilTs is String
+              ? DateTime.tryParse(premiumUntilTs)
+              : null);
+      _premiumPlan = (m['premiumPlan'] as String?)?.trim().isNotEmpty == true
+          ? (m['premiumPlan'] as String)
+          : null;
       final homeScopeRaw = (m['homeScope'] as String?)?.trim();
       activeHomeScope = switch (homeScopeRaw) {
         'city' => HomePriceScope.city,
@@ -1165,24 +1214,29 @@ class AppState extends ChangeNotifier {
       note: note.trim().isEmpty ? null : note.trim(),
       photoUrl: proofImageUrl,
       barcode: barcode,
-      // Legacy mirror writes happen inside the same transaction so we never
-      // leave priceReports/priceGroups out of sync with priceEntries +
-      // products.priceHistory. Once home queries and the price-drop Cloud
-      // Function migrate off the legacy paths, drop this callback.
-      onTransactionWrites: (tx, _) async {
-        final productSnap = await tx.get(productRef);
-        if (!productSnap.exists) {
-          throw StateError('Ürün bulunamadı.');
-        }
-        final rawHistory =
-            (productSnap.data()?['priceHistory'] as List?) ?? const [];
-        final newHist = [
-          ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
-          legacyEntry.toMap(),
-        ];
-        tx.set(legacyEntryRef, legacyEntryPayload);
-        tx.update(productRef, {'priceHistory': newHist});
-      },
+      // Legacy mirror writes — `kEnableLegacyPriceHistoryMirror` flag'i
+      // `false` olduğunda atlanır. Yeni omurga (priceReports +
+      // priceGroups) zaten tüm UX yollarına bağlı; mirror sadece eski
+      // ProductDetail headline ve `onProductPriceDrop` Cloud Function
+      // için var. Aşama 3 phase-out: bu callback kaldırıldığında
+      // products.priceHistory artık büyümez ve 1MB doc-limit baskısı
+      // yok olur.
+      onTransactionWrites: kEnableLegacyPriceHistoryMirror
+          ? (tx, _) async {
+              final productSnap = await tx.get(productRef);
+              if (!productSnap.exists) {
+                throw StateError('Ürün bulunamadı.');
+              }
+              final rawHistory =
+                  (productSnap.data()?['priceHistory'] as List?) ?? const [];
+              final newHist = [
+                ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
+                legacyEntry.toMap(),
+              ];
+              tx.set(legacyEntryRef, legacyEntryPayload);
+              tx.update(productRef, {'priceHistory': newHist});
+            }
+          : null,
     );
 
     if (result.createdReport) {
@@ -1351,28 +1405,39 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  /// Bölgesel katkıcı sıralaması — son 30 günde ilçe içinde kim ne kadar
-  /// rapor yapmış. Profil "Bölgemde sıralamam" panelinin veri kaynağı.
+  /// Bölgesel katkıcı sıralaması — `scope` ve `windowDays`'e göre
+  /// `priceReports`'tan aggregate çıkarır. UI'nın hem ilçe / şehir /
+  /// Türkiye geneli hem de 7 / 30 gün filtresi yapabilmesi için.
   ///
-  /// Limit (200) küçük tutuldu çünkü bir ilçenin tek 30 günde 200+ rapor
-  /// alması olağanüstü; aşılırsa client-side aggregate doğru olur ama
-  /// "leaderboard top-N" sıralaması hâlâ doğru kalır (skor-tabanlı).
+  /// Index gereksinimleri (firestore.indexes.json):
+  ///   • district scope:  (cityId, districtId, createdAt DESC)
+  ///   • city scope:      (cityId, createdAt DESC)
+  ///   • turkey scope:    (createdAt DESC) — built-in
   ///
-  /// Not: orderBy + where index'i `firestore.indexes.json`'a (cityId,
-  /// districtId, createdAt DESC) olarak ekledik.
+  /// Pro-only: limit 200 (ücretsiz) → Pro kullanıcılar için 500'e çıkar
+  /// (top-100 görüntüleme audit'te Pro feature olarak tanımlandı).
   Stream<List<RegionalContributorScore>> watchRegionalContributorBoard({
-    required String city,
-    required String district,
+    String? city,
+    String? district,
+    int windowDays = 30,
+    int limit = 200,
   }) {
-    final cityId = PriceReportService.normalizeId(city);
-    final districtId = PriceReportService.normalizeId(district);
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    return _svc.priceReports
-        .where('cityId', isEqualTo: cityId)
-        .where('districtId', isEqualTo: districtId)
-        .where('createdAt', isGreaterThan: Timestamp.fromDate(cutoff))
+    final cutoff =
+        DateTime.now().subtract(Duration(days: windowDays.clamp(1, 90)));
+    Query<Map<String, dynamic>> q = _svc.priceReports
+        .where('createdAt', isGreaterThan: Timestamp.fromDate(cutoff));
+    if (city != null && city.trim().isNotEmpty) {
+      q = q.where('cityId', isEqualTo: PriceReportService.normalizeId(city));
+    }
+    if (district != null && district.trim().isNotEmpty) {
+      q = q.where(
+        'districtId',
+        isEqualTo: PriceReportService.normalizeId(district),
+      );
+    }
+    return q
         .orderBy('createdAt', descending: true)
-        .limit(200)
+        .limit(limit.clamp(20, 500))
         .snapshots()
         .map(_aggregateContributors);
   }

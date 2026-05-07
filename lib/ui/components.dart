@@ -1026,6 +1026,56 @@ class _FRSkeletonState extends State<FRSkeleton>
   }
 }
 
+/// Pro kullanıcı için no-op, ücretsiz kullanıcı için reklam slotu.
+///
+/// Şu an `AdsService` no-op (google_mobile_ads paketi henüz eklenmedi);
+/// ücretsiz kullanıcı yer-gösterici "Pro al, reklamsız" CTA görür. SDK
+/// eklendiğinde bu widget gerçek banner ad döner. Pro kullanıcı asla
+/// reklam görmez — `isPremium` flag'i caller'dan gelir (AppState import'u
+/// circular dependency yaratmaması için).
+class FRAdSlot extends StatelessWidget {
+  const FRAdSlot({
+    super.key,
+    required this.isPremium,
+    this.onUpgradeTap,
+  });
+  final bool isPremium;
+  final VoidCallback? onUpgradeTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isPremium) return const SizedBox.shrink();
+    return InkWell(
+      onTap: onUpgradeTap,
+      borderRadius: FRRad.all(FRRad.m),
+      child: Container(
+        height: 64,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: FR.surfaceLo,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.workspace_premium_rounded, color: FR.gold, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Reklamsız deneyim için Pro\'ya geç',
+                style: frText(12, FontWeight.w800, color: FR.ink2),
+              ),
+            ),
+            Icon(Icons.arrow_forward_rounded, color: FR.gold, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// `FRSkeleton`'ı dikey listede tekrarlar — "X kart yükleniyor" görünümü.
 class FRSkeletonList extends StatelessWidget {
   const FRSkeletonList({

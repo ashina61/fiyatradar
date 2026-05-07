@@ -13,7 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/ads_service.dart';
 import 'services/messaging_service.dart';
+import 'services/premium_service.dart';
 import 'state/app_state.dart';
 import 'ui/components.dart';
 import 'ui/fr_theme.dart';
@@ -67,8 +69,11 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
       throw widget.bootError!;
     }
     await _state.init();
-    // FCM wiring is best-effort — a failure here must not block the splash.
+    // FCM + IAP wiring is best-effort — bir başlatma hatası splash'ı
+    // bloklamasın. PremiumService Play Billing yoksa silently no-op olur.
     unawaited(MessagingService.instance.init());
+    unawaited(PremiumService.instance.init());
+    unawaited(AdsService.instance.init());
     final prefs = await SharedPreferences.getInstance();
     return _Init(showOnboarding: !(prefs.getBool('onboarding_done') ?? false));
   }
