@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -23,6 +25,21 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     await FRThemeController.instance.load();
+    // Crashlytics: debug build'lerde göndermiyoruz (kullanıcı self-test
+    // yaparken false-pozitif yığmasın). Release/profile build'lerde
+    // otomatik açık. FlutterError.onError ile uncaught Flutter hatalarını,
+    // PlatformDispatcher.onError ile native zone error'larını yakalıyoruz.
+    final crashlytics = FirebaseCrashlytics.instance;
+    await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
+    FlutterError.onError = crashlytics.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      crashlytics.recordError(error, stack, fatal: true);
+      return true;
+    };
+    // Analytics: ekran/aksiyon log'u gerektiğinde
+    // FirebaseAnalytics.instance.log... ile çağırıyoruz; default config
+    // yeterli olduğu için burada extra setup yok.
+    FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(!kDebugMode);
   } catch (e, st) {
     // Surface to logs but keep the app alive — `_AuthGate` will render the
     // error screen so the user gets actionable feedback instead of a white

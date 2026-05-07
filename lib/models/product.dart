@@ -453,6 +453,12 @@ class AppNotification {
   final String body;
   final DateTime createdAt;
   final DateTime? readAt;
+  /// Cloud Function tarafından yazılan tip etiketi. Bilinenler:
+  ///   'price_drop'            — legacy products.priceHistory drop
+  ///   'regional_price_drop'   — yeni priceGroups omurgası drop
+  ///   'product_request_*'     — admin onay/red bildirimi
+  final String? type;
+  final String? productId;
 
   const AppNotification({
     required this.id,
@@ -460,6 +466,8 @@ class AppNotification {
     required this.body,
     required this.createdAt,
     this.readAt,
+    this.type,
+    this.productId,
   });
 
   bool get isRead => readAt != null;
@@ -474,6 +482,12 @@ class AppNotification {
       body: (m['body'] ?? '') as String,
       createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
       readAt: read is Timestamp ? read.toDate() : null,
+      type: (m['type'] as String?)?.trim().isNotEmpty == true
+          ? (m['type'] as String)
+          : null,
+      productId: (m['productId'] as String?)?.trim().isNotEmpty == true
+          ? (m['productId'] as String)
+          : null,
     );
   }
 }

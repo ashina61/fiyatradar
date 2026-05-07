@@ -1,7 +1,10 @@
 name: fiyatradar
 description: FiyatRadar - Fiyat karşılaştırma ve takip uygulaması
 publish_to: 'none'
-version: 1.0.0+1
+# Beta-1 sürümü: ilk Play Store internal track yüklemesi için.
+# Gelecek release'ler için patch artışı versionCode'u +1, versionName'i
+# hedeflenen kullanıcıya göre bump edin (örn. 1.0.1+2).
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -20,11 +23,12 @@ dependencies:
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.0.0
   firebase_storage: ^12.0.1
-  # firebase_messaging + flutter_local_notifications stay declared so the
-  # in-progress FCM wiring (functions/index.js → users/{uid}.fcmToken) can
-  # land without another pubspec round-trip.
   firebase_messaging: ^15.1.6
   flutter_local_notifications: ^17.2.3
+  # Crash + analytics for Play Store readiness. Beta'da Crashlytics opt-in
+  # bayrağıyla işliyoruz (kullanıcı debug build'te göndermesin).
+  firebase_crashlytics: ^4.1.3
+  firebase_analytics: ^11.3.3
   google_sign_in: ^6.2.1
 
   # UI / icons
@@ -32,9 +36,6 @@ dependencies:
 
   # Utilities
   image_picker: ^1.0.7
-  # mobile_scanner stays declared so the barcode scan flow can be wired in
-  # without another pubspec round-trip — currently the barcode is entered
-  # manually in product_request_screen.dart.
   mobile_scanner: ^5.2.3
   geolocator: ^11.0.0
   geocoding: ^2.1.1

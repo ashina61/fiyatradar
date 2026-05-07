@@ -155,9 +155,7 @@ class _NotificationTile extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    notification.isRead
-                        ? Icons.notifications_none_rounded
-                        : Icons.notifications_active_rounded,
+                    _iconForType(notification),
                     color: notification.isRead ? FR.ink3 : FR.gold,
                     size: 19,
                   ),
@@ -253,5 +251,36 @@ class _EmptyState extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Bildirim tipine göre ikon — regional drop, legacy drop ve diğerlerini
+/// görsel olarak ayırıyoruz. Cloud Function (`functions/index.js`) bu tip
+/// stringlerini standardize ediyor.
+IconData _iconForType(AppNotification n) {
+  if (n.isRead) {
+    switch (n.type) {
+      case 'regional_price_drop':
+      case 'price_drop':
+        return Icons.trending_down_rounded;
+      case 'product_request_approved':
+        return Icons.verified_rounded;
+      case 'product_request_rejected':
+        return Icons.gpp_maybe_rounded;
+      default:
+        return Icons.notifications_none_rounded;
+    }
+  }
+  switch (n.type) {
+    case 'regional_price_drop':
+      return Icons.radar_rounded;
+    case 'price_drop':
+      return Icons.trending_down_rounded;
+    case 'product_request_approved':
+      return Icons.verified_rounded;
+    case 'product_request_rejected':
+      return Icons.gpp_maybe_rounded;
+    default:
+      return Icons.notifications_active_rounded;
   }
 }

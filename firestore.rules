@@ -39,6 +39,7 @@ service cloud.firestore {
         'savedProducts',
         'favorites',
         'cart',
+        'homeScope',
         'notificationPrefs',
         'settings',
         'alarmNotifications',
@@ -49,14 +50,20 @@ service cloud.firestore {
         'lastCheckoutAt',
         'updatedAt',
         // Points / trust / contributions counters — managed client-side via
-        // transactions. Rules cannot peek into an array-transaction safely;
-        // the client is the authority and the transaction guards against
-        // self-votes and duplicate votes.
+        // transactions. Rules cap the per-call delta below
+        // (hasSafeUserGamificationMutation).
         'points',
         'trustTotalVotes',
         'trustVerifiedTotal',
         'trustWrongTotal',
-        'contributions'
+        'contributions',
+        // Streak / badge / per-kind contribution counters.
+        'verifyContributions',
+        'photoContributions',
+        'currentStreak',
+        'longestStreak',
+        'lastContributionDay',
+        'badges'
       ]);
     }
 

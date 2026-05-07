@@ -771,8 +771,17 @@ class AlertsScreen extends StatelessWidget {
 
 // ─── Contributions: my price entries ────────────────────────────────────────
 
-class ContributionsScreen extends StatelessWidget {
+class ContributionsScreen extends StatefulWidget {
   const ContributionsScreen({super.key});
+
+  @override
+  State<ContributionsScreen> createState() => _ContributionsScreenState();
+}
+
+class _ContributionsScreenState extends State<ContributionsScreen> {
+  // Pagination: ilk 50 göster, "Daha fazla yükle" tıklamasıyla 50'şer
+  // arttır. Kullanıcının 200+ katkısı varsa bile UI takılmasın.
+  int _limit = 50;
 
   @override
   Widget build(BuildContext context) {
@@ -784,7 +793,7 @@ class ContributionsScreen extends StatelessWidget {
       // Eski versiyonu legacy `priceHistory` array'ini tarıyordu — mirror
       // kalktığında veri kaybolurdu. Bu artık dayanıklı.
       child: StreamBuilder<List<MyPriceContribution>>(
-        stream: state.watchMyContributions(),
+        stream: state.watchMyContributions(limit: _limit),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting &&
               !snap.hasData) {
@@ -799,12 +808,30 @@ class ContributionsScreen extends StatelessWidget {
           if (entries.isEmpty) {
             return _emptyBlock('Henüz fiyat paylaşmadın. Radar sekmesinden ekle.');
           }
+          // "Daha fazla yükle" iken son sayfa = entries.length == _limit ise
+          // bir sonraki sayfada daha fazla olabilir. Stream limit'i her
+          // setState ile yenilendiği için sonraki snapshot'ta yeni veriler
+          // görünür.
+          final canLoadMore = entries.length >= _limit;
+          // itemCount: entries + (varsa) load-more buton satırı
+          final itemCount = entries.length + (canLoadMore ? 1 : 0);
           return ListView.separated(
             padding: EdgeInsets.fromLTRB(
                 20, 4, 20, frBottomScrollPadding(context)),
-            itemCount: entries.length,
+            itemCount: itemCount,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, i) {
+              if (i >= entries.length) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: FRCta(
+                    label: 'Daha fazla yükle',
+                    icon: Icons.expand_more_rounded,
+                    filled: false,
+                    onTap: () => setState(() => _limit += 50),
+                  ),
+                );
+              }
               final c = entries[i];
               final product = state.findById(c.productId);
               return InkWell(
