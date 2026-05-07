@@ -5,6 +5,7 @@ import '../services/firebase_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
+import 'widgets/barcode_scanner_sheet.dart';
 
 /// User-facing product-request flow. The user fills in product meta; the
 /// document lands in `product_requests` with status=pending. Admins approve
@@ -40,6 +41,12 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
     _barcodeCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _scanBarcode() async {
+    final code = await BarcodeScannerSheet.show(context);
+    if (!mounted || code == null || code.isEmpty) return;
+    setState(() => _barcodeCtrl.text = code);
   }
 
   Future<void> _submit(AppState state) async {
@@ -214,8 +221,19 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
                       ),
                       const SizedBox(height: 14),
                       _label('Barkod (opsiyonel)'),
-                      _text(_barcodeCtrl, '8690…',
-                          keyboard: TextInputType.number),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _text(_barcodeCtrl, '8690…',
+                                keyboard: TextInputType.number),
+                          ),
+                          const SizedBox(width: 8),
+                          FRIconChip(
+                            icon: Icons.qr_code_scanner_rounded,
+                            onTap: _scanBarcode,
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 14),
                       _label('Not (opsiyonel)'),
                       _text(_noteCtrl,

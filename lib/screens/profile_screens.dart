@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/product.dart';
 import '../services/firebase_service.dart';
+import '../services/messaging_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -878,6 +880,14 @@ class SettingsHubScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _HubRow(
+            icon: Icons.account_circle_outlined,
+            title: 'Hesap',
+            subtitle: 'E-posta doğrulama, hesap silme',
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const AccountScreen())),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
             icon: Icons.notifications_none_rounded,
             title: 'Bildirim tercihleri',
             subtitle: 'Push, alarm, özet',
@@ -921,6 +931,244 @@ class SettingsHubScreen extends StatelessWidget {
                   builder: (_) => const MainScreen(initialIndex: 1)),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Account (email verify + delete) ────────────────────────────────────────
+
+class AccountScreen extends StatefulWidget {
+  const AccountScreen({super.key});
+
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  bool _verifyBusy = false;
+  bool _refreshBusy = false;
+  bool _deleteBusy = false;
+  String? _verifyMessage;
+  String? _deleteError;
+
+  Future<void> _sendVerification() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) return;
+    setState(() {
+      _verifyBusy = true;
+      _verifyMessage = null;
+    });
+    try {
+      await user.sendEmailVerification();
+      if (!mounted) return;
+      setState(() => _verifyMessage =
+          'Doğrulama bağlantısı ${user.email ?? "e-postana"} gönderildi.');
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _verifyMessage =
+          'Gönderilemedi: ${e.message ?? e.code}');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _verifyMessage = 'Gönderilemedi: $e');
+    } finally {
+      if (mounted) setState(() => _verifyBusy = false);
+    }
+  }
+
+  Future<void> _refreshStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() => _refreshBusy = true);
+    try {
+      await user.reload();
+    } catch (_) {}
+    if (mounted) setState(() => _refreshBusy = false);
+  }
+
+  Future<void> _deleteAccount() async {
+    final ok = await _confirmDelete();
+    if (ok != true) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() {
+      _deleteBusy = true;
+      _deleteError = null;
+    });
+    final state = AppStateScope.read(context);
+    final uid = user.uid;
+    try {
+      // Best-effort: drop FCM token + the user doc before deleting auth so
+      // we don't leave a tombstone with the user's profile data behind.
+      try {
+        await MessagingService.instance.clearTokenForCurrentUser();
+      } catch (_) {}
+      try {
+        await FirebaseService.instance.userDoc(uid).delete();
+      } catch (_) {}
+      await user.delete();
+      // Clear state and rebuild auth gate.
+      await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _deleteError = e.code == 'requires-recent-login'
+          ? 'Güvenlik için tekrar giriş yapman gerekiyor.'
+          : (e.message ?? e.code));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _deleteError = '$e');
+    } finally {
+      if (mounted) setState(() => _deleteBusy = false);
+    }
+  }
+
+  Future<bool?> _confirmDelete() {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: FR.surface,
+        title: Text('Hesabı sil', style: frDisplay(20, FontWeight.w800)),
+        content: Text(
+          'Hesabını sildiğinde profil bilgilerin kalıcı olarak silinir. '
+          'Bu işlem geri alınamaz.',
+          style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Vazgeç',
+                style: frText(13, FontWeight.w800, color: FR.ink3)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Sil',
+                style: frText(13, FontWeight.w800, color: FR.bad)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final isAnonymous = user?.isAnonymous ?? true;
+    final email = user?.email ?? '';
+    final isVerified = user?.emailVerified ?? false;
+
+    return _ProfileSubScaffold(
+      overline: 'HESAP YÖNETİMİ',
+      title: 'Hesap',
+      child: ListView(
+        padding:
+            EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
+        children: [
+          if (isAnonymous)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: frSurface(radius: FRRad.l),
+              child: Text(
+                'Misafir hesabıyla giriş yapıldı. Tam hesap özellikleri için '
+                'kayıtlı bir e-posta ile giriş yap.',
+                style: frText(12.5, FontWeight.w600, color: FR.ink3,
+                    height: 1.5),
+              ),
+            )
+          else ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: frSurface(radius: FRRad.l),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('E-POSTA',
+                      style: frOverline(color: FR.ink3)),
+                  const SizedBox(height: 6),
+                  Text(email.isEmpty ? '—' : email,
+                      style: frText(14, FontWeight.w800)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        isVerified
+                            ? Icons.verified_rounded
+                            : Icons.error_outline_rounded,
+                        size: 16,
+                        color: isVerified ? FR.gold : FR.bad,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isVerified ? 'Doğrulandı' : 'Henüz doğrulanmadı',
+                        style: frText(12, FontWeight.w800,
+                            color: isVerified ? FR.gold : FR.bad),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (!isVerified) ...[
+              FRCta(
+                label: _verifyBusy
+                    ? 'Gönderiliyor…'
+                    : 'Doğrulama e-postası gönder',
+                icon: Icons.mark_email_read_rounded,
+                onTap: _verifyBusy ? null : _sendVerification,
+              ),
+              const SizedBox(height: 8),
+              FRCta(
+                label: _refreshBusy ? 'Kontrol ediliyor…' : 'Durumu yenile',
+                icon: Icons.refresh_rounded,
+                filled: false,
+                onTap: _refreshBusy ? null : _refreshStatus,
+              ),
+              if (_verifyMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(_verifyMessage!,
+                    style: frText(12, FontWeight.w700, color: FR.ink2)),
+              ],
+            ],
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: FR.bad.withOpacity(.08),
+                borderRadius: FRRad.all(FRRad.l),
+                border: Border.all(color: FR.bad.withOpacity(.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('TEHLİKELİ BÖLGE',
+                      style: frOverline(color: FR.bad)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Hesabını silmek profilini, favorilerini ve kazandığın '
+                    'puanları kalıcı olarak kaldırır.',
+                    style: frText(12.5, FontWeight.w600,
+                        color: FR.ink2, height: 1.5),
+                  ),
+                  const SizedBox(height: 12),
+                  FRCta(
+                    label: _deleteBusy ? 'Siliniyor…' : 'Hesabımı sil',
+                    icon: Icons.delete_forever_rounded,
+                    filled: false,
+                    onTap: _deleteBusy ? null : _deleteAccount,
+                  ),
+                  if (_deleteError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(_deleteError!,
+                        style:
+                            frText(12, FontWeight.w800, color: FR.bad)),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/messaging_service.dart';
 import 'state/app_state.dart';
 import 'ui/components.dart';
 import 'ui/fr_theme.dart';
@@ -47,6 +50,8 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
       throw widget.bootError!;
     }
     await _state.init();
+    // FCM wiring is best-effort — a failure here must not block the splash.
+    unawaited(MessagingService.instance.init());
     final prefs = await SharedPreferences.getInstance();
     return _Init(showOnboarding: !(prefs.getBool('onboarding_done') ?? false));
   }

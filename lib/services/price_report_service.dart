@@ -88,6 +88,7 @@ class PriceReportService {
     String? note,
     String? photoUrl,
     String? barcode,
+    Future<void> Function(Transaction tx, String reportId)? onTransactionWrites,
   }) async {
     final cityId = normalizeId(cityName);
     final districtId = normalizeId(districtName);
@@ -208,6 +209,15 @@ class PriceReportService {
         'displayTitle': '$chainName · $districtName / $cityName',
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      // Legacy mirror writes (priceEntries collection + products.priceHistory
+      // array). The new system writes everything above; this callback exists
+      // so callers can append the legacy mirror inside the same transaction
+      // until home queries and the price-drop Cloud Function migrate to
+      // priceReports/priceGroups.
+      if (onTransactionWrites != null) {
+        await onTransactionWrites(tx, reportId);
+      }
     });
 
     return AddPriceSubmitResult(
