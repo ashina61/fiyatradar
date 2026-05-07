@@ -578,8 +578,15 @@ class AboutScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('FiyatRadar', style: frDisplay(20, FontWeight.w700)),
-                const SizedBox(height: 6),
+                SizedBox(
+                  height: 64,
+                  child: Image.asset(
+                    'assets/images/fiyatradar_logo.png',
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerLeft,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   'Premium topluluk destekli market fiyat zekâsı.',
                   style: frText(12.5, FontWeight.w600, color: FR.ink3),
