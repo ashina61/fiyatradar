@@ -725,34 +725,26 @@ class _CompareLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 24, 20, frBottomScrollPadding(context)),
+      padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            height: 220,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [FR.surfaceHi, FR.surfaceLo],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: FRRad.all(FRRad.xxl),
-              border: Border.all(color: FR.hairline),
-            ),
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(strokeWidth: 2.4, color: FR.gold),
-                ),
-                const SizedBox(height: 14),
-                Text('Bölgesel fiyatlar hesaplanıyor…',
-                    style: frText(13, FontWeight.w700, color: FR.ink2)),
-              ],
+          // Region picker bar yer tutucusu.
+          const FRSkeleton(height: 56, radius: 16),
+          const SizedBox(height: 14),
+          // Winner card hero yer tutucusu.
+          const FRSkeleton(height: 220, radius: 28),
+          const SizedBox(height: 16),
+          // Mixed öneri kartı.
+          const FRSkeleton(height: 130, radius: 22),
+          const SizedBox(height: 22),
+          // Tek market sıralaması (3 kart).
+          const FRSkeletonList(count: 3, itemHeight: 100, radius: 16),
+          const SizedBox(height: 14),
+          Center(
+            child: Text(
+              'Bölgesel fiyatlar hesaplanıyor…',
+              style: frText(12, FontWeight.w700, color: FR.ink3),
             ),
           ),
         ],

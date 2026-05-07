@@ -7,9 +7,11 @@ import '../../ui/tokens.dart';
 import '../admin_screen.dart';
 import '../login_screen.dart';
 import '../main_screen.dart';
+import '../regional_leaderboard_screen.dart';
 import '../notifications_screen.dart';
 import '../profile_screens.dart';
 import '../product_request_screen.dart';
+import '../watchlist_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -51,6 +53,8 @@ class ProfileTab extends StatelessWidget {
           _StreakCard(snap: snap),
           const SizedBox(height: 14),
           _BadgesStrip(snap: snap),
+          const SizedBox(height: 14),
+          _RegionalRankCta(state: state),
           const SizedBox(height: 20),
           _StatGrid(state: state),
           const SizedBox(height: 20),
@@ -62,22 +66,20 @@ class ProfileTab extends StatelessWidget {
           const SizedBox(height: 10),
           _ListGroup(
             items: [
+              // Tek "Takiplerim" girişi — favoriler + alarmlar tek panelde
+              // sekmelerle. Eski iki ayrı satır ("Favoriler" + "Alarmlarım")
+              // kullanıcıya kafa karışıklığı veriyordu (hangisini kullanmak
+              // gerek?). Eski FavoritesScreen / AlertsScreen sınıfları geri
+              // uyum için duruyor, doğrudan deep-link açabilir.
               _ListItem(
-                icon: Icons.favorite_rounded,
-                title: 'Favoriler',
-                subtitle: '${state.favorites.length} ürün takipte',
+                icon: Icons.bookmark_rounded,
+                title: 'Takiplerim',
+                subtitle:
+                    '${state.favorites.length} favori · ${state.productAlerts.length} alarm',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const FavoritesScreen()),
-                ),
-              ),
-              _ListItem(
-                icon: Icons.notifications_active_rounded,
-                title: 'Alarmlarım',
-                subtitle: '${state.productAlerts.length} aktif fiyat alarmı',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AlertsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const WatchlistScreen()),
                 ),
               ),
               _ListItem(
@@ -392,7 +394,8 @@ class _StatGrid extends StatelessWidget {
           'FAVORİ',
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+            MaterialPageRoute(
+                builder: (_) => const WatchlistScreen(initialTab: 0)),
           ),
         ),
         const SizedBox(width: 10),
@@ -402,7 +405,8 @@ class _StatGrid extends StatelessWidget {
           'ALARM',
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const AlertsScreen()),
+            MaterialPageRoute(
+                builder: (_) => const WatchlistScreen(initialTab: 1)),
           ),
         ),
         const SizedBox(width: 10),
@@ -938,6 +942,65 @@ class _BadgeChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RegionalRankCta extends StatelessWidget {
+  const _RegionalRankCta({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final city = (state.cityName ?? '').trim();
+    final district = (state.districtName ?? '').trim();
+    final region = (city.isEmpty || district.isEmpty)
+        ? 'Bölgeni seç'
+        : '$district / $city';
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => const RegionalLeaderboardScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: FR.surface,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.gold.withOpacity(.45)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FR.gold.withOpacity(.16),
+              borderRadius: FRRad.all(12),
+              border: Border.all(color: FR.gold.withOpacity(.45)),
+            ),
+            child: Icon(Icons.emoji_events_rounded, color: FR.gold, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Bölgemde sıralamam',
+                    style: frText(13.5, FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                  region,
+                  style: frText(11.5, FontWeight.w700, color: FR.ink3),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_rounded, size: 18, color: FR.gold),
+        ]),
       ),
     );
   }

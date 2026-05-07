@@ -176,6 +176,30 @@ class PriceGroupModel {
   bool get hasPhotoEvidence => photoReportCount > 0;
 }
 
+/// Bölge katkıcısı sıralaması için lightweight view-model.
+/// `priceReports` üzerinden son 30 günü tarayıp kullanıcı bazında
+/// aggregate çıkarır. Sıralama UI tarafında yapılır; bu sınıf tek
+/// kullanıcının skoru.
+class RegionalContributorScore {
+  final String userId;
+  final String userDisplayName;
+  final int reportCount;
+  final int photoCount;
+  final DateTime? lastReportedAt;
+
+  const RegionalContributorScore({
+    required this.userId,
+    required this.userDisplayName,
+    required this.reportCount,
+    required this.photoCount,
+    required this.lastReportedAt,
+  });
+
+  /// Sıralama skoru: rapor sayısı + fotoğraf bonusu (her foto +0.5).
+  /// Pure-numeric, leaderboard sıralaması için.
+  double get score => reportCount + (photoCount * 0.5);
+}
+
 /// Profil "Katkılarım" listesi için yalın view-model. `priceReports`
 /// koleksiyonunun bir doc'undan beslenir — legacy `priceHistory` array'ine
 /// bağımlı değildir, yani mirror kalksa bile çalışır.

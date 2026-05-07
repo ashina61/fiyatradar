@@ -950,3 +950,109 @@ class FRVoteButtons extends StatelessWidget {
     );
   }
 }
+
+/// Premium shimmer skeleton — `CircularProgressIndicator`'ın yerine ana
+/// ekranlarda kullanılır. Yumuşak geçişli gradient bir bantı sürekli
+/// kaydırarak "yükleniyor ama içerik şekli belli" hissi verir.
+///
+/// Kullanım: tek-satır kart için `FRSkeleton(height: 56)`, çoklu satır
+/// için `FRSkeletonList(count: 4, itemHeight: 64)`.
+class FRSkeleton extends StatefulWidget {
+  const FRSkeleton({
+    super.key,
+    this.width = double.infinity,
+    this.height = 16,
+    this.radius = 10,
+  });
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  State<FRSkeleton> createState() => _FRSkeletonState();
+}
+
+class _FRSkeletonState extends State<FRSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        // -1 (sol-dış) → 1 (sağ-dış) hareketli highlight noktası.
+        final t = _ctrl.value * 2 - 1;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(widget.radius),
+          child: SizedBox(
+            width: widget.width,
+            height: widget.height,
+            child: ShaderMask(
+              blendMode: BlendMode.srcATop,
+              shaderCallback: (bounds) {
+                return LinearGradient(
+                  begin: Alignment(t - 1, 0),
+                  end: Alignment(t + 1, 0),
+                  colors: [
+                    FR.surface,
+                    FR.surfaceHi,
+                    FR.surface,
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ).createShader(bounds);
+              },
+              child: Container(color: FR.surface),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// `FRSkeleton`'ı dikey listede tekrarlar — "X kart yükleniyor" görünümü.
+class FRSkeletonList extends StatelessWidget {
+  const FRSkeletonList({
+    super.key,
+    this.count = 3,
+    this.itemHeight = 76,
+    this.spacing = 10,
+    this.radius = 16,
+  });
+  final int count;
+  final double itemHeight;
+  final double spacing;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: List.generate(count, (i) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: i == count - 1 ? 0 : spacing),
+          child: FRSkeleton(
+            height: itemHeight,
+            radius: radius,
+          ),
+        );
+      }),
+    );
+  }
+}

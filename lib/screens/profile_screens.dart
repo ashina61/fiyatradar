@@ -342,6 +342,17 @@ class NotificationPrefsScreen extends StatelessWidget {
                 state.updateNotificationSettings(priceAlertsEnabled: v),
           ),
           const SizedBox(height: 10),
+          const SizedBox(height: 10),
+          _ToggleRow(
+            icon: Icons.radar_rounded,
+            title: 'Bölgemde fiyat düştü',
+            subtitle:
+                'Bölgendeki bir markette ortalama düştüğünde push gelsin',
+            value: state.regionalDropPushEnabled,
+            onChanged: (v) => state.updateNotificationSettings(
+                regionalDropPushEnabled: v),
+          ),
+          const SizedBox(height: 10),
           _ToggleRow(
             icon: Icons.summarize_rounded,
             title: 'Haftalık özet',
@@ -797,10 +808,12 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting &&
               !snap.hasData) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(strokeWidth: 2.4),
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              child: const FRSkeletonList(
+                count: 5,
+                itemHeight: 76,
+                radius: 16,
               ),
             );
           }

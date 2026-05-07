@@ -55,8 +55,13 @@ class AdminPriceGroupsScreen extends StatelessWidget {
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting &&
                       !snap.hasData) {
-                    return const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    return const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 4, 20, 24),
+                      child: FRSkeletonList(
+                        count: 6,
+                        itemHeight: 96,
+                        radius: 16,
+                      ),
                     );
                   }
                   final groups = snap.data ?? const <PriceGroupModel>[];
@@ -243,8 +248,13 @@ class AdminStorePlacesPendingScreen extends StatelessWidget {
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting &&
                       !snap.hasData) {
-                    return const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    return const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 4, 20, 24),
+                      child: FRSkeletonList(
+                        count: 6,
+                        itemHeight: 96,
+                        radius: 16,
+                      ),
                     );
                   }
                   final items = snap.data ?? const <Map<String, dynamic>>[];

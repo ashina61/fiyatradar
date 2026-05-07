@@ -114,11 +114,15 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-    // 2) Push token (best-effort).
+    // 2) Push token (best-effort) + opt-in kontrolleri.
     try {
       const userSnap = await db.collection('users').doc(userId).get();
-      const fcmToken = ((userSnap.data() || {}).fcmToken || '').toString().trim();
-      if (fcmToken) {
+      const u = userSnap.data() || {};
+      const fcmToken = (u.fcmToken || '').toString().trim();
+      const settings = (u.settings || {}).notifications || {};
+      const pushEnabled = settings.pushEnabled !== false;
+      const priceAlertsEnabled = settings.priceAlertsEnabled !== false;
+      if (fcmToken && pushEnabled && priceAlertsEnabled) {
         tokens.push(fcmToken);
         if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
         tokenToRefs.get(fcmToken).push(userSnap.ref);
@@ -234,12 +238,21 @@ exports.onPriceGroupUpdate = onDocumentUpdated('priceGroups/{groupId}', async (e
     let userCity = '';
     let userDistrict = '';
     let fcmToken = '';
+    let regionalDropPushEnabled = true;
+    let pushEnabled = true;
     try {
       const userSnap = await db.collection('users').doc(userId).get();
       const u = userSnap.data() || {};
       userCity = (u.cityName || u.city || '').toString();
       userDistrict = (u.district || u.neighborhood || '').toString();
       fcmToken = (u.fcmToken || '').toString().trim();
+      const settings = (u.settings || {}).notifications || {};
+      // Opt-in flag'leri default true (kullanıcı hiç dokunmadıysa açık);
+      // explicit false ise push'u atlıyoruz ama in-app notification doc'u
+      // yine yazıyoruz — bildirim merkezi sinyali kaybolmasın.
+      pushEnabled = settings.pushEnabled !== false;
+      regionalDropPushEnabled =
+        settings.regionalDropPushEnabled !== false;
     } catch (e) {
       logger.warn('priceGroup: user fetch failed', { userId, error: e.message });
       return;
@@ -268,7 +281,8 @@ exports.onPriceGroupUpdate = onDocumentUpdated('priceGroups/{groupId}', async (e
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-    if (fcmToken) {
+    // Push'u sadece opt-in kullanıcılara gönder; in-app doc yine yazıldı.
+    if (fcmToken && pushEnabled && regionalDropPushEnabled) {
       tokens.push(fcmToken);
       if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
       tokenToRefs.get(fcmToken).push(db.collection('users').doc(userId));

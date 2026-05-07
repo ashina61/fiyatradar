@@ -155,6 +155,12 @@ class AppState extends ChangeNotifier {
   bool pushNotificationsEnabled = true;
   bool priceAlertsEnabled = true;
   bool weeklySummaryEnabled = true;
+  /// `regional_price_drop` push'larına abonelik. Cloud Function
+  /// `onPriceGroupUpdate` notification doc'unu yine yazar (in-app sinyali
+  /// kaybolmaması için), ama push gönderirken bu bayrağı kontrol etmesi
+  /// gerekiyor (TODO: functions/index.js bu alanı henüz okumuyor — bir
+  /// sonraki Cloud Functions deploy'unda eklenmeli).
+  bool regionalDropPushEnabled = true;
   bool twoFactorEnabled = false;
   bool biometricEnabled = false;
   String? twoFactorPin;
@@ -581,6 +587,7 @@ class AppState extends ChangeNotifier {
       final prevPush = pushNotificationsEnabled;
       final prevPriceAlerts = priceAlertsEnabled;
       final prevWeekly = weeklySummaryEnabled;
+      final prevRegionalDrop = regionalDropPushEnabled;
       final prevTwoFactor = twoFactorEnabled;
       final prevBiometric = biometricEnabled;
       final prevTwoFactorPin = twoFactorPin;
@@ -655,6 +662,8 @@ class AppState extends ChangeNotifier {
           notificationsSettings['priceAlertsEnabled'] as bool? ?? true;
       weeklySummaryEnabled =
           notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
+      regionalDropPushEnabled =
+          notificationsSettings['regionalDropPushEnabled'] as bool? ?? true;
       twoFactorEnabled = securitySettings['twoFactorEnabled'] as bool? ?? false;
       biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? false;
       twoFactorPin = (securitySettings['twoFactorPin'] as String?)?.trim().isNotEmpty == true
@@ -706,6 +715,7 @@ class AppState extends ChangeNotifier {
           prevPush != pushNotificationsEnabled ||
           prevPriceAlerts != priceAlertsEnabled ||
           prevWeekly != weeklySummaryEnabled ||
+          prevRegionalDrop != regionalDropPushEnabled ||
           prevTwoFactor != twoFactorEnabled ||
           prevBiometric != biometricEnabled ||
           prevTwoFactorPin != twoFactorPin ||
@@ -1339,6 +1349,75 @@ class AppState extends ChangeNotifier {
       uid: uid,
       kind: _ContribKind.verify,
     );
+  }
+
+  /// Bölgesel katkıcı sıralaması — son 30 günde ilçe içinde kim ne kadar
+  /// rapor yapmış. Profil "Bölgemde sıralamam" panelinin veri kaynağı.
+  ///
+  /// Limit (200) küçük tutuldu çünkü bir ilçenin tek 30 günde 200+ rapor
+  /// alması olağanüstü; aşılırsa client-side aggregate doğru olur ama
+  /// "leaderboard top-N" sıralaması hâlâ doğru kalır (skor-tabanlı).
+  ///
+  /// Not: orderBy + where index'i `firestore.indexes.json`'a (cityId,
+  /// districtId, createdAt DESC) olarak ekledik.
+  Stream<List<RegionalContributorScore>> watchRegionalContributorBoard({
+    required String city,
+    required String district,
+  }) {
+    final cityId = PriceReportService.normalizeId(city);
+    final districtId = PriceReportService.normalizeId(district);
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    return _svc.priceReports
+        .where('cityId', isEqualTo: cityId)
+        .where('districtId', isEqualTo: districtId)
+        .where('createdAt', isGreaterThan: Timestamp.fromDate(cutoff))
+        .orderBy('createdAt', descending: true)
+        .limit(200)
+        .snapshots()
+        .map(_aggregateContributors);
+  }
+
+  List<RegionalContributorScore> _aggregateContributors(
+    QuerySnapshot<Map<String, dynamic>> snap,
+  ) {
+    final byUser = <String, RegionalContributorScore>{};
+    for (final d in snap.docs) {
+      final m = d.data();
+      final uid = (m['userId'] ?? '').toString();
+      if (uid.isEmpty) continue;
+      final name = (m['userDisplayName'] ?? '').toString();
+      final ts = m['createdAt'];
+      final created = ts is Timestamp ? ts.toDate() : null;
+      final hasPhoto =
+          (m['photoUrl'] as String?)?.trim().isNotEmpty == true;
+      final existing = byUser[uid];
+      byUser[uid] = RegionalContributorScore(
+        userId: uid,
+        userDisplayName:
+            (existing?.userDisplayName.isNotEmpty ?? false)
+                ? existing!.userDisplayName
+                : (name.isNotEmpty ? name : 'Topluluk'),
+        reportCount: (existing?.reportCount ?? 0) + 1,
+        photoCount: (existing?.photoCount ?? 0) + (hasPhoto ? 1 : 0),
+        lastReportedAt: () {
+          if (existing?.lastReportedAt == null) return created;
+          if (created == null) return existing!.lastReportedAt;
+          return created.isAfter(existing!.lastReportedAt!)
+              ? created
+              : existing.lastReportedAt;
+        }(),
+      );
+    }
+    final list = byUser.values.toList()
+      ..sort((a, b) {
+        final byScore = b.score.compareTo(a.score);
+        if (byScore != 0) return byScore;
+        // Eşitlikte en son rapor eden ileride.
+        final ad = a.lastReportedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bd = b.lastReportedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bd.compareTo(ad);
+      });
+    return list;
   }
 
   /// Kullanıcının kendi gönderdiği fiyat raporlarını canlı izler. Profil
@@ -2354,6 +2433,7 @@ class AppState extends ChangeNotifier {
     bool? pushEnabled,
     bool? priceAlertsEnabled,
     bool? weeklySummaryEnabled,
+    bool? regionalDropPushEnabled,
   }) async {
     if (user == null) return;
     await _svc.userDoc(user!.uid).set({
@@ -2364,6 +2444,8 @@ class AppState extends ChangeNotifier {
             'priceAlertsEnabled': priceAlertsEnabled,
           if (weeklySummaryEnabled != null)
             'weeklySummaryEnabled': weeklySummaryEnabled,
+          if (regionalDropPushEnabled != null)
+            'regionalDropPushEnabled': regionalDropPushEnabled,
         },
       },
       'updatedAt': FieldValue.serverTimestamp(),
