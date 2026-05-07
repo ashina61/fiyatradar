@@ -5,12 +5,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 
+import '../models/comment.dart';
 import '../models/price_v1.dart';
 import '../models/price_reporting.dart';
 import '../models/product.dart';
 import '../models/turkey_locations.dart';
 import '../services/basket_pricing_service.dart';
 import '../services/firebase_service.dart';
+import '../services/messaging_service.dart';
 import '../services/price_report_service.dart';
 
 /// Points awarded for different actions in the rewards system.
@@ -1030,8 +1032,64 @@ class AppState extends ChangeNotifier {
       throw StateError(
           'Geçersiz ilçe: "$district". $cityTrim ilçelerinden seç.');
     }
+    if ((placeId ?? '').trim().isEmpty) {
+      throw StateError('A valid place must be selected before submit.');
+    }
     final resolvedChainId = chainId.trim().isEmpty ? store : chainId;
     final resolvedChainName = chainName.trim().isEmpty ? store : chainName;
+    final resolvedReporterName = user?.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!
+        : displayName;
+    final now = DateTime.now();
+    final entryId = '${productId}_${now.millisecondsSinceEpoch}_${_rand4()}';
+    final legacyEntry = PriceEntry(
+      id: entryId,
+      store: store,
+      price: price,
+      date: now,
+      reportedBy: resolvedReporterName,
+      reportedByUid: uid,
+      note: note,
+      proofImageUrl: proofImageUrl,
+      city: cityTrim,
+      district: districtTrim,
+      status: PriceStatus.pending,
+      statusUpdatedAt: now,
+    );
+    const sourceType = PriceSourceType.physical;
+    final legacyEntryPayload = <String, dynamic>{
+      'productId': productId,
+      'productNameSnapshot': p.name,
+      'productBrandSnapshot': p.brand,
+      'price': price,
+      'scope': scopeForSourceType(sourceType),
+      'sourceType': priceSourceTypeToString(sourceType),
+      'chainId': resolvedChainId,
+      'chainName': resolvedChainName,
+      'placeId': placeId!.trim(),
+      'placeDisplayName': store,
+      'city': cityTrim,
+      'district': districtTrim,
+      'lat': lat,
+      'lng': lng,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 14))),
+      'reportedByUid': uid,
+      'reportedByName': resolvedReporterName,
+      'status': 'pending',
+      'upvotes': 0,
+      'downvotes': 0,
+      'voters': <String, String>{},
+      'trustWeightedScore': 0.0,
+      'note': note,
+      'proofImageUrl': proofImageUrl,
+      'legacy': {
+        'compatProductPriceHistory': true,
+      }
+    };
+    final productRef = _svc.products.doc(productId);
+    final legacyEntryRef = _svc.priceEntries.doc(entryId);
+
     final result = await _priceReportService.submitRegionalPrice(
       productId: productId,
       productName: p.name,
@@ -1041,8 +1099,7 @@ class AppState extends ChangeNotifier {
       districtName: districtTrim,
       price: price,
       userId: uid,
-      userDisplayName:
-          (user?.displayName?.trim().isNotEmpty == true) ? user!.displayName! : displayName,
+      userDisplayName: resolvedReporterName,
       branchId: placeId,
       branchName: store,
       distanceToBranchMeters: distanceToBranchMeters,
@@ -1051,24 +1108,31 @@ class AppState extends ChangeNotifier {
       note: note.trim().isEmpty ? null : note.trim(),
       photoUrl: proofImageUrl,
       barcode: barcode,
+      // Legacy mirror writes happen inside the same transaction so we never
+      // leave priceReports/priceGroups out of sync with priceEntries +
+      // products.priceHistory. Once home queries and the price-drop Cloud
+      // Function migrate off the legacy paths, drop this callback.
+      onTransactionWrites: (tx, _) async {
+        final productSnap = await tx.get(productRef);
+        if (!productSnap.exists) {
+          throw StateError('Ürün bulunamadı.');
+        }
+        final rawHistory =
+            (productSnap.data()?['priceHistory'] as List?) ?? const [];
+        final newHist = [
+          ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
+          legacyEntry.toMap(),
+        ];
+        tx.set(legacyEntryRef, legacyEntryPayload);
+        tx.update(productRef, {'priceHistory': newHist});
+      },
     );
 
     if (result.createdReport) {
-      await addPrice(
-        productId: productId,
-        store: store,
-        price: price,
-        note: note,
-        proofImageUrl: proofImageUrl,
-        placeId: placeId,
-        city: cityTrim,
-        district: districtTrim,
-        sourceType: PriceSourceType.physical,
-        chainId: resolvedChainId,
-        chainName: resolvedChainName,
-        lat: lat,
-        lng: lng,
-      );
+      await _addPoints(PointsRules.addPrice);
+      await _svc.userDoc(uid).set({
+        'contributions': FieldValue.increment(1),
+      }, SetOptions(merge: true));
     }
     return result;
   }
@@ -1177,103 +1241,92 @@ class AppState extends ChangeNotifier {
     return _basketPricingService.calculate(items: items, groups: groups);
   }
 
-  Future<void> addPrice({
-    required String productId,
-    required String store,
-    required double price,
-    String note = '',
-    String? proofImageUrl,
-    String? placeId,
-    String? city,
-    String? district,
-    PriceSourceType sourceType = PriceSourceType.physical,
-    String? chainId,
-    String? chainName,
-    double? lat,
-    double? lng,
-  }) async {
-    final p = findById(productId);
-    if (p == null) return;
-    final uid = user?.uid ?? '';
-    final now = DateTime.now();
-    final entryId = '${productId}_${now.millisecondsSinceEpoch}_${_rand4()}';
-    final resolvedCity = (city ?? cityName ?? '').trim();
-    final resolvedDistrict = (district ?? districtName ?? '').trim();
-    if (sourceType != PriceSourceType.online &&
-        (resolvedCity.isEmpty || resolvedDistrict.isEmpty)) {
-      throw StateError('Physical/Bazaar prices require city and district.');
-    }
-    if ((placeId ?? '').trim().isEmpty) {
-      throw StateError('A valid place must be selected before submit.');
-    }
-    final resolvedReporterName = user?.displayName?.trim().isNotEmpty == true
-        ? user!.displayName!
-        : displayName;
-    final entry = PriceEntry(
-      id: entryId,
-      store: store,
-      price: price,
-      date: now,
-      reportedBy: resolvedReporterName,
-      reportedByUid: uid,
-      note: note,
-      proofImageUrl: proofImageUrl,
-      city: sourceType == PriceSourceType.online ? null : resolvedCity,
-      district: sourceType == PriceSourceType.online ? null : resolvedDistrict,
-      status: PriceStatus.pending,
-      statusUpdatedAt: now,
-    );
-    final priceEntryPayload = {
-      'productId': productId,
-      'productNameSnapshot': p.name,
-      'productBrandSnapshot': p.brand,
-      'price': price,
-      'scope': scopeForSourceType(sourceType),
-      'sourceType': priceSourceTypeToString(sourceType),
-      'chainId': (chainId ?? '').trim().isEmpty ? null : chainId!.trim(),
-      'chainName': (chainName ?? '').trim().isEmpty ? null : chainName!.trim(),
-      'placeId': placeId!.trim(),
-      'placeDisplayName': store,
-      'city': sourceType == PriceSourceType.online ? null : resolvedCity,
-      'district': sourceType == PriceSourceType.online ? null : resolvedDistrict,
-      'lat': lat,
-      'lng': lng,
-      'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 14))),
-      'reportedByUid': uid,
-      'reportedByName': resolvedReporterName,
-      'status': 'pending',
-      'upvotes': 0,
-      'downvotes': 0,
-      'voters': <String, String>{},
-      'trustWeightedScore': 0.0,
-      'note': note,
-      'proofImageUrl': proofImageUrl,
-      'legacy': {
-        'compatProductPriceHistory': true,
-      }
-    };
-    final productRef = _svc.products.doc(productId);
-    final priceRef = _svc.priceEntries.doc(entryId);
-    await _svc.db.runTransaction((tx) async {
-      final productSnap = await tx.get(productRef);
-      if (!productSnap.exists) {
-        throw StateError('Product not found during addPrice transaction.');
-      }
-      final rawHistory = (productSnap.data()?['priceHistory'] as List?) ?? const [];
-      final newHist = [
-        ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
-        entry.toMap(),
-      ];
-      tx.set(priceRef, priceEntryPayload);
-      tx.update(productRef, {'priceHistory': newHist});
+  // --- Comments -----------------------------------------------------------
+
+  /// Stream comments for a product, newest first. The query is filtered
+  /// client-side so a missing composite index doesn't break the listing —
+  /// it loads up to 100 docs and sorts in memory. Firestore rules permit
+  /// public reads of `comments`.
+  Stream<List<ProductComment>> watchProductComments(String productId) {
+    return _svc.comments
+        .where('productId', isEqualTo: productId)
+        .limit(100)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs.map(ProductComment.fromDoc).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
     });
-    await _addPoints(PointsRules.addPrice);
-    if (uid.isNotEmpty) {
-      await _svc.userDoc(uid).set({
-        'contributions': FieldValue.increment(1),
-      }, SetOptions(merge: true));
-    }
+  }
+
+  Future<String> addProductComment({
+    required String productId,
+    required String text,
+  }) async {
+    final uid = user?.uid ?? '';
+    if (uid.isEmpty) throw StateError('Yorum için giriş yapmalısın.');
+    final clean = text.trim();
+    if (clean.length < 2) throw StateError('Yorum çok kısa.');
+    if (clean.length > 1000) throw StateError('Yorum çok uzun.');
+    final ref = _svc.comments.doc();
+    await ref.set({
+      'productId': productId,
+      'userId': uid,
+      'text': clean,
+      'likes': 0,
+      'likedBy': <String>[],
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
+
+  Future<void> updateProductComment({
+    required String commentId,
+    required String text,
+  }) async {
+    final clean = text.trim();
+    if (clean.length < 2) throw StateError('Yorum çok kısa.');
+    if (clean.length > 1000) throw StateError('Yorum çok uzun.');
+    await _svc.comments.doc(commentId).update({
+      'text': clean,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteProductComment(String commentId) async {
+    await _svc.comments.doc(commentId).delete();
+  }
+
+  /// Toggle a like on a comment. Uses an array transaction so concurrent
+  /// likes don't drift the `likes` count from `likedBy` length.
+  ///
+  /// NOTE: Firestore rules forbid non-owner updates to `likes`/`likedBy`
+  /// (see `hasOnlyCommentOwnerWritableKeys`). Until the rules expand to
+  /// allow signedIn users to like-toggle, this method will be denied for
+  /// non-owners — the UI surfaces the error.
+  Future<void> toggleCommentLike(String commentId) async {
+    final uid = user?.uid ?? '';
+    if (uid.isEmpty) throw StateError('Beğenmek için giriş yapmalısın.');
+    final ref = _svc.comments.doc(commentId);
+    await _svc.db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+      final m = snap.data() ?? <String, dynamic>{};
+      final liked = List<String>.from(((m['likedBy'] as List?) ?? const [])
+          .map((e) => e.toString()));
+      final hasLike = liked.contains(uid);
+      if (hasLike) {
+        liked.remove(uid);
+      } else {
+        liked.add(uid);
+      }
+      tx.update(ref, {
+        'likedBy': liked,
+        'likes': liked.length,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 
   // Community-side product creation goes through `product_requests` (see
@@ -2014,6 +2067,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Drop the FCM token first so the just-signed-out account stops getting
+    // push for this device. Best-effort — must not block logout.
+    try {
+      await MessagingService.instance.clearTokenForCurrentUser();
+    } catch (_) {}
     await _productsSub?.cancel();
     await _authSub?.cancel();
     await _bannersSub?.cancel();

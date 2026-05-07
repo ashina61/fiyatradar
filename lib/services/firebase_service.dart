@@ -195,6 +195,8 @@ class FirebaseService {
       db.collection('categories');
   CollectionReference<Map<String, dynamic>> get users =>
       db.collection('users');
+  CollectionReference<Map<String, dynamic>> get comments =>
+      db.collection('comments');
 
   /// Community-sourced product additions awaiting admin approval.
   CollectionReference<Map<String, dynamic>> get productRequests =>

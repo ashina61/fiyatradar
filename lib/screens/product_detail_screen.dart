@@ -6,6 +6,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
+import 'widgets/product_comments_section.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({super.key, required this.product});
@@ -116,6 +117,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             state: state,
                           ),
                         )),
+                  const SizedBox(height: 24),
+                  ProductCommentsSection(productId: product.id),
                 ],
               ),
             ),
