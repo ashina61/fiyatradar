@@ -77,18 +77,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
               child: Row(
                 children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
-                      borderRadius: FRRad.all(11),
+                  SizedBox(
+                    height: 40,
+                    child: Image.asset(
+                      'assets/images/fiyatradar_logo.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerLeft,
                     ),
-                    alignment: Alignment.center,
-                    child: Text('FR', style: frDisplay(13, FontWeight.w800, color: FR.onGold)),
                   ),
-                  const SizedBox(width: 10),
-                  Text('FiyatRadar', style: frText(15, FontWeight.w800)),
                   const Spacer(),
                   InkWell(
                     onTap: _finish,

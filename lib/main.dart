@@ -226,26 +226,15 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 78,
-              height: 78,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [FR.goldHi, FR.goldDeep],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: FRRad.all(22),
-                boxShadow: [
-                  BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 28, offset: const Offset(0, 12)),
-                ],
+            SizedBox(
+              width: 200,
+              height: 170,
+              child: Image.asset(
+                'assets/images/fiyatradar_logo.png',
+                fit: BoxFit.contain,
               ),
-              alignment: Alignment.center,
-              child: Text('FR', style: frDisplay(30, FontWeight.w800, color: FR.onGold)),
             ),
-            const SizedBox(height: 22),
-            Text('FiyatRadar', style: frDisplay(26, FontWeight.w700)),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Text(
               'Market fiyatları · canlı takip',
               style: frText(12.5, FontWeight.w600, color: FR.ink3, letter: .4),

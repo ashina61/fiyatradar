@@ -59,6 +59,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/app_logo.png
+    - assets/images/fiyatradar_logo.png
+    - assets/images/fr_mark_foreground.png
     - assets/icons/icon.png
     - assets/fiyatradar_marketler.json
     - assets/fiyatradar_urunler.json
@@ -66,3 +68,5 @@ flutter_launcher_icons:
   android: "ic_launcher"
   ios: false
   image_path: "assets/images/app_logo.png"
+  adaptive_icon_background: "#FCF6E9"
+  adaptive_icon_foreground: "assets/images/fr_mark_foreground.png"

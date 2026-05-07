@@ -246,21 +246,13 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
-                          borderRadius: FRRad.all(12),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text('FR', style: frDisplay(15, FontWeight.w800, color: FR.onGold)),
-                      ),
-                      const SizedBox(width: 10),
-                      Text('FiyatRadar', style: frText(16, FontWeight.w800)),
-                    ],
+                  SizedBox(
+                    height: 56,
+                    child: Image.asset(
+                      'assets/images/fiyatradar_logo.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerLeft,
+                    ),
                   ),
                   const SizedBox(height: 28),
                   Text(overline, style: frOverline()),
