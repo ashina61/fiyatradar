@@ -1015,25 +1015,25 @@ class _FeedRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: frText(13.5, FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  Row(
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       FRStoreBadge(latest?.store ?? '—'),
-                      const SizedBox(width: 6),
                       if (latestEntry != null)
                         FRFreshChip(date: latestEntry.date)
                       else
                         Text('fiyat yok',
                             style:
                                 frText(11, FontWeight.w700, color: FR.ink3)),
-                      if (latestEntry != null) ...[
-                        const SizedBox(width: 6),
+                      if (latestEntry != null)
                         FRVerifyBadge.status(
                           status: statusToString(latestEntry.status),
                           trustPercent: latestEntry.trustPercent,
                           dense: true,
                         ),
-                      ],
                     ],
                   ),
                   if (regionLabel != null) ...[
