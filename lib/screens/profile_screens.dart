@@ -114,10 +114,37 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
             message: 'Profil fotoğrafını yüklemek için giriş yapmalısın.',
           );
         }
-        final res = await FirebaseService.instance.uploadUserProfileImage(
-          uid: user.uid,
-          bytes: pending,
-        );
+        // Retry once on transient storage failures (network blips,
+        // token-refresh races) — we used to surface a generic "internet
+        // bağlantını kontrol et" message even when the second attempt
+        // would have succeeded.
+        Object? lastError;
+        ({String url, String path})? res;
+        for (var attempt = 0; attempt < 2; attempt++) {
+          try {
+            res = await FirebaseService.instance
+                .uploadUserProfileImage(uid: user.uid, bytes: pending)
+                .timeout(const Duration(seconds: 45));
+            lastError = null;
+            break;
+          } catch (e) {
+            lastError = e;
+            if (e is FirebaseException &&
+                (e.code == 'unauthenticated' ||
+                    e.code == 'unauthorized' ||
+                    e.code == 'canceled')) {
+              break;
+            }
+            await Future<void>.delayed(const Duration(seconds: 1));
+          }
+        }
+        if (res == null) {
+          throw lastError ??
+              FirebaseException(
+                plugin: 'firebase_storage',
+                code: 'unknown',
+              );
+        }
         imageUrl = res.url;
         imagePath = res.path;
         final oldPath = state.profileImagePath;
@@ -174,12 +201,24 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     final picker = ImagePicker();
     final x = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1024,
-      imageQuality: 88,
+      // 720px square is more than enough for the 64-pt avatar tile and
+      // keeps mobile uploads under ~250KB even on slow networks, which
+      // sidesteps the timeout-induced "internet bağlantını kontrol et"
+      // surface error.
+      maxWidth: 720,
+      maxHeight: 720,
+      imageQuality: 82,
     );
     if (x == null) return;
     final bytes = await x.readAsBytes();
     if (!mounted) return;
+    if (bytes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Seçtiğin dosya okunamadı, başka bir görsel dene.')),
+      );
+      return;
+    }
     setState(() => _pendingProfileImage = bytes);
   }
 
@@ -621,14 +660,256 @@ class ReleaseNotesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Newest at the top. Each entry tries to summarise what shipped in
+    // user-facing language so the changelog reads like a customer release
+    // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
-        version: 'v1.2.0',
-        date: '25 Nisan 2026',
+        version: 'v1.0.0',
+        date: '8 Mayıs 2026',
         items: [
-          'Ayarlarda Marketler bölümü canlı market listesine bağlandı.',
-          'Hakkında ekranına kullanıcı sözleşmesi ve gizlilik sözleşmesi bağlantıları eklendi.',
-          'Güvenlik ekranında biyometri / 2FA geçişleri daha stabil hale getirildi.',
+          'Topluluk akışındaki "az önce" rozeti dar ekranlarda kayıyordu — '
+              'satır artık otomatik alt satıra geçiyor, görsel taşma kalktı.',
+          'Profil fotoğrafı yükleme: yavaş bağlantılarda "internet bağlantını '
+              'kontrol et" hatasını otomatik 1 sn ara ile yeniden deniyoruz; '
+              'görsel boyutu 720 px\'e indirildi, yükleme çoğu cihazda anında.',
+          'Splash ekranındaki yükleniyor halkası kaldırıldı — Android native '
+              'splash zaten gösteriliyordu, iki katmanlı görüntü tek karede '
+              'birleşti.',
+          '"Fiyat ekle" akışı sadeleştirildi: kalın "Radar Ekosistemi" kartı '
+              'yerine ince ilerleme şeridi geldi, kaynak türü chip\'leri 3. '
+              'adımın içine taşındı, alttaki bilgi kutusu kaldırıldı.',
+          'Admin paneli: 8 sekme yatay kaydırma yerine GENEL / KATALOG / '
+              'FİYAT / SİSTEM gruplarına bölündü, her sekmeye ikon eklendi, '
+              'aktif başlık üstte canlı gösteriliyor.',
+        ],
+      ),
+      (
+        version: 'v0.9.6',
+        date: '2 Mayıs 2026',
+        items: [
+          'Splash logosu büyük ekranlarda taşıyordu — boyut artık ekran '
+              'genişliğine göre sınırlandırılıyor.',
+          'Açık tema artık varsayılan; ayarlardan tek dokunuşla koyu temaya '
+              'geçilebiliyor, tercih cihazda saklanıyor.',
+          'Online market (Migros Sanal, CarrefourSA Online vb.) fiyatları '
+              'için il / ilçe zorunluluğu kaldırıldı — ülke geneli akış.',
+          'Ürün detay ekranında raf fotoğrafı önizleme kalitesi yükseltildi.',
+        ],
+      ),
+      (
+        version: 'v0.9.5',
+        date: '24 Nisan 2026',
+        items: [
+          'Yeni FR-radar logosu uygulamanın her köşesine işlendi: launcher '
+              'ikonu, splash, paywall, admin başlığı.',
+          'Adaptif Android ikonunun krem haresi kaldırıldı — koyu launcher '
+              'temalarında daha temiz duruyor.',
+          'Fiyat ekleme transaction\'ı "read-after-write" hatası alıyordu, '
+              'gönderim akışı yeniden yazıldı.',
+        ],
+      ),
+      (
+        version: 'v0.9.4',
+        date: '15 Nisan 2026',
+        items: [
+          'FiyatRadar Pro: Play Billing + StoreKit entegrasyonu; reklamsız '
+              'mod, gelişmiş alarm, sınırsız favori.',
+          'Bölgesel lider tablosu yayında — il / ilçe bazında en çok katkı '
+              'yapan kullanıcılar haftalık güncelleniyor.',
+          'Watchlist: ürün takibi, hedef fiyat alarmı, push bildirimi.',
+          'Skeleton yükleme animasyonları; bağlantı zayıfken boş kart yerine '
+              'iskelet gösteriliyor.',
+          'Reklam slotları: AdMob banner + interstitial yapılandırıldı; Pro '
+              'kullanıcılarda otomatik gizleniyor.',
+        ],
+      ),
+      (
+        version: 'v0.9.3',
+        date: '7 Nisan 2026',
+        items: [
+          'Gamification: rozetler, +10 PT katkı puanı, seviye atlama, '
+              'profilde puan ve rozet gösterimi.',
+          'Admin moderasyon: ihtilaflı / şüpheli fiyat raporları için '
+              'inceleme kuyruğu, onay-red akışları.',
+          'Crashlytics canlı: release build\'de uncaught Flutter ve native '
+              'hatalar otomatik raporlanıyor.',
+          'Sepet altyapısı yeniden yazıldı — gerçek zamanlı toplam fiyat, '
+              'market bazında kıyas.',
+        ],
+      ),
+      (
+        version: 'v0.9.2',
+        date: '28 Mart 2026',
+        items: [
+          'Firebase Cloud Messaging: bölgesel fiyat düşüşü, takip ettiğin '
+              'ürünlerde değişiklik için push.',
+          'Barkod tarayıcı: ürün eklerken barkod ile otomatik tanıma.',
+          'Yorum sistemi: ürün altında topluluk yorumları, beğeni, raporlama.',
+          'Hesap yönetimi: e-posta / şifre değiştir, hesabı sil, oturumları '
+              'görüntüle.',
+        ],
+      ),
+      (
+        version: 'v0.9.1',
+        date: '20 Mart 2026',
+        items: [
+          'P0 / P1 düzeltmeler — Play Store hazırlığı için güvenlik '
+              'sertleştirmesi (Firestore rules, Storage rules, App Check).',
+          'Onboarding ekranı: 3 sayfalık tanıtım, izin istekleri (konum, '
+              'bildirim).',
+          'UX: tutarlı buton boyutları, dock-safe alt boşluklar, klavye '
+              'açıkken kaydırma davranışı.',
+        ],
+      ),
+      (
+        version: 'v0.8.5',
+        date: '10 Mart 2026',
+        items: [
+          'Admin "Bekleyen" sekmesi düzeltildi — moderasyona düşen ürün / '
+              'fiyat talepleri tek listede.',
+          'Premium kullanıcı düzenleyici: admin manuel olarak Pro üyelik '
+              'verebiliyor / iptal edebiliyor.',
+          '"Fiyat ekle" akışı cilalandı: il/ilçe haritası, GPS ile otomatik '
+              'doldurma, manuel değiştirme.',
+        ],
+      ),
+      (
+        version: 'v0.8.4',
+        date: '1 Mart 2026',
+        items: [
+          'Anasayfa, ürün detay ve karşılaştırma ekranları FR tasarım diline '
+              'uygun yeniden tasarlandı.',
+          'Trend kartları: fiyatı düşenler / çıkanlar yatay carousel.',
+          'Karşılaştır ekranı: aynı ürün için marketler arası tablo + '
+              'tasarruf yüzdesi.',
+        ],
+      ),
+      (
+        version: 'v0.8.3',
+        date: '20 Şubat 2026',
+        items: [
+          'Bölge seçici Türkiye il/ilçe whitelist\'iyle kilitlendi — yanlış '
+              'bölge raporları ortadan kalktı.',
+          'Anasayfa kapsam akışı (şehir / mahalle) hardenıldı.',
+          'Admin market yönetimi yeniden yazıldı: chain bazlı arama, statü '
+              'filtreleri.',
+        ],
+      ),
+      (
+        version: 'v0.8.2',
+        date: '12 Şubat 2026',
+        items: [
+          'Lineer "Fiyat ekle" akışı: 4 net adım (ürün → fiyat → market → '
+              'bölge), her adımın yanında ✓ rozet.',
+          'Daha zengin fiyat kartları: doğrulama rozetleri, güven yüzdesi, '
+              'tazelik chip\'i.',
+          'Mağaza kayıt akışı: yer önerme sheet\'i, mahalle, GPS koordinatı, '
+              'opsiyonel raf fotoğrafı.',
+        ],
+      ),
+      (
+        version: 'v0.8.1',
+        date: '4 Şubat 2026',
+        items: [
+          'Bölgesel fiyat görünürlüğü: kullanıcılar yalnızca kendi şehir / '
+              'ilçesinden gelen fiyatları görüyor (Pro\'da tüm Türkiye).',
+          'Mağaza yönetimi akışı tamamlandı: admin pending → approved → '
+              'rejected geçişleri.',
+        ],
+      ),
+      (
+        version: 'v0.8.0',
+        date: '25 Ocak 2026',
+        items: [
+          'Bölgesel fiyat sistemi tasarlandı ve uygulandı: her fiyat girişi '
+              'bir storeplace + bölge ile ilişkilendiriliyor.',
+          'Firestore rules + indexes deterministik okuma için yeniden '
+              'yazıldı.',
+        ],
+      ),
+      (
+        version: 'v0.7.5',
+        date: '18 Ocak 2026',
+        items: [
+          'Banner / blog yönetim ekranı admin panele eklendi.',
+          'Anasayfa banner carousel canlı.',
+          '"Hakkında" ekranına kullanıcı sözleşmesi ve gizlilik politikası '
+              'bağlantıları eklendi.',
+        ],
+      ),
+      (
+        version: 'v0.7.0',
+        date: '5 Ocak 2026',
+        items: [
+          'Çekirdek sertleştirme: doğrulama sistemi, canlı tema değişimi, '
+              'dock-safe sayfa sonu boşlukları.',
+          'Bildirim ekranı yenilendi: tüm push geçmişi, okundu / okunmadı '
+              'rozetleri, tek dokunuşla detaya git.',
+          'Tema renkleri runtime\'da güncellenebiliyor — admin paletten '
+              'değiştirdiği anda tüm açık ekranlar güncelleniyor.',
+        ],
+      ),
+      (
+        version: 'v0.6.0',
+        date: '20 Aralık 2025',
+        items: [
+          'Tüm UI koyu, sıcak premium FR design tokens\'a göre yeniden '
+              'düzenlendi (gold + ink palette).',
+          'Tipografi: Display / text / price font ailesi tek noktadan '
+              'okunuyor.',
+          'Component sistemi: FRCard, FRCta, FRChip, FRSectionHead vb. '
+              'paylaşılan widget kütüphanesi.',
+        ],
+      ),
+      (
+        version: 'v0.5.0',
+        date: '10 Aralık 2025',
+        items: [
+          'Login: Google Sign-In + e-posta/şifre + anonim auth.',
+          'Profil: ad, kullanıcı adı, telefon, fotoğraf, bölge, dil tercihi.',
+          'Admin yetkisi: Firestore "isAdmin" flag ile.',
+          'Splash + boot error gate: Firebase init başarısızsa kullanıcıya '
+              'aksiyon alınabilir hata ekranı.',
+        ],
+      ),
+      (
+        version: 'v0.4.0',
+        date: '25 Kasım 2025',
+        items: [
+          'Ürün katalogu: ad, marka, kategori, birim, barkod, görseller, '
+              'tag\'ler.',
+          'Ürün detay sayfası: en düşük fiyat, fiyat geçmişi grafiği, '
+              'topluluk doğrulama oranı.',
+          'Favoriler ve takip listesi.',
+        ],
+      ),
+      (
+        version: 'v0.3.0',
+        date: '12 Kasım 2025',
+        items: [
+          'İlk fiyat ekleme akışı: ürün, market, fiyat, opsiyonel not.',
+          'Topluluk akışı: yeni eklenen fiyatları realtime listele.',
+          'Anasayfa: kategori chip\'leri, "fiyatı düşenler" listesi.',
+        ],
+      ),
+      (
+        version: 'v0.2.0',
+        date: '28 Ekim 2025',
+        items: [
+          'Firebase çekirdeği: Firestore, Auth, Storage, Functions iskeleti.',
+          'Veri modelleri: Product, PriceEntry, StorePlace, User.',
+          'Cloud Functions: fiyat doğrulama, premium IAP doğrulama.',
+        ],
+      ),
+      (
+        version: 'v0.1.0',
+        date: '15 Ekim 2025',
+        items: [
+          'Proje başlangıcı — Flutter app scaffold, marka renkleri, '
+              'pubspec setup.',
+          'İlk wireframe ekranları (anasayfa, profil, fiyat ekle).',
+          'Tasarım dili: FR.gold + FR.ink seti, FRRad radius tokenları.',
         ],
       ),
     ];
@@ -641,14 +922,44 @@ class ReleaseNotesScreen extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, i) {
           final n = notes[i];
+          final isLatest = i == 0;
           return Container(
             padding: const EdgeInsets.all(14),
-            decoration: frSurface(radius: FRRad.l),
+            decoration: BoxDecoration(
+              color: isLatest ? FR.surfaceHi : FR.surface,
+              borderRadius: FRRad.all(FRRad.l),
+              border: Border.all(
+                color: isLatest ? FR.gold.withOpacity(.55) : FR.hairline,
+                width: isLatest ? 1.4 : 1.0,
+              ),
+              boxShadow: isLatest ? frGoldGlow(opacity: .14) : null,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(n.version, style: frDisplay(20, FontWeight.w700)),
-                Text(n.date, style: frText(12, FontWeight.w600, color: FR.ink3)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(n.version,
+                        style: frDisplay(20, FontWeight.w700,
+                            color: isLatest ? FR.gold : FR.ink)),
+                    const SizedBox(width: 8),
+                    if (isLatest)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: FR.gold,
+                          borderRadius: FRRad.all(999),
+                        ),
+                        child: Text('GÜNCEL',
+                            style: frOverline(
+                                color: FR.onGold, size: 8.5)),
+                      ),
+                  ],
+                ),
+                Text(n.date,
+                    style: frText(12, FontWeight.w600, color: FR.ink3)),
                 const SizedBox(height: 8),
                 ...n.items.map(
                   (item) => Padding(
@@ -664,7 +975,8 @@ class ReleaseNotesScreen extends StatelessWidget {
                         Expanded(
                           child: Text(
                             item,
-                            style: frText(12.5, FontWeight.w600, color: FR.ink),
+                            style: frText(12.5, FontWeight.w600,
+                                color: FR.ink, height: 1.45),
                           ),
                         ),
                       ],

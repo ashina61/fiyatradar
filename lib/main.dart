@@ -220,23 +220,15 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Splash is intentionally pinned to the light palette: Firebase init
-    // runs before SharedPreferences hydrates the theme, and the previous
-    // dark-default left this screen near-black, which the launcher logo
-    // didn't sit well against.
+    // Match the native Android launch_background drawable so the user
+    // doesn't see a hand-off flash between the OS splash and Flutter's
+    // first frame. No spinner here on purpose — the native splash already
+    // sits on top of this and showing a second indicator made it feel
+    // like the app booted twice.
     const palette = FRPalette.light;
     return Scaffold(
       backgroundColor: palette.bg,
-      body: Center(
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.2,
-            color: palette.gold,
-          ),
-        ),
-      ),
+      body: const SizedBox.expand(),
     );
   }
 }

@@ -24,16 +24,37 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   int tab = 0;
-  static const tabs = [
-    'Panel',
-    'Ürünler',
-    'Banner',
-    'Talepler',
-    'Fiyatlar',
-    'Doğrulama',
-    'Moderasyon',
-    'Ayarlar',
+  // Grouped tab metadata. The previous flat 8-chip horizontal scroller buried
+  // moderation tools off-screen on small phones and made it hard to remember
+  // which tab does what. We now expose the same set in three labelled groups
+  // with leading icons so admins can scan related tools at a glance.
+  static const _groups = <_AdminGroup>[
+    _AdminGroup('GENEL', [
+      _AdminTabSpec(0, 'Panel', Icons.space_dashboard_rounded),
+    ]),
+    _AdminGroup('KATALOG', [
+      _AdminTabSpec(1, 'Ürünler', Icons.inventory_2_rounded),
+      _AdminTabSpec(2, 'Banner', Icons.campaign_rounded),
+      _AdminTabSpec(3, 'Talepler', Icons.inbox_rounded),
+    ]),
+    _AdminGroup('FİYAT & MODERASYON', [
+      _AdminTabSpec(4, 'Fiyatlar', Icons.price_change_rounded),
+      _AdminTabSpec(5, 'Doğrulama', Icons.verified_rounded),
+      _AdminTabSpec(6, 'Moderasyon', Icons.gavel_rounded),
+    ]),
+    _AdminGroup('SİSTEM', [
+      _AdminTabSpec(7, 'Ayarlar', Icons.settings_rounded),
+    ]),
   ];
+
+  String get _activeLabel {
+    for (final g in _groups) {
+      for (final t in g.tabs) {
+        if (t.index == tab) return t.label;
+      }
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,27 +99,21 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: FRPageHeader(
-                overline: 'FİYATRADAR KONTROL MERKEZİ',
+                overline: 'FİYATRADAR · ${_activeLabel.toUpperCase()}',
                 title: 'Admin',
                 italicTail: ' konsolu',
               ),
             ),
             const SizedBox(height: 14),
-            SizedBox(
-              height: 42,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-                scrollDirection: Axis.horizontal,
-                itemCount: tabs.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, i) => _TabChip(
-                  label: tabs[i],
-                  active: tab == i,
-                  onTap: () => setState(() => tab = i),
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _AdminTabBoard(
+                groups: _groups,
+                activeIndex: tab,
+                onSelect: (i) => setState(() => tab = i),
               ),
             ),
             Expanded(
@@ -196,13 +211,72 @@ class _AdminUnauthorizedScreen extends StatelessWidget {
   }
 }
 
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
+class _AdminTabSpec {
+  const _AdminTabSpec(this.index, this.label, this.icon);
+  final int index;
+  final String label;
+  final IconData icon;
+}
+
+class _AdminGroup {
+  const _AdminGroup(this.title, this.tabs);
+  final String title;
+  final List<_AdminTabSpec> tabs;
+}
+
+/// Compact, grouped admin navigator. Replaces the flat horizontal chip
+/// scroller — each group sits on its own row with a faint section label
+/// so even with the panel open at small phone widths the operator still
+/// sees the available tools at a glance.
+class _AdminTabBoard extends StatelessWidget {
+  const _AdminTabBoard({
+    required this.groups,
+    required this.activeIndex,
+    required this.onSelect,
+  });
+  final List<_AdminGroup> groups;
+  final int activeIndex;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < groups.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 4),
+            child: Text(
+              groups[i].title,
+              style: frOverline(color: FR.ink3, size: 9.5),
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final t in groups[i].tabs)
+                _AdminTabChip(
+                  spec: t,
+                  active: t.index == activeIndex,
+                  onTap: () => onSelect(t.index),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AdminTabChip extends StatelessWidget {
+  const _AdminTabChip({
+    required this.spec,
     required this.active,
     required this.onTap,
   });
-  final String label;
+  final _AdminTabSpec spec;
   final bool active;
   final VoidCallback onTap;
 
@@ -211,17 +285,28 @@ class _TabChip extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: FRRad.all(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: active ? FR.gold : FR.surface,
           borderRadius: FRRad.all(999),
           border: Border.all(color: active ? FR.gold : FR.hairline),
+          boxShadow: active ? frGoldGlow(opacity: .18) : null,
         ),
-        child: Text(
-          label,
-          style: frText(12, FontWeight.w800,
-              color: active ? FR.bg : FR.ink2, letter: .2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(spec.icon,
+                size: 14, color: active ? FR.onGold : FR.ink2),
+            const SizedBox(width: 6),
+            Text(
+              spec.label,
+              style: frText(12, FontWeight.w800,
+                  color: active ? FR.onGold : FR.ink2, letter: .2),
+            ),
+          ],
         ),
       ),
     );

@@ -598,8 +598,16 @@ class _AddPriceTabState extends State<AddPriceTab> {
             child: ListView(
               padding: EdgeInsets.fromLTRB(20, 18, 20, frScrollPaddingWithFooter(context)), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               children: [
-                _IntroBanner(),
-                const SizedBox(height: 22),
+                _ProgressStrip(
+                  productDone: _selectedProduct != null,
+                  priceDone: priceValid,
+                  storeDone:
+                      _selectedPlace != null || (_freeTextStoreName ?? '').trim().isNotEmpty,
+                  regionDone: _isOnlineSource ||
+                      (city.isNotEmpty && district.isNotEmpty),
+                  onlineMode: _isOnlineSource,
+                ),
+                const SizedBox(height: 18),
 
                 // 1) Ürün — "Ne gördün?"
                 _step(1, 'Ne gördün?', completed: _selectedProduct != null),
@@ -718,23 +726,22 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 ),
                 const SizedBox(height: 22),
 
-                // Source type — top-level toggle so adding online prices is
-                // a one-tap switch rather than buried in an accordion.
-                _label('Kaynak türü'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _sourceChip('Fiziksel Market', PriceSourceType.physical),
-                    _sourceChip('Online Market', PriceSourceType.online),
-                    _sourceChip('Pazar', PriceSourceType.bazaar),
-                  ],
-                ),
-                const SizedBox(height: 22),
-
                 // 3) Market — "Hangi markette gördün?"
                 _step(3, _isOnlineSource ? 'Hangi online markette?' : 'Hangi markette gördün?',
-                    completed: _selectedPlace != null),
+                    completed: _selectedPlace != null ||
+                        (_freeTextStoreName ?? '').trim().isNotEmpty),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _sourceChip('Market', PriceSourceType.physical),
+                      _sourceChip('Online', PriceSourceType.online),
+                      _sourceChip('Pazar', PriceSourceType.bazaar),
+                    ],
+                  ),
+                ),
                 Container(
                   padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 2),
                   decoration: frSurface(radius: FRRad.m),
@@ -824,8 +831,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      'Konumunu sadece ilçe ve yakın marketi önermek için kullanırız. '
-                      'Kesin konumunu kimseye göstermeyiz.',
+                      'Sadece il ve ilçe seviyesinde tutuyoruz.',
                       style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.4),
                     ),
                   ),
@@ -958,8 +964,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                _GuideStrip(),
               ],
             ),
           ),
@@ -1461,66 +1465,72 @@ class _OptionalAccordion extends StatelessWidget {
   }
 }
 
-class _IntroBanner extends StatelessWidget {
+/// Slim 4-dot progress indicator that replaced the bulky "Radar ekosistemi"
+/// banner. Each dot lights up gold as the matching step is filled in so the
+/// user gets a visual sense of how close they are to submitting without the
+/// previous wall-of-card noise.
+class _ProgressStrip extends StatelessWidget {
+  const _ProgressStrip({
+    required this.productDone,
+    required this.priceDone,
+    required this.storeDone,
+    required this.regionDone,
+    required this.onlineMode,
+  });
+  final bool productDone;
+  final bool priceDone;
+  final bool storeDone;
+  final bool regionDone;
+  final bool onlineMode;
+
   @override
   Widget build(BuildContext context) {
+    final steps = <bool>[
+      productDone,
+      priceDone,
+      storeDone,
+      if (!onlineMode) regionDone,
+    ];
+    final filled = steps.where((s) => s).length;
+    final total = steps.length;
     return Container(
-      padding: const EdgeInsets.all(18), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [FR.surfaceHi, FR.surfaceLo], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: FRRad.all(22),
-        border: Border.all(color: FR.goldDeep.withOpacity(.3)),
+        color: FR.surfaceLo,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.hairline),
       ),
-      child: Row(children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: FR.gold.withOpacity(.15),
-            borderRadius: FRRad.all(14),
-            border: Border.all(color: FR.goldDeep),
+      child: Row(
+        children: [
+          Icon(Icons.radar_rounded, color: FR.gold, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              filled == total
+                  ? 'Hazır — gönderebilirsin · +10 PT'
+                  : '${total - filled} adım kaldı · +10 PT',
+              style: frText(12.5, FontWeight.w800),
+            ),
           ),
-          child: Icon(Icons.auto_graph_rounded, color: FR.gold, size: 24),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('RADAR EKOSİSTEMİ', style: frOverline()),
-            const SizedBox(height: 4),
-            Text('Her paylaşım topluluğu güçlendirir', style: frText(14, FontWeight.w800, height: 1.3)),
-            const SizedBox(height: 2),
-            Text('Onaylı katkı başına +10 PT', style: frText(11.5, FontWeight.w600, color: FR.ink3)),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-class _GuideStrip extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-      decoration: BoxDecoration(color: FR.surfaceLo, borderRadius: FRRad.all(FRRad.m), border: Border.all(color: FR.hairline)),
-      child: Column(
-        children: [
-          _row(Icons.photo_camera_outlined, 'Rafta çekilmiş net fotoğraf eklersen onay hızlanır.'),
-          const SizedBox(height: 8),
-          _row(Icons.verified_user_outlined, 'Sahte fiyat tespit edilirse güven skorun düşer.'),
+          ...List.generate(total, (i) {
+            final on = i < filled;
+            return Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: on ? FR.gold : FR.hairline,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
-
-  Widget _row(IconData icon, String text) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: FR.ink3, size: 16),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text, style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.45))),
-        ],
-      );
 }
 
 class _ProductPicker extends StatefulWidget {
