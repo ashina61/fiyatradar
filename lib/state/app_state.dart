@@ -1276,8 +1276,6 @@ class AppState extends ChangeNotifier {
     final nextVerifies = kind == _ContribKind.verify
         ? verifyContributions + 1
         : verifyContributions;
-    final nextPhotos =
-        (kind == _ContribKind.report && hasPhoto) ? photoContributions + 1 : photoContributions;
 
     if (kind == _ContribKind.report) {
       if (nextContribs >= 1 && !badges.contains(FRBadges.firstReport.id)) {

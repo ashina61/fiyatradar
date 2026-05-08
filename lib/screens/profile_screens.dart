@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
@@ -815,9 +814,9 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting &&
               !snap.hasData) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-              child: const FRSkeletonList(
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 24),
+              child: FRSkeletonList(
                 count: 5,
                 itemHeight: 76,
                 radius: 16,
@@ -1059,6 +1058,7 @@ class _AccountScreenState extends State<AccountScreen> {
       _deleteBusy = true;
       _deleteError = null;
     });
+    if (!mounted) return;
     final state = AppStateScope.read(context);
     final uid = user.uid;
     try {

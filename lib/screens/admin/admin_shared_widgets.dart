@@ -89,6 +89,7 @@ Future<void> showAdminTextEditSheet(
 
 class AdminCrudScaffold extends StatelessWidget {
   const AdminCrudScaffold({
+    super.key,
     required this.title,
     required this.child,
     this.onAdd,
@@ -138,6 +139,7 @@ class AdminCrudScaffold extends StatelessWidget {
 
 class CrudRow extends StatelessWidget {
   const CrudRow({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.onEdit,
