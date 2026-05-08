@@ -1221,8 +1221,9 @@ class AppState extends ChangeNotifier {
       // için var. Aşama 3 phase-out: bu callback kaldırıldığında
       // products.priceHistory artık büyümez ve 1MB doc-limit baskısı
       // yok olur.
-      onTransactionWrites: kEnableLegacyPriceHistoryMirror
-          ? (tx, _) async {
+      prepareLegacyMirror: kEnableLegacyPriceHistoryMirror
+          ? (tx) async {
+              // Read fazı: priceHistory'yi şimdi okuyup snapshot'ını alıyoruz.
               final productSnap = await tx.get(productRef);
               if (!productSnap.exists) {
                 throw StateError('Ürün bulunamadı.');
@@ -1233,8 +1234,11 @@ class AppState extends ChangeNotifier {
                 ...rawHistory.map((e) => Map<String, dynamic>.from(e as Map)),
                 legacyEntry.toMap(),
               ];
-              tx.set(legacyEntryRef, legacyEntryPayload);
-              tx.update(productRef, {'priceHistory': newHist});
+              // Write fazı: ana yazmalardan sonra çalıştırılacak closure.
+              return (tx, _) {
+                tx.set(legacyEntryRef, legacyEntryPayload);
+                tx.update(productRef, {'priceHistory': newHist});
+              };
             }
           : null,
     );
