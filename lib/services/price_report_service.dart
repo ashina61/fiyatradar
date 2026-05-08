@@ -88,7 +88,8 @@ class PriceReportService {
     String? note,
     String? photoUrl,
     String? barcode,
-    Future<void> Function(Transaction tx, String reportId)? onTransactionWrites,
+    Future<void Function(Transaction tx, String reportId)> Function(Transaction tx)?
+        prepareLegacyMirror,
   }) async {
     final cityId = normalizeId(cityName);
     final districtId = normalizeId(districtName);
@@ -129,7 +130,15 @@ class PriceReportService {
     final dedupeRef = _svc.priceDedupes.doc(deKey);
 
     await _svc.db.runTransaction((tx) async {
+      // Firestore kuralı: bir transaction içinde tüm okumalar tüm yazmalardan
+      // önce yapılmalı. Bu yüzden ana groupRef okumasının yanında, çağıran
+      // kodun ek okumalarını da burada (yazmalardan önce) yapmasına izin
+      // veriyoruz; kendisi geri döndürdüğü closure ile yazma fazında devreye
+      // girer.
       final groupSnap = await tx.get(groupRef);
+      final void Function(Transaction tx, String reportId)? legacyWrites =
+          prepareLegacyMirror != null ? await prepareLegacyMirror(tx) : null;
+
       final groupData = groupSnap.data() ?? <String, dynamic>{};
       final currentCount = (groupData['reportCount'] as num?)?.toInt() ?? 0;
       final currentAvg = (groupData['avgPrice'] as num?)?.toDouble() ?? price;
@@ -211,13 +220,9 @@ class PriceReportService {
       }, SetOptions(merge: true));
 
       // Legacy mirror writes (priceEntries collection + products.priceHistory
-      // array). The new system writes everything above; this callback exists
-      // so callers can append the legacy mirror inside the same transaction
-      // until home queries and the price-drop Cloud Function migrate to
-      // priceReports/priceGroups.
-      if (onTransactionWrites != null) {
-        await onTransactionWrites(tx, reportId);
-      }
+      // array). Çağıran kod gerekli okumaları zaten transaction'ın okuma
+      // fazında yaptı; burada yalnızca yazmalar çalıştırılır.
+      legacyWrites?.call(tx, reportId);
     });
 
     return AddPriceSubmitResult(
