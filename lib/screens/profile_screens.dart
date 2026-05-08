@@ -189,10 +189,21 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
           return 'Profil güncellenemedi: bu fotoğrafı yüklemeye yetkin yok.';
         case 'canceled':
           return 'Yükleme iptal edildi.';
+        case 'object-not-found':
+          return 'Profil fotoğrafı yüklenemedi: hedef bulut depolama yolu bulunamadı.';
+        case 'quota-exceeded':
+          return 'Profil fotoğrafı yüklenemedi: depolama kotası dolmuş, kısa süre sonra tekrar dene.';
         case 'retry-limit-exceeded':
         case 'unknown':
           return 'Profil fotoğrafı yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.';
       }
+      return 'Profil fotoğrafı yüklenemedi (${e.code}). Tekrar dene.';
+    }
+    if (e is FirebaseException && e.plugin == 'cloud_firestore') {
+      if (e.code == 'permission-denied') {
+        return 'Profil güncellenemedi: yazma yetkisi reddedildi. Çıkış yapıp tekrar gir.';
+      }
+      return 'Profil güncellenemedi (${e.code}).';
     }
     return 'Profil güncellenemedi: $e';
   }

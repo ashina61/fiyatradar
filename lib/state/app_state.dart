@@ -871,16 +871,28 @@ class AppState extends ChangeNotifier {
     };
   }
 
+  bool get _scopeFellBackToTurkey {
+    final city = (cityName ?? '').trim();
+    final district = (districtName ?? '').trim();
+    if (activeHomeScope == HomePriceScope.nearby) {
+      return city.isEmpty || district.isEmpty;
+    }
+    if (activeHomeScope == HomePriceScope.city) {
+      return city.isEmpty;
+    }
+    return false;
+  }
+
   String get homeScopeTitle {
+    if (_scopeFellBackToTurkey) return 'Türkiye geneli fiyatlar';
     switch (activeHomeScope) {
       case HomePriceScope.nearby:
         final city = (cityName ?? '').trim();
         final district = (districtName ?? '').trim();
-        if (city.isEmpty || district.isEmpty) return 'Bölgesel akış';
         return 'Bölgesel akış · $city / $district';
       case HomePriceScope.city:
         final city = (cityName ?? '').trim();
-        return city.isEmpty ? 'Şehir akışı' : 'Şehir akışı · $city';
+        return 'Şehir akışı · $city';
       case HomePriceScope.online:
         return 'Online fiyatlar';
       case HomePriceScope.turkeyWide:
@@ -889,6 +901,9 @@ class AppState extends ChangeNotifier {
   }
 
   String get homeScopeSubtitle {
+    if (_scopeFellBackToTurkey) {
+      return 'Bölge seçilmedi — bütün Türkiye’den topluluk fiyatlarını gösteriyoruz.';
+    }
     return switch (activeHomeScope) {
       HomePriceScope.nearby => 'Yakınındaki market ve pazar katkıları',
       HomePriceScope.city => 'Şehrinden gelen market ve pazar katkıları',
@@ -898,16 +913,13 @@ class AppState extends ChangeNotifier {
   }
 
   String get homeScopeEmptyMessage {
+    if (_scopeFellBackToTurkey) {
+      return 'Türkiye genelinde henüz fiyat paylaşımı yok.';
+    }
     switch (activeHomeScope) {
       case HomePriceScope.nearby:
-        if ((cityName ?? '').trim().isEmpty || (districtName ?? '').trim().isEmpty) {
-          return 'Bölgeni seç, yakın fiyatları gösterelim.';
-        }
         return 'Bu bölgede henüz fiyat paylaşımı yok.';
       case HomePriceScope.city:
-        if ((cityName ?? '').trim().isEmpty) {
-          return 'Şehir akışı için önce bölgeni seç.';
-        }
         return 'Bu şehirde henüz fiyat paylaşımı yok.';
       case HomePriceScope.online:
         return 'Henüz online fiyat paylaşımı yok.';
@@ -1019,24 +1031,27 @@ class AppState extends ChangeNotifier {
     final city = (cityName ?? '').trim();
     final district = (districtName ?? '').trim();
     Query<Map<String, dynamic>> q = _baseScopedPriceQuery(limit: 120);
-    switch (activeHomeScope) {
+    // Fresh-install / guest fallback: when the user lands on Yakınımda or
+    // Şehrimde without a saved region, we used to clear the feed and the
+    // home tab went silent — old prices that friends had added stayed
+    // hidden until the user remembered to pick İl/İlçe. Falling back to
+    // Türkiye-wide local entries keeps community contributions visible
+    // and the user can still scope down by tapping the filter chip.
+    var effectiveScope = activeHomeScope;
+    if (effectiveScope == HomePriceScope.nearby &&
+        (city.isEmpty || district.isEmpty)) {
+      effectiveScope = HomePriceScope.turkeyWide;
+    } else if (effectiveScope == HomePriceScope.city && city.isEmpty) {
+      effectiveScope = HomePriceScope.turkeyWide;
+    }
+    switch (effectiveScope) {
       case HomePriceScope.nearby:
-        if (city.isEmpty || district.isEmpty) {
-          _homeScopedEntryByProduct.clear();
-          notifyListeners();
-          return;
-        }
         q = q
             .where('scope', whereIn: const ['local', 'bazaar'])
             .where('city', isEqualTo: city)
             .where('district', isEqualTo: district);
         break;
       case HomePriceScope.city:
-        if (city.isEmpty) {
-          _homeScopedEntryByProduct.clear();
-          notifyListeners();
-          return;
-        }
         q = q
             .where('scope', whereIn: const ['local', 'bazaar'])
             .where('city', isEqualTo: city);
@@ -2296,11 +2311,23 @@ class AppState extends ChangeNotifier {
       _basketSingleEstimateCache.isNotEmpty;
 
   /// Tahmini sepet toplamı.
-  /// Önce: priceGroups winner (en yüksek coverage'lı tek market) total.
-  /// Yoksa fallback: legacy `priceHistory.lowestPrice * qty`.
+  /// Önce: priceGroups winner (en yüksek coverage'lı tek market) total —
+  /// ama winner'ın eksik bıraktığı ürünler için legacy `lowestPrice` ile
+  /// doldur, yoksa kullanıcı "Karşılaştır"a girip dönünce sepet altında
+  /// sadece tek ürünün fiyatı görünüyordu (winner partial coverage bug).
+  /// Hiç cache yoksa: legacy `priceHistory.lowestPrice * qty`.
   double get cartSubtotal {
     if (_basketEstimateCacheFresh) {
-      return _basketSingleEstimateCache.first.estimatedTotal;
+      final winner = _basketSingleEstimateCache.first;
+      double total = winner.estimatedTotal;
+      if (winner.missingProductIds.isNotEmpty) {
+        final missing = winner.missingProductIds.toSet();
+        for (final c in cart) {
+          if (!missing.contains(c.product.id)) continue;
+          total += (c.product.lowestPrice ?? 0) * c.quantity;
+        }
+      }
+      return total;
     }
     double total = 0;
     for (final c in cart) {
@@ -2466,6 +2493,35 @@ class AppState extends ChangeNotifier {
       if (profileImagePath != null) 'profileImagePath': profileImagePath,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    // Firestore listener catches up async — but the user is staring at
+    // their avatar tile right now, so push the new values into local
+    // state immediately. Without this the home header / profile tile keep
+    // showing the initial letter for a beat after upload and the user
+    // assumes the upload silently failed.
+    var changed = false;
+    if (this.displayName != displayName.trim()) {
+      this.displayName = displayName.trim();
+      changed = true;
+    }
+    if (this.username != username.trim()) {
+      this.username = username.trim();
+      changed = true;
+    }
+    final nextPhone = hasPhone ? phoneRaw : null;
+    if (this.phoneNumber != nextPhone) {
+      this.phoneNumber = nextPhone;
+      changed = true;
+    }
+    if (profileImageUrl != null && this.profileImageUrl != profileImageUrl) {
+      this.profileImageUrl = profileImageUrl;
+      changed = true;
+    }
+    if (profileImagePath != null &&
+        this.profileImagePath != profileImagePath) {
+      this.profileImagePath = profileImagePath;
+      changed = true;
+    }
+    if (changed) notifyListeners();
   }
 
   Future<void> updateRegionSettings({

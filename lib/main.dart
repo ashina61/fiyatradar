@@ -220,15 +220,23 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Match the native Android launch_background drawable so the user
-    // doesn't see a hand-off flash between the OS splash and Flutter's
-    // first frame. No spinner here on purpose — the native splash already
-    // sits on top of this and showing a second indicator made it feel
-    // like the app booted twice.
-    const palette = FRPalette.light;
+    // The native Android launch_background is now flat (no logo) so the
+    // brand mark only renders here once Flutter is ready. Keeps a single
+    // FR-radar mark on screen during the boot future instead of double-
+    // flashing between OS splash + Flutter splash.
+    final isDark = FRThemeController.instance.isDark;
+    final bg = (isDark ? FRPalette.dark : FRPalette.light).bg;
     return Scaffold(
-      backgroundColor: palette.bg,
-      body: const SizedBox.expand(),
+      backgroundColor: bg,
+      body: Center(
+        child: Image.asset(
+          'assets/images/app_logo.png',
+          width: 180,
+          height: 180,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
     );
   }
 }
