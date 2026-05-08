@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Light-mode native splash. We keep the brand background only (no logo)
-     so the user sees a single FR mark — rendered by Flutter's _SplashScreen
-     once the engine boots — instead of two splashes flashing back-to-back. -->
+<!-- Light-mode native splash aligned with the approved warm premium logo art. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/fr_splash_bg"/>
+    <item
+        android:width="192dp"
+        android:height="192dp"
+        android:drawable="@drawable/fr_splash_logo"
+        android:gravity="center"/>
 </layer-list>

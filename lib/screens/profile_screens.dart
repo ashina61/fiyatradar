@@ -76,6 +76,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   final _userCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   Uint8List? _pendingProfileImage;
+  String? _pendingProfileImageMimeType;
   bool _saving = false;
   bool _loaded = false;
 
@@ -114,16 +115,26 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
             message: 'Profil fotoğrafını yüklemek için giriş yapmalısın.',
           );
         }
-        // Retry once on transient storage failures (network blips,
-        // token-refresh races) — we used to surface a generic "internet
-        // bağlantını kontrol et" message even when the second attempt
-        // would have succeeded.
+        if (pending.length > 5 * 1024 * 1024) {
+          throw FirebaseException(
+            plugin: 'firebase_storage',
+            code: 'image-too-large',
+            message: 'Profil fotoğrafı 5 MB üstünde.',
+          );
+        }
+        // Retry transient storage failures (network blips, token-refresh races)
+        // and write the Auth profile URL too; some widgets / rules key off
+        // FirebaseAuth.currentUser.photoURL while Firestore catches up.
         Object? lastError;
         ({String url, String path})? res;
-        for (var attempt = 0; attempt < 2; attempt++) {
+        for (var attempt = 0; attempt < 3; attempt++) {
           try {
             res = await FirebaseService.instance
-                .uploadUserProfileImage(uid: user.uid, bytes: pending)
+                .uploadUserProfileImage(
+                  uid: user.uid,
+                  bytes: pending,
+                  contentType: _pendingProfileImageMimeType,
+                )
                 .timeout(const Duration(seconds: 45));
             lastError = null;
             break;
@@ -135,7 +146,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                     e.code == 'canceled')) {
               break;
             }
-            await Future<void>.delayed(const Duration(seconds: 1));
+            await Future<void>.delayed(
+              Duration(milliseconds: 700 * (attempt + 1)),
+            );
           }
         }
         if (res == null) {
@@ -147,6 +160,12 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         }
         imageUrl = res.url;
         imagePath = res.path;
+        try {
+          await user.updatePhotoURL(imageUrl);
+        } catch (_) {
+          // Firestore is the source of truth for app avatars; Auth photoURL is
+          // a best-effort mirror for Firebase-backed widgets.
+        }
         final oldPath = state.profileImagePath;
         if (oldPath != null && oldPath.isNotEmpty && oldPath != imagePath) {
           await FirebaseService.instance.deleteStorageFile(oldPath);
@@ -160,7 +179,10 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         profileImagePath: imagePath,
       );
       if (!mounted) return;
-      setState(() => _pendingProfileImage = null);
+      setState(() {
+        _pendingProfileImage = null;
+        _pendingProfileImageMimeType = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -193,6 +215,8 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
           return 'Profil fotoğrafı yüklenemedi: hedef bulut depolama yolu bulunamadı.';
         case 'quota-exceeded':
           return 'Profil fotoğrafı yüklenemedi: depolama kotası dolmuş, kısa süre sonra tekrar dene.';
+        case 'image-too-large':
+          return 'Profil fotoğrafı 5 MB üstünde. Daha küçük bir görsel seç.';
         case 'retry-limit-exceeded':
         case 'unknown':
           return 'Profil fotoğrafı yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.';
@@ -210,16 +234,23 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
 
   Future<void> _pickProfileImage() async {
     final picker = ImagePicker();
-    final x = await picker.pickImage(
-      source: ImageSource.gallery,
-      // 720px square is more than enough for the 64-pt avatar tile and
-      // keeps mobile uploads under ~250KB even on slow networks, which
-      // sidesteps the timeout-induced "internet bağlantını kontrol et"
-      // surface error.
-      maxWidth: 720,
-      maxHeight: 720,
-      imageQuality: 82,
-    );
+    XFile? x;
+    try {
+      x = await picker.pickImage(
+        source: ImageSource.gallery,
+        // 720px square is more than enough for the avatar tile and keeps
+        // mobile uploads small, which avoids slow-network timeout failures.
+        maxWidth: 720,
+        maxHeight: 720,
+        imageQuality: 82,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Galeri açılamadı: $e')),
+      );
+      return;
+    }
     if (x == null) return;
     final bytes = await x.readAsBytes();
     if (!mounted) return;
@@ -230,7 +261,16 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       );
       return;
     }
-    setState(() => _pendingProfileImage = bytes);
+    if (bytes.length > 5 * 1024 * 1024) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil fotoğrafı 5 MB üstünde.')),
+      );
+      return;
+    }
+    setState(() {
+      _pendingProfileImage = bytes;
+      _pendingProfileImageMimeType = x.mimeType;
+    });
   }
 
   @override

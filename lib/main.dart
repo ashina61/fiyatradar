@@ -220,19 +220,16 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The native Android launch_background is now flat (no logo) so the
-    // brand mark only renders here once Flutter is ready. Keeps a single
-    // FR-radar mark on screen during the boot future instead of double-
-    // flashing between OS splash + Flutter splash.
-    final isDark = FRThemeController.instance.isDark;
-    final bg = (isDark ? FRPalette.dark : FRPalette.light).bg;
+    // Keep Flutter boot visually continuous with the native launch
+    // background: warm cream field, restrained premium wordmark.
+    final bg = FRPalette.light.bg;
     return Scaffold(
       backgroundColor: bg,
       body: Center(
         child: Image.asset(
-          'assets/images/app_logo.png',
-          width: 180,
-          height: 180,
+          'assets/images/fiyatradar_logo.png',
+          width: 286,
+          height: 244,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.medium,
         ),

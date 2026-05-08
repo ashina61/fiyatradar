@@ -184,13 +184,16 @@ class _AdminStoreManagementScreenState
     final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
     final city = result.city.trim();
     final district = result.district.trim();
-    if (name.isEmpty || city.isEmpty || district.isEmpty) return;
+    final sourceType = result.sourceType;
+    if (name.isEmpty) return;
+    if (sourceType == 'physical' && (city.isEmpty || district.isEmpty)) return;
     await FirebaseService.instance.storePlaces.add({
       'displayName': name,
       'normalizedName': _normalizeName(name),
       'type': result.type,
-      'city': city,
-      'district': district,
+      'sourceType': sourceType,
+      'city': sourceType == 'online' ? '' : city,
+      'district': sourceType == 'online' ? '' : district,
       'status': result.status,
       'isActive': true,
       'usageCount': 0,
@@ -199,11 +202,15 @@ class _AdminStoreManagementScreenState
       'updatedAt': FieldValue.serverTimestamp(),
     });
     if (!mounted) return;
-    setState(() {
-      _cityCtrl.text = city;
-      _districtCtrl.text = district;
+    if (sourceType == 'physical') {
+      setState(() {
+        _cityCtrl.text = city;
+        _districtCtrl.text = district;
+      });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _resetAndLoadPlaces();
     });
-    _resetAndLoadPlaces();
     messenger.showSnackBar(
       const SnackBar(content: Text('Mağaza eklendi.')),
     );
@@ -626,7 +633,7 @@ class _PlaceRow extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '${_typeLabel(type)} · '
-            '${(data['city'] ?? '').toString()} / ${(data['district'] ?? '').toString()}',
+            '${_placeRegionLabel(data)}',
             style: frText(11.5, FontWeight.w700, color: FR.ink3),
           ),
           const SizedBox(height: 12),
@@ -728,7 +735,7 @@ class _PendingRow extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '${_typeLabel(type)} · '
-            '${(data['city'] ?? '').toString()} / ${(data['district'] ?? '').toString()}',
+            '${_placeRegionLabel(data)}',
             style: frText(11.5, FontWeight.w700, color: FR.ink3),
           ),
           const SizedBox(height: 12),
@@ -1046,8 +1053,8 @@ class _PlacesFilterCard extends StatelessWidget {
                   value: type,
                   items: const [
                     ('all', 'Tüm türler'),
-                    ('chain_market', 'Chain'),
-                    ('local_market', 'Local'),
+                    ('chain_market', 'Zincir'),
+                    ('local_market', 'Yerel'),
                     ('online_market', 'Online'),
                     ('bazaar', 'Pazar'),
                   ],
@@ -1135,7 +1142,12 @@ class _RegionFilterTileState extends State<_RegionFilterTile> {
       borderRadius: FRRad.all(FRRad.m),
       child: Container(
         height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          FRSpace.m,
+          0,
+          FRSpace.m,
+          0,
+        ),
         decoration: BoxDecoration(
           color: FR.surfaceHi,
           borderRadius: FRRad.all(FRRad.m),
@@ -1173,11 +1185,9 @@ class _RegionFilterTileState extends State<_RegionFilterTile> {
 
 class _FilterDropdown extends StatelessWidget {
   const _FilterDropdown({
-    required this.value,
     required this.items,
     required this.onChanged,
   });
-  final String value;
   final List<(String, String)> items;
   final ValueChanged<String> onChanged;
 
@@ -1185,7 +1195,12 @@ class _FilterDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsetsDirectional.fromSTEB(
+          FRSpace.m,
+          0,
+          FRSpace.m,
+          0,
+        ),
       decoration: BoxDecoration(
         color: FR.surfaceHi,
         borderRadius: FRRad.all(FRRad.m),
@@ -1211,6 +1226,59 @@ class _FilterDropdown extends StatelessWidget {
   }
 }
 
+class _SourceChoice extends StatelessWidget {
+  const _SourceChoice({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.m),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        height: 52,
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          FRSpace.m,
+          0,
+          FRSpace.m,
+          0,
+        ),
+        decoration: BoxDecoration(
+          color: active ? FRPalette.dark.bgElev : FR.surfaceHi,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: active ? FR.goldDeep : FR.hairline),
+          boxShadow: active ? frGoldGlow(opacity: .14) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 17, color: active ? FR.gold : FR.ink3),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: frText(
+                  12.5,
+                  FontWeight.w800,
+                  color: active ? FR.surface : FR.ink,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 String _typeLabel(String t) => switch (t) {
       'chain_market' => 'Zincir',
       'local_market' => 'Yerel',
@@ -1219,6 +1287,17 @@ String _typeLabel(String t) => switch (t) {
       'all' => 'Tüm türler',
       _ => t,
     };
+
+String _placeRegionLabel(Map<String, dynamic> data) {
+  final type = (data['type'] ?? '').toString();
+  final sourceType = (data['sourceType'] ?? '').toString();
+  if (type == 'online_market' || sourceType == 'online') return 'Online mağaza';
+  final city = (data['city'] ?? '').toString().trim();
+  final district = (data['district'] ?? '').toString().trim();
+  if (city.isEmpty && district.isEmpty) return 'Bölge bekliyor';
+  if (district.isEmpty) return city;
+  return '$city / $district';
+}
 
 String _statusLabel(String s) => switch (s) {
       'verified' => 'Verified',
@@ -1349,12 +1428,14 @@ class _PlaceFormResult {
     required this.city,
     required this.district,
     required this.type,
+    required this.sourceType,
     required this.status,
   });
   final String name;
   final String city;
   final String district;
   final String type;
+  final String sourceType;
   final String status;
 }
 
@@ -1368,6 +1449,7 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
   String? city = TurkeyLocations.canonicalCity(initialCity);
   String? district =
       city == null ? null : TurkeyLocations.canonicalDistrict(city, initialDistrict);
+  String sourceType = 'physical';
   String type = 'local_market';
   String status = 'pending';
   try {
@@ -1377,7 +1459,7 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
       backgroundColor: Colors.transparent,
       builder: (ctx) => _AdminBottomSheetShell(
         title: title,
-        subtitle: 'Mağaza · zincir · yerel · pazar',
+        subtitle: 'Önce satış kanalını seç: fiziksel veya online',
         child: StatefulBuilder(
           builder: (ctx, setInner) => Column(
             mainAxisSize: MainAxisSize.min,
@@ -1387,61 +1469,123 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                 autofocus: true,
                 decoration: const InputDecoration(hintText: 'Görünen ad'),
               ),
-              const SizedBox(height: 10),
-              InkWell(
-                borderRadius: FRRad.all(FRRad.m),
-                onTap: () async {
-                  final r = await showRegionPickerSheet(
-                    ctx,
-                    initialCity: city,
-                    initialDistrict: district,
-                  );
-                  if (r != null) {
-                    setInner(() {
-                      city = r.city;
-                      district = r.district;
-                    });
-                  }
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: FR.surfaceHi,
-                    borderRadius: FRRad.all(FRRad.m),
-                    border: Border.all(color: FR.hairline),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SourceChoice(
+                      label: 'Fiziksel mağaza',
+                      icon: Icons.storefront_rounded,
+                      active: sourceType == 'physical',
+                      onTap: () => setInner(() {
+                        sourceType = 'physical';
+                        if (type == 'online_market') type = 'local_market';
+                      }),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.place_outlined, color: FR.gold, size: 16),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          (city != null && district != null)
-                              ? '$city / $district'
-                              : 'İl ve ilçe seç',
-                          style: frText(13, FontWeight.w800,
-                              color: city == null ? FR.ink3 : FR.ink),
-                        ),
-                      ),
-                      Icon(Icons.keyboard_arrow_right_rounded,
-                          size: 18, color: FR.ink2),
-                    ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _SourceChoice(
+                      label: 'Online mağaza',
+                      icon: Icons.language_rounded,
+                      active: sourceType == 'online',
+                      onTap: () => setInner(() {
+                        sourceType = 'online';
+                        type = 'online_market';
+                        city = null;
+                        district = null;
+                      }),
+                    ),
                   ),
-                ),
+                ],
               ),
               const SizedBox(height: 10),
+              if (sourceType == 'physical') ...[
+                InkWell(
+                  borderRadius: FRRad.all(FRRad.m),
+                  onTap: () async {
+                    final r = await showRegionPickerSheet(
+                      ctx,
+                      initialCity: city,
+                      initialDistrict: district,
+                    );
+                    if (r != null) {
+                      setInner(() {
+                        city = r.city;
+                        district = r.district;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      FRSpace.m,
+                      FRSpace.l - 2,
+                      FRSpace.m,
+                      FRSpace.l - 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: FR.surfaceHi,
+                      borderRadius: FRRad.all(FRRad.m),
+                      border: Border.all(color: FR.hairline),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.place_outlined, color: FR.gold, size: 16),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            (city != null && district != null)
+                                ? '$city / $district'
+                                : 'İl ve ilçe seç',
+                            style: frText(13, FontWeight.w800,
+                                color: city == null ? FR.ink3 : FR.ink),
+                          ),
+                        ),
+                        Icon(Icons.keyboard_arrow_right_rounded,
+                            size: 18, color: FR.ink2),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ] else ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    FRSpace.m,
+                    FRSpace.m,
+                    FRSpace.m,
+                    FRSpace.m,
+                  ),
+                  decoration: BoxDecoration(
+                    color: FR.gold.withOpacity(.10),
+                    borderRadius: FRRad.all(FRRad.m),
+                    border: Border.all(color: FR.goldDeep.withOpacity(.28)),
+                  ),
+                  child: Text(
+                    'Online mağazada il / ilçe zorunlu değildir; fiyat ekleme akışı bunu online kaynak olarak kullanır.',
+                    style: frText(
+                      11.5,
+                      FontWeight.w700,
+                      color: FR.ink2,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               Row(
                 children: [
                   Expanded(
                     child: _FilterDropdown(
                       value: type,
-                      items: const [
-                        ('chain_market', 'Chain'),
-                        ('local_market', 'Local'),
-                        ('online_market', 'Online'),
-                        ('bazaar', 'Pazar'),
-                      ],
+                      items: sourceType == 'online'
+                          ? const [('online_market', 'Online')]
+                          : const [
+                              ('chain_market', 'Zincir'),
+                              ('local_market', 'Yerel'),
+                              ('bazaar', 'Pazar'),
+                            ],
                       onChanged: (v) => setInner(() => type = v),
                     ),
                   ),
@@ -1487,9 +1631,10 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
     if (ok != true) return null;
     return _PlaceFormResult(
       name: nameCtrl.text,
-      city: city ?? '',
-      district: district ?? '',
-      type: type,
+      city: sourceType == 'online' ? '' : (city ?? ''),
+      district: sourceType == 'online' ? '' : (district ?? ''),
+      type: sourceType == 'online' ? 'online_market' : type,
+      sourceType: sourceType,
       status: status,
     );
   } finally {
