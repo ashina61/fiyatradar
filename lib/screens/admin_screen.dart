@@ -24,34 +24,36 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   int tab = 0;
-  // Grouped tab metadata. The previous flat 8-chip horizontal scroller buried
-  // moderation tools off-screen on small phones and made it hard to remember
-  // which tab does what. We now expose the same set in three labelled groups
-  // with leading icons so admins can scan related tools at a glance.
-  static const _groups = <_AdminGroup>[
-    _AdminGroup('GENEL', [
-      _AdminTabSpec(0, 'Panel', Icons.space_dashboard_rounded),
-    ]),
-    _AdminGroup('KATALOG', [
-      _AdminTabSpec(1, 'Ürünler', Icons.inventory_2_rounded),
-      _AdminTabSpec(2, 'Banner', Icons.campaign_rounded),
-      _AdminTabSpec(3, 'Talepler', Icons.inbox_rounded),
-    ]),
-    _AdminGroup('FİYAT & MODERASYON', [
-      _AdminTabSpec(4, 'Fiyatlar', Icons.price_change_rounded),
-      _AdminTabSpec(5, 'Doğrulama', Icons.verified_rounded),
-      _AdminTabSpec(6, 'Moderasyon', Icons.gavel_rounded),
-    ]),
-    _AdminGroup('SİSTEM', [
-      _AdminTabSpec(7, 'Ayarlar', Icons.settings_rounded),
-    ]),
+  // The flat 8-chip layout buried tools off-screen and an even 4-group
+  // grouping made every chip look equally important — admins lost track
+  // of where to start. We now elevate the four most-used tools (Panel,
+  // Ürünler, Fiyatlar, Moderasyon) as full-width primary tiles and tuck
+  // the secondary tools (Banner, Talepler, Doğrulama, Ayarlar) into a
+  // single "Diğer araçlar" chip row underneath.
+  static const _primaryTabs = <_AdminTabSpec>[
+    _AdminTabSpec(0, 'Panel', Icons.space_dashboard_rounded,
+        subtitle: 'Canlı özet'),
+    _AdminTabSpec(1, 'Ürünler', Icons.inventory_2_rounded,
+        subtitle: 'Katalog yönetimi'),
+    _AdminTabSpec(4, 'Fiyatlar', Icons.price_change_rounded,
+        subtitle: 'Fiyat moderasyonu'),
+    _AdminTabSpec(6, 'Moderasyon', Icons.gavel_rounded,
+        subtitle: 'Topluluk kararları'),
+  ];
+
+  static const _secondaryTabs = <_AdminTabSpec>[
+    _AdminTabSpec(2, 'Banner', Icons.campaign_rounded),
+    _AdminTabSpec(3, 'Talepler', Icons.inbox_rounded),
+    _AdminTabSpec(5, 'Doğrulama', Icons.verified_rounded),
+    _AdminTabSpec(7, 'Ayarlar', Icons.settings_rounded),
   ];
 
   String get _activeLabel {
-    for (final g in _groups) {
-      for (final t in g.tabs) {
-        if (t.index == tab) return t.label;
-      }
+    for (final t in _primaryTabs) {
+      if (t.index == tab) return t.label;
+    }
+    for (final t in _secondaryTabs) {
+      if (t.index == tab) return t.label;
     }
     return '';
   }
@@ -111,7 +113,8 @@ class _AdminScreenState extends State<AdminScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _AdminTabBoard(
-                groups: _groups,
+                primary: _primaryTabs,
+                secondary: _secondaryTabs,
                 activeIndex: tab,
                 onSelect: (i) => setState(() => tab = i),
               ),
@@ -212,29 +215,27 @@ class _AdminUnauthorizedScreen extends StatelessWidget {
 }
 
 class _AdminTabSpec {
-  const _AdminTabSpec(this.index, this.label, this.icon);
+  const _AdminTabSpec(this.index, this.label, this.icon, {this.subtitle});
   final int index;
   final String label;
   final IconData icon;
+  final String? subtitle;
 }
 
-class _AdminGroup {
-  const _AdminGroup(this.title, this.tabs);
-  final String title;
-  final List<_AdminTabSpec> tabs;
-}
-
-/// Compact, grouped admin navigator. Replaces the flat horizontal chip
-/// scroller — each group sits on its own row with a faint section label
-/// so even with the panel open at small phone widths the operator still
-/// sees the available tools at a glance.
+/// Two-tier admin navigator. The four primary tools sit in a 2×2 grid of
+/// large tiles so admins land on the right tab instantly; secondary tools
+/// (Banner, Talepler, Doğrulama, Ayarlar) collapse into a "Diğer araçlar"
+/// chip row beneath them — visible but not visually competing with the
+/// main tasks.
 class _AdminTabBoard extends StatelessWidget {
   const _AdminTabBoard({
-    required this.groups,
+    required this.primary,
+    required this.secondary,
     required this.activeIndex,
     required this.onSelect,
   });
-  final List<_AdminGroup> groups;
+  final List<_AdminTabSpec> primary;
+  final List<_AdminTabSpec> secondary;
   final int activeIndex;
   final ValueChanged<int> onSelect;
 
@@ -243,12 +244,44 @@ class _AdminTabBoard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < groups.length; i++) ...[
-          if (i > 0) const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8, left: 4),
+          child: Text(
+            'ANA BAŞLIKLAR',
+            style: frOverline(color: FR.ink3, size: 9.5),
+          ),
+        ),
+        for (var row = 0; row < (primary.length + 1) ~/ 2; row++) ...[
+          if (row > 0) const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _AdminPrimaryTile(
+                  spec: primary[row * 2],
+                  active: primary[row * 2].index == activeIndex,
+                  onTap: () => onSelect(primary[row * 2].index),
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (row * 2 + 1 < primary.length)
+                Expanded(
+                  child: _AdminPrimaryTile(
+                    spec: primary[row * 2 + 1],
+                    active: primary[row * 2 + 1].index == activeIndex,
+                    onTap: () => onSelect(primary[row * 2 + 1].index),
+                  ),
+                )
+              else
+                const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
+        if (secondary.isNotEmpty) ...[
+          const SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.only(bottom: 6, left: 4),
+            padding: const EdgeInsets.only(bottom: 8, left: 4),
             child: Text(
-              groups[i].title,
+              'DİĞER ARAÇLAR',
               style: frOverline(color: FR.ink3, size: 9.5),
             ),
           ),
@@ -256,7 +289,7 @@ class _AdminTabBoard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final t in groups[i].tabs)
+              for (final t in secondary)
                 _AdminTabChip(
                   spec: t,
                   active: t.index == activeIndex,
@@ -266,6 +299,87 @@ class _AdminTabBoard extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _AdminPrimaryTile extends StatelessWidget {
+  const _AdminPrimaryTile({
+    required this.spec,
+    required this.active,
+    required this.onTap,
+  });
+  final _AdminTabSpec spec;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.l),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: BoxDecoration(
+          gradient: active
+              ? LinearGradient(
+                  colors: [FR.goldHi, FR.goldDeep],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: active ? null : FR.surface,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(
+            color: active ? FR.gold : FR.hairline,
+          ),
+          boxShadow: active ? frGoldGlow(opacity: .22) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active
+                    ? FR.onGold.withOpacity(.22)
+                    : FR.gold.withOpacity(.14),
+                borderRadius: FRRad.all(11),
+                border: Border.all(
+                  color: active
+                      ? FR.onGold.withOpacity(.35)
+                      : FR.gold.withOpacity(.35),
+                ),
+              ),
+              child: Icon(
+                spec.icon,
+                size: 18,
+                color: active ? FR.onGold : FR.gold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              spec.label,
+              style: frDisplay(15, FontWeight.w800,
+                  color: active ? FR.onGold : FR.ink),
+            ),
+            if (spec.subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                spec.subtitle!,
+                style: frText(11, FontWeight.w700,
+                    color: active
+                        ? FR.onGold.withOpacity(.82)
+                        : FR.ink3),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

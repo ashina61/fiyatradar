@@ -225,10 +225,23 @@ class _HomeHeader extends StatelessWidget {
               borderRadius: FRRad.all(16),
               boxShadow: frGoldGlow(opacity: .18),
             ),
-            child: Text(
-              initial,
-              style: frDisplay(20, FontWeight.w800, color: FR.onGold),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: state.profileImageUrl != null
+                ? Image.network(
+                    key: ValueKey(state.profileImageUrl),
+                    state.profileImageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: 156,
+                    filterQuality: FilterQuality.medium,
+                    errorBuilder: (_, __, ___) => Text(
+                      initial,
+                      style: frDisplay(20, FontWeight.w800, color: FR.onGold),
+                    ),
+                  )
+                : Text(
+                    initial,
+                    style: frDisplay(20, FontWeight.w800, color: FR.onGold),
+                  ),
           ),
         ),
         const SizedBox(width: 14),

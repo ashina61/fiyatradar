@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Dark-mode splash variant. Same FR logo on a dark surface so the system
-     splash doesn't blast a white frame on devices in dark mode. -->
+<!-- Dark-mode native splash. Logo intentionally omitted — Flutter's
+     _SplashScreen renders the FR mark once the engine boots so the user
+     never sees the brand twice in succession. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/fr_splash_bg_dark"/>
-    <item
-        android:width="200dp"
-        android:height="200dp"
-        android:gravity="center">
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/fr_splash_logo"/>
-    </item>
 </layer-list>

@@ -1201,10 +1201,12 @@ class _SingleStoreCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = estimate.foundItemCount + estimate.missingItemCount;
     final coverage = total == 0 ? 0.0 : estimate.foundItemCount / total;
+    // Show every missing product name so the user can see exactly which
+    // items aren't being included in this market's estimate — capping at
+    // 2 made it look like only 1–2 products were ever being compared.
     final missing = estimate.missingProductIds
         .map((id) => state.findById(id)?.name)
         .whereType<String>()
-        .take(2)
         .toList();
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1282,7 +1284,7 @@ class _SingleStoreCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Eksik · ${missing.join(', ')}${estimate.missingProductIds.length > missing.length ? '…' : ''}',
+                    'Eksik · ${missing.join(', ')}',
                     style: frText(11, FontWeight.w700, color: FR.ink3),
                   ),
                 ),
