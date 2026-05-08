@@ -30,9 +30,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
   static const double _kPriceWarnHigh = 50000.0;
   Product? _selectedProduct;
   StorePlace? _selectedPlace;
-  // Online flow şu an UI'da gizli ve kullanılmıyor — kalan branch'lar
-  // bilinçli olarak siliniyor (online dead branch). Spec şu sürümde
-  // sadece bölgesel ekleme istiyor; online ileride ayrı bir akış olacak.
+  // Source type is a top-level choice — physical / bazaar / online. Online
+  // entries skip the city+district requirement (they're nationwide) and
+  // pull from `online_market` storeplaces only.
   PriceSourceType _sourceType = PriceSourceType.physical;
   final _priceCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
@@ -100,6 +100,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
     return double.tryParse(normalized);
   }
 
+  bool get _isOnlineSource => _sourceType == PriceSourceType.online;
+
   Future<void> _submit(AppState state) async {
     final pid = _selectedProduct?.id;
     final place = _selectedPlace;
@@ -107,6 +109,12 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
     final freeText = (_freeTextStoreName ?? '').trim();
+    // Online entries don't need region — we send a canonical
+    // "Türkiye / Online" marker so the report still satisfies the
+    // priceReports schema while the home feed treats it as nationwide.
+    final isOnline = _isOnlineSource;
+    final effectiveCity = isOnline ? 'Türkiye' : city;
+    final effectiveDistrict = isOnline ? 'Online' : district;
 
     if (pid == null) {
       _snack('Önce ürün seç.');
@@ -120,10 +128,12 @@ class _AddPriceTabState extends State<AddPriceTab> {
     // girmiş de olabilir. En azından chain adı (free-text) ya da bir place
     // referansı olmalı; ikisi de yoksa zincir ismi belirsiz kalır.
     if (place == null && freeText.isEmpty) {
-      _snack('Marketi seç ya da listede yoksa ismini yaz.');
+      _snack(isOnline
+          ? 'Online marketi seç ya da ismini yaz (örn. Migros Sanal Market).'
+          : 'Marketi seç ya da listede yoksa ismini yaz.');
       return;
     }
-    if (city.isEmpty || district.isEmpty) {
+    if (!isOnline && (city.isEmpty || district.isEmpty)) {
       _snack('Bölgesel fiyat için il ve ilçe seç.');
       return;
     }
@@ -210,16 +220,16 @@ class _AddPriceTabState extends State<AddPriceTab> {
         price: price,
         note: _noteCtrl.text.trim(),
         placeId: place?.id,
-        city: city,
-        district: district,
+        city: effectiveCity,
+        district: effectiveDistrict,
         chainId: chainId,
         chainName: chainName,
         sourceType: _sourceType,
         proofImageUrl: proofUrl,
-        lat: _regionLat,
-        lng: _regionLng,
-        distanceToBranchMeters: distanceToBranchMeters,
-        gpsAccuracyMeters: _gpsAccuracyMeters,
+        lat: isOnline ? null : _regionLat,
+        lng: isOnline ? null : _regionLng,
+        distanceToBranchMeters: isOnline ? null : distanceToBranchMeters,
+        gpsAccuracyMeters: isOnline ? null : _gpsAccuracyMeters,
       );
       if (!mounted) return;
       _priceCtrl.clear();
@@ -243,17 +253,19 @@ class _AddPriceTabState extends State<AddPriceTab> {
             productId: pid,
             chainId: chainId,
             price: price,
-            city: city,
-            district: district,
+            city: effectiveCity,
+            district: effectiveDistrict,
           );
           if (!mounted) return;
           _snack('Doğrulaman kaydedildi.');
         }
       } else {
         _snack(
-          'Fiyat eklendi · '
-          '$chainName / $district bölgesine işlendi · '
-          '${result.sourceLabel}',
+          isOnline
+              ? 'Online fiyat eklendi · $chainName · ${result.sourceLabel}'
+              : 'Fiyat eklendi · '
+                  '$chainName / $district bölgesine işlendi · '
+                  '${result.sourceLabel}',
         );
         if (mounted) {
           setState(() {
@@ -337,10 +349,13 @@ class _AddPriceTabState extends State<AddPriceTab> {
     }
     final freeText = (_freeTextStoreName ?? '').trim();
     if (_selectedPlace == null && freeText.isEmpty) {
-      return 'Marketi seç ya da listede yoksa ismini yaz.';
+      return _isOnlineSource
+          ? 'Online marketi seç ya da ismini yaz.'
+          : 'Marketi seç ya da listede yoksa ismini yaz.';
     }
-    if ((state.cityName ?? '').trim().isEmpty ||
-        (state.districtName ?? '').trim().isEmpty) {
+    if (!_isOnlineSource &&
+        ((state.cityName ?? '').trim().isEmpty ||
+            (state.districtName ?? '').trim().isEmpty)) {
       return 'İl ve ilçe seç.';
     }
     return null;
@@ -452,13 +467,21 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     Query<Map<String, dynamic>> q = coll.where('isActive', isEqualTo: true);
 
-    // Online tipini bilinçli olarak kaldırdık (spec: "yalnızca bölgesel
-    // bildirim"). UI'da sadece physical/bazaar chip'leri görünüyor; online
-    // dead branch'a düşmüyoruz.
-    q = _sourceType == PriceSourceType.bazaar
-        ? q.where('type', isEqualTo: 'bazaar')
-        : q.where('type', whereIn: const ['chain_market', 'local_market']);
-    q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
+    switch (_sourceType) {
+      case PriceSourceType.bazaar:
+        q = q.where('type', isEqualTo: 'bazaar');
+        break;
+      case PriceSourceType.online:
+        // Online markets are nationwide — no city/district filter applies.
+        q = q.where('type', isEqualTo: 'online_market');
+        break;
+      case PriceSourceType.physical:
+        q = q.where('type', whereIn: const ['chain_market', 'local_market']);
+        break;
+    }
+    if (_sourceType != PriceSourceType.online) {
+      q = q.where('city', isEqualTo: city).where('district', isEqualTo: district);
+    }
     q = q.where('status', whereIn: const ['verified', 'trusted']);
 
     final searchText = _storeQueryCtrl.text.trim().toLowerCase();
@@ -471,8 +494,10 @@ class _AddPriceTabState extends State<AddPriceTab> {
   }
 
   Stream<List<StorePlace>> _placeStream(AppState state) async* {
-    if ((state.cityName ?? '').trim().isEmpty ||
-        (state.districtName ?? '').trim().isEmpty) {
+    final isOnline = _sourceType == PriceSourceType.online;
+    if (!isOnline &&
+        ((state.cityName ?? '').trim().isEmpty ||
+            (state.districtName ?? '').trim().isEmpty)) {
       yield const <StorePlace>[];
       return;
     }
@@ -496,16 +521,19 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     if (ownUid != null && ownUid.isNotEmpty) {
       try {
-        final city = (state.cityName ?? '').trim();
-        final district = (state.districtName ?? '').trim();
-        final ownPendingQ = FirebaseService.instance.storePlaces
+        Query<Map<String, dynamic>> ownPendingQ = FirebaseService.instance.storePlaces
             .where('isActive', isEqualTo: true)
             .where('createdByUid', isEqualTo: ownUid)
-            .where('status', isEqualTo: 'pending')
-            .where('city', isEqualTo: city)
-            .where('district', isEqualTo: district)
-            .limit(_kStoreResultLimit);
-        final ownPendingSnap = await ownPendingQ.get();
+            .where('status', isEqualTo: 'pending');
+        if (!isOnline) {
+          final city = (state.cityName ?? '').trim();
+          final district = (state.districtName ?? '').trim();
+          ownPendingQ = ownPendingQ
+              .where('city', isEqualTo: city)
+              .where('district', isEqualTo: district);
+        }
+        final ownPendingSnap =
+            await ownPendingQ.limit(_kStoreResultLimit).get();
         for (final d in ownPendingSnap.docs) {
           final place = StorePlace.fromDoc(d);
           if (_sourceType == PriceSourceType.physical &&
@@ -513,6 +541,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
             continue;
           }
           if (_sourceType == PriceSourceType.bazaar && place.type != StorePlaceType.bazaar) {
+            continue;
+          }
+          if (isOnline && place.type != StorePlaceType.onlineMarket) {
             continue;
           }
           all[d.id] = place;
@@ -687,8 +718,23 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 ),
                 const SizedBox(height: 22),
 
+                // Source type — top-level toggle so adding online prices is
+                // a one-tap switch rather than buried in an accordion.
+                _label('Kaynak türü'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _sourceChip('Fiziksel Market', PriceSourceType.physical),
+                    _sourceChip('Online Market', PriceSourceType.online),
+                    _sourceChip('Pazar', PriceSourceType.bazaar),
+                  ],
+                ),
+                const SizedBox(height: 22),
+
                 // 3) Market — "Hangi markette gördün?"
-                _step(3, 'Hangi markette gördün?', completed: _selectedPlace != null),
+                _step(3, _isOnlineSource ? 'Hangi online markette?' : 'Hangi markette gördün?',
+                    completed: _selectedPlace != null),
                 Container(
                   padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 2),
                   decoration: frSurface(radius: FRRad.m),
@@ -699,14 +745,16 @@ class _AddPriceTabState extends State<AddPriceTab> {
                     cursorColor: FR.gold,
                     decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'BİM, A101, ŞOK, Migros…',
+                      hintText: _isOnlineSource
+                          ? 'Migros Sanal, CarrefourSA Online, Trendyol Yemek…'
+                          : 'BİM, A101, ŞOK, Migros…',
                       hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
                       prefixIcon: Icon(Icons.search_rounded, color: FR.ink3, size: 18),
                     ),
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (regionMissing)
+                if (!_isOnlineSource && regionMissing)
                   _missingRegionEmpty(state)
                 else
                   StreamBuilder<List<StorePlace>>(
@@ -769,8 +817,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 _selectedStoreSummary(),
                 const SizedBox(height: 22),
 
-                // 4) Nerede gördün? — region (her zaman bölgesel)
-                ...[
+                // 4) Nerede gördün? — region (online prices skip this).
+                if (!_isOnlineSource) ...[
                   _step(4, 'Nerede gördün?',
                       completed: city.isNotEmpty && district.isNotEmpty),
                   Padding(
@@ -872,23 +920,14 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   const SizedBox(height: 22),
                 ],
 
-                // Optional accordion: kaynak türü, not
+                // Optional accordion: raf fotoğrafı + not. Source type
+                // moved to a top-level visible toggle above.
                 _OptionalAccordion(
                   expanded: _showOptional,
                   onToggle: () => setState(() => _showOptional = !_showOptional),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _label('Kaynak türü'),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _sourceChip('Fiziksel Market', PriceSourceType.physical),
-                          _sourceChip('Pazar', PriceSourceType.bazaar),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
                       _label('Raf fotoğrafı (opsiyonel — güveni artırır)'),
                       _ProofPhotoPicker(
                         bytes: _proofPhotoBytes,
@@ -994,14 +1033,21 @@ class _AddPriceTabState extends State<AddPriceTab> {
   Widget _placesEmpty(AppState state) {
     final hasSearch = _storeQueryCtrl.text.trim().isNotEmpty;
     final isBazaar = _sourceType == PriceSourceType.bazaar;
-    final title = isBazaar
+    final isOnline = _sourceType == PriceSourceType.online;
+    final title = isOnline
         ? (hasSearch
-            ? 'Arama ile eşleşen pazar yok.'
-            : 'Bu bölgede kayıtlı pazar yok.')
-        : (hasSearch
-            ? 'Arama ile eşleşen market yok.'
-            : 'Bu bölgede kayıtlı market yok.');
-    final suggestLabel = isBazaar ? 'Bu pazarı kaydet' : 'Bu marketi kaydet';
+            ? 'Arama ile eşleşen online market yok.'
+            : 'Henüz kayıtlı online market yok.')
+        : isBazaar
+            ? (hasSearch
+                ? 'Arama ile eşleşen pazar yok.'
+                : 'Bu bölgede kayıtlı pazar yok.')
+            : (hasSearch
+                ? 'Arama ile eşleşen market yok.'
+                : 'Bu bölgede kayıtlı market yok.');
+    final suggestLabel = isOnline
+        ? 'Bu online marketi kaydet'
+        : (isBazaar ? 'Bu pazarı kaydet' : 'Bu marketi kaydet');
     final freeTextLabel = hasSearch
         ? 'Bu adı kullan: "${_storeQueryCtrl.text.trim()}"'
         : 'Listede yok — elle yaz';

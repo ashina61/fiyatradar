@@ -163,17 +163,18 @@ class HomeTab extends StatelessWidget {
               ),
             )
           else
+            // Feed rows skip the per-row fade animation — each instance
+            // spawns its own AnimationController + delayed timer, and
+            // stacking them on every list rebuild was visibly hitching the
+            // home tab on cold scrolls.
             ...feedItems.map(
-              (p) => FRFadeSlideIn(
-                delay: nextDelay(),
-                child: _FeedRow(
-                  product: p,
-                  latest: state.homeScopedEntryForProduct(p.id),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(product: p)),
-                  ),
+              (p) => _FeedRow(
+                product: p,
+                latest: state.homeScopedEntryForProduct(p.id),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => ProductDetailScreen(product: p)),
                 ),
               ),
             ),
@@ -354,10 +355,16 @@ class _RegionScopeCard extends StatelessWidget {
           const SizedBox(height: 8),
           Container(height: 1, color: FR.hairlineSoft),
           const SizedBox(height: 10),
+          // Filter chips were clipped at the previous 36px height — the
+          // chip's vertical padding (10+10) plus glyph height pushed past
+          // the box and the bottom of "Türkiye geneli" descenders went
+          // missing. Bump to 44 to give descenders room and add a soft
+          // bounce scroll physics so the user can reach the last chip.
           SizedBox(
-            height: 36,
+            height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
               children: [
                 FRFilterChip('Yakınımda',
                     active: scope == HomePriceScope.nearby,
@@ -536,7 +543,10 @@ class _BannerCard extends StatelessWidget {
               Image.network(
                 banner.imageUrl!,
                 fit: BoxFit.cover,
-                cacheWidth: 1200,
+                // Banner card is ~92% viewport width; 800px decoded width
+                // gives crisp results on retina without needlessly
+                // decoding 1200px frames into the GPU cache.
+                cacheWidth: 800,
                 filterQuality: FilterQuality.medium,
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),

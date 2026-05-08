@@ -1114,45 +1114,37 @@ class _ContributionRowState extends State<_ContributionRow> {
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final state = widget.state;
-    final initial =
-        entry.reportedBy.isEmpty ? 'T' : entry.reportedBy[0].toUpperCase();
     final uid = state.user?.uid ?? '';
     final myVote = entry.voteOf(uid);
     final disabledReason = state.canVoteOn(widget.product, entry);
 
+    // Two-tier layout — top row carries the price + identity, bottom row
+    // is reserved for the vote/report action set. The previous version
+    // crammed everything into a single block of mixed-priority chips.
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
       decoration: frSurface(radius: FRRad.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: FR.surfaceHi,
-                  borderRadius: FRRad.all(12),
-                  border: Border.all(color: FR.hairline),
-                ),
-                alignment: Alignment.center,
-                child: Text(initial,
-                    style: frText(14, FontWeight.w800, color: FR.gold)),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(entry.reportedBy,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: frText(13, FontWeight.w800)),
-                        ),
+                        FRPriceText(entry.price, size: 20, color: FR.ink),
+                        const SizedBox(width: 8),
+                        FRFreshChip(date: entry.date),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Flexible(child: FRStoreBadge(entry.store)),
                         const SizedBox(width: 6),
                         FRVerifyBadge.status(
                           status: statusToString(entry.status),
@@ -1161,23 +1153,23 @@ class _ContributionRowState extends State<_ContributionRow> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        FRStoreBadge(entry.store),
-                        const SizedBox(width: 6),
-                        FRFreshChip(date: entry.date),
-                      ],
+                    const SizedBox(height: 6),
+                    Text(
+                      entry.reportedBy,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frText(11.5, FontWeight.w700, color: FR.ink3),
                     ),
                   ],
                 ),
               ),
-              FRPriceText(entry.price, size: 15),
-              const SizedBox(width: 6),
               IconButton(
                 onPressed: _busy ? null : _report,
                 icon: Icon(Icons.flag_outlined, size: 18, color: FR.ink3),
                 tooltip: 'Raporla',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
             ],
           ),
@@ -1189,33 +1181,35 @@ class _ContributionRowState extends State<_ContributionRow> {
             ),
           ],
           const SizedBox(height: 10),
-          FRVoteBar(up: entry.upvotes, down: entry.downvotes),
+          Container(height: 1, color: FR.hairlineSoft),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _subtitle(entry, disabledReason, myVote),
-                  style: frText(10.5, FontWeight.w700,
-                      color: FR.ink3, height: 1.4),
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _subtitle(entry, disabledReason, myVote),
+                    style: frText(10.5, FontWeight.w700,
+                        color: FR.ink3, height: 1.4),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              if (_busy)
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: FR.gold),
-                )
-              else
-                FRVoteButtons(
-                  currentVote: myVote,
-                  disabledReason: disabledReason,
-                  onUp: () => _cast(VoteKind.up),
-                  onDown: () => _cast(VoteKind.down),
-                ),
-            ],
+                if (_busy)
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: FR.gold),
+                  )
+                else
+                  FRVoteButtons(
+                    currentVote: myVote,
+                    disabledReason: disabledReason,
+                    onUp: () => _cast(VoteKind.up),
+                    onDown: () => _cast(VoteKind.down),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1224,10 +1218,11 @@ class _ContributionRowState extends State<_ContributionRow> {
 
   String _subtitle(PriceEntry e, String? disabledReason, String? myVote) {
     if (disabledReason != null) return disabledReason;
+    final tally = '${e.verifiedByCount} onay · ${e.rejectedByCount} itiraz';
     if (myVote != null) {
-      return 'Oyun: ${myVote == 'up' ? 'doğru' : 'yanlış'} · ${e.verifiedByCount} onay · ${e.rejectedByCount} itiraz';
+      return 'Oyun: ${myVote == 'up' ? 'doğru' : 'yanlış'} · $tally';
     }
-    return '${e.verifiedByCount} onay · ${e.rejectedByCount} itiraz';
+    return tally;
   }
 }
 

@@ -6,7 +6,6 @@ import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../admin_screen.dart';
 import '../login_screen.dart';
-import '../main_screen.dart';
 import '../paywall_screen.dart';
 import '../regional_leaderboard_screen.dart';
 import '../notifications_screen.dart';
@@ -44,36 +43,21 @@ class ProfileTab extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           _IdentityCard(state: state),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _TrustCard(state: state),
-          const SizedBox(height: 14),
-          _LevelProgressCard(snap: snap),
-          const SizedBox(height: 14),
-          _StreakCard(snap: snap),
-          const SizedBox(height: 14),
-          _BadgesStrip(snap: snap),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          _ProgressCard(snap: snap),
+          const SizedBox(height: 12),
           _RegionalRankCta(state: state),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _PremiumCta(state: state),
-          const SizedBox(height: 20),
-          _StatGrid(state: state),
-          const SizedBox(height: 20),
-          const FRSectionHead(eyebrow: 'GÖRÜNÜM', title: 'Tema'),
-          const SizedBox(height: 10),
-          const _ThemeToggleCard(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           const FRSectionHead(eyebrow: 'TAKİP', title: 'Radar takvimin'),
           const SizedBox(height: 10),
           _ListGroup(
             items: [
-              // Tek "Takiplerim" girişi — favoriler + alarmlar tek panelde
-              // sekmelerle. Eski iki ayrı satır ("Favoriler" + "Alarmlarım")
-              // kullanıcıya kafa karışıklığı veriyordu (hangisini kullanmak
-              // gerek?). Eski FavoritesScreen / AlertsScreen sınıfları geri
-              // uyum için duruyor, doğrudan deep-link açabilir.
               _ListItem(
                 icon: Icons.bookmark_rounded,
                 title: 'Takiplerim',
@@ -94,6 +78,13 @@ class ProfileTab extends StatelessWidget {
                   MaterialPageRoute(
                       builder: (_) => const ContributionsScreen()),
                 ),
+              ),
+              _ListItem(
+                icon: Icons.workspace_premium_outlined,
+                title: 'Rozetler',
+                subtitle:
+                    '${snap.badges.length} / ${FRBadges.all.length} rozet kazandın',
+                onTap: () => _showBadgesSheet(context, snap),
               ),
               _ListItem(
                 icon: Icons.inbox_rounded,
@@ -143,6 +134,7 @@ class ProfileTab extends StatelessWidget {
                       builder: (_) => const NotificationPrefsScreen()),
                 ),
               ),
+              const _ThemeListItem(),
               _ListItem(
                 icon: Icons.assignment_add,
                 title: 'Ürün talebi oluştur',
@@ -183,6 +175,41 @@ class ProfileTab extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showBadgesSheet(BuildContext context, GamificationSnapshot snap) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: FR.bg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Rozetler', style: frDisplay(22, FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(
+              '${snap.badges.length} / ${FRBadges.all.length} rozet kazandın',
+              style: frText(12, FontWeight.w600, color: FR.ink3),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: FRBadges.all
+                  .map((b) => _BadgeChip(badge: b, earned: snap.badges.contains(b.id)))
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Confirms a logout request before tearing down the session, so a stray
@@ -322,8 +349,10 @@ class _IdentityCard extends StatelessWidget {
   }
 }
 
-class _LevelProgressCard extends StatelessWidget {
-  const _LevelProgressCard({required this.snap});
+/// Combined level + streak card so the profile keeps progress signals
+/// without stacking two near-identical surfaces back-to-back.
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.snap});
   final GamificationSnapshot snap;
 
   @override
@@ -331,6 +360,16 @@ class _LevelProgressCard extends StatelessWidget {
     final level = snap.level;
     final next = FRLevels.nextOf(level);
     final pct = snap.levelProgress;
+    final flame = snap.currentStreak >= 30
+        ? '🏆'
+        : snap.currentStreak >= 7
+            ? '⚡'
+            : snap.currentStreak >= 3
+                ? '🔥'
+                : '🌱';
+    final streakLabel = snap.currentStreak == 0
+        ? 'Streak yok'
+        : '${snap.currentStreak} gün${snap.streakActive ? "" : " · sıfırlandı"}';
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -371,86 +410,42 @@ class _LevelProgressCard extends StatelessWidget {
             ),
           ),
           if (next != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              'Bir sonraki: ${next.name} · ${(next.minPoints - snap.points)} PT kaldı',
+              'Bir sonraki: ${next.name} · ${(next.minPoints - snap.points)} PT',
               style: frText(11, FontWeight.w700, color: FR.ink3),
             ),
           ],
+          const SizedBox(height: 12),
+          Container(height: 1, color: FR.hairlineSoft),
+          const SizedBox(height: 12),
+          Row(children: [
+            Text(flame, style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(streakLabel, style: frText(13, FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${snap.contributions} fiyat · ${snap.verifyContributions} doğrulama · en uzun ${snap.longestStreak} gün',
+                    style: frText(10.5, FontWeight.w600, color: FR.ink3),
+                  ),
+                ],
+              ),
+            ),
+          ]),
         ],
       ),
     );
   }
 }
 
-class _StatGrid extends StatelessWidget {
-  const _StatGrid({required this.state});
-  final AppState state;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _stat(
-          context,
-          '${state.favorites.length}',
-          'FAVORİ',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => const WatchlistScreen(initialTab: 0)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _stat(
-          context,
-          '${state.productAlerts.length}',
-          'ALARM',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => const WatchlistScreen(initialTab: 1)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _stat(
-          context,
-          '${state.cartItemCount}',
-          'SEPET',
-          onTap: () => Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 3)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _stat(context, '${state.points}', 'PUAN'),
-      ],
-    );
-  }
-
-  Widget _stat(BuildContext context, String v, String l, {VoidCallback? onTap}) =>
-      Expanded(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: FRRad.all(FRRad.m),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: frSurface(radius: FRRad.m),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(v, style: frPrice(22, color: FR.ink)),
-                const SizedBox(height: 2),
-                Text(l, style: frOverline(color: FR.ink3, size: 9)),
-              ],
-            ),
-          ),
-        ),
-      );
-}
 
 class _ListGroup extends StatelessWidget {
   const _ListGroup({required this.items});
-  final List<_ListItem> items;
+  final List<Widget> items;
 
   @override
   Widget build(BuildContext context) {
@@ -680,24 +675,24 @@ class _GuestProfile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          const FRSectionHead(eyebrow: 'GÖRÜNÜM', title: 'Tema'),
-          const SizedBox(height: 10),
-          const _ThemeToggleCard(),
+          const SizedBox(height: 18),
+          _ListGroup(items: [const _ThemeListItem()]),
         ],
       ),
     );
   }
 }
 
-class _ThemeToggleCard extends StatefulWidget {
-  const _ThemeToggleCard();
+/// Compact theme row for use inside a `_ListGroup`. Trailing switch flips
+/// dark/light without leaving the profile screen.
+class _ThemeListItem extends StatefulWidget {
+  const _ThemeListItem();
 
   @override
-  State<_ThemeToggleCard> createState() => _ThemeToggleCardState();
+  State<_ThemeListItem> createState() => _ThemeListItemState();
 }
 
-class _ThemeToggleCardState extends State<_ThemeToggleCard> {
+class _ThemeListItemState extends State<_ThemeListItem> {
   @override
   void initState() {
     super.initState();
@@ -717,187 +712,50 @@ class _ThemeToggleCardState extends State<_ThemeToggleCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = FRThemeController.instance.isDark;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: frSurface(radius: FRRad.l),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: FR.surfaceHi,
-                  borderRadius: FRRad.all(12),
-                  border: Border.all(color: FR.hairline),
-                ),
-                child: Icon(
-                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                  color: FR.gold,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Tema', style: frText(13.5, FontWeight.w800)),
-                    Text(
-                      isDark
-                          ? 'Koyu tema · espresso'
-                          : 'Aydınlık tema · krema',
-                      style: frText(11.5, FontWeight.w600, color: FR.ink3),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: isDark,
-                activeColor: FR.onGold,
-                activeTrackColor: FR.gold,
-                inactiveThumbColor: FR.ink2,
-                inactiveTrackColor: FR.surfaceHi,
-                onChanged: (_) => FRThemeController.instance.toggle(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _themeChip(
-                  label: 'Aydınlık',
-                  icon: Icons.light_mode_rounded,
-                  active: !isDark,
-                  onTap: () => FRThemeController.instance
-                      .setMode(FRThemeMode.light),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _themeChip(
-                  label: 'Koyu',
-                  icon: Icons.dark_mode_rounded,
-                  active: isDark,
-                  onTap: () =>
-                      FRThemeController.instance.setMode(FRThemeMode.dark),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _themeChip({
-    required String label,
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
     return InkWell(
-      onTap: onTap,
-      borderRadius: FRRad.all(FRRad.m),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-        decoration: BoxDecoration(
-          color: active ? FR.gold.withOpacity(.16) : FR.bgElev,
-          borderRadius: FRRad.all(FRRad.m),
-          border: Border.all(color: active ? FR.gold : FR.hairline),
-        ),
+      onTap: () => FRThemeController.instance.toggle(),
+      borderRadius: FRRad.all(FRRad.l),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 14, color: active ? FR.gold : FR.ink2),
-            const SizedBox(width: 6),
-            Text(label,
-                style: frText(12, FontWeight.w800,
-                    color: active ? FR.gold : FR.ink2)),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
+                borderRadius: FRRad.all(12),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Icon(
+                isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                color: FR.gold,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Tema', style: frText(13.5, FontWeight.w800)),
+                  Text(
+                    isDark ? 'Koyu · espresso' : 'Aydınlık · krema',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: isDark,
+              activeColor: FR.onGold,
+              activeTrackColor: FR.gold,
+              inactiveThumbColor: FR.ink2,
+              inactiveTrackColor: FR.surfaceHi,
+              onChanged: (_) => FRThemeController.instance.toggle(),
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StreakCard extends StatelessWidget {
-  const _StreakCard({required this.snap});
-  final GamificationSnapshot snap;
-
-  @override
-  Widget build(BuildContext context) {
-    final active = snap.streakActive;
-    final flame = snap.currentStreak >= 30
-        ? '🏆'
-        : snap.currentStreak >= 7
-            ? '⚡'
-            : snap.currentStreak >= 3
-                ? '🔥'
-                : '🌱';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: frSurface(radius: FRRad.l),
-      child: Row(children: [
-        Text(flame, style: const TextStyle(fontSize: 26)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('STREAK',
-                  style: frOverline(color: FR.ink3, size: 9.5)),
-              const SizedBox(height: 4),
-              Text(
-                snap.currentStreak == 0
-                    ? 'Streak yok — bugün ilk fiyatı ekleyebilirsin.'
-                    : '${snap.currentStreak} gün${active ? "" : " (kaybolmuş)"}',
-                style: frText(14, FontWeight.w800),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'En uzun: ${snap.longestStreak} gün · ${snap.contributions} fiyat · ${snap.verifyContributions} doğrulama',
-                style: frText(11, FontWeight.w600, color: FR.ink3),
-              ),
-            ],
-          ),
-        ),
-      ]),
-    );
-  }
-}
-
-class _BadgesStrip extends StatelessWidget {
-  const _BadgesStrip({required this.snap});
-  final GamificationSnapshot snap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      decoration: frSurface(radius: FRRad.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Text('ROZETLER',
-                style: frOverline(color: FR.ink3, size: 9.5)),
-            const Spacer(),
-            Text('${snap.badges.length} / ${FRBadges.all.length}',
-                style: frText(11, FontWeight.w800, color: FR.ink3)),
-          ]),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: FRBadges.all.map((b) {
-              final earned = snap.badges.contains(b.id);
-              return _BadgeChip(badge: b, earned: earned);
-            }).toList(),
-          ),
-        ],
       ),
     );
   }
