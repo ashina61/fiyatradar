@@ -222,11 +222,9 @@ class _AdminTabSpec {
   final String? subtitle;
 }
 
-/// Two-tier admin navigator. The four primary tools sit in a 2×2 grid of
-/// large tiles so admins land on the right tab instantly; secondary tools
-/// (Banner, Talepler, Doğrulama, Ayarlar) collapse into a "Diğer araçlar"
-/// chip row beneath them — visible but not visually competing with the
-/// main tasks.
+/// Calm command-center navigation: one active-module hero, then grouped
+/// chips. This keeps every tool reachable without turning the first viewport
+/// into an admin control cemetery.
 class _AdminTabBoard extends StatelessWidget {
   const _AdminTabBoard({
     required this.primary,
@@ -241,50 +239,93 @@ class _AdminTabBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8, left: 4),
-          child: Text(
-            'ANA BAŞLIKLAR',
-            style: frOverline(color: FR.ink3, size: 9.5),
-          ),
-        ),
-        for (var row = 0; row < (primary.length + 1) ~/ 2; row++) ...[
-          if (row > 0) const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _AdminPrimaryTile(
-                  spec: primary[row * 2],
-                  active: primary[row * 2].index == activeIndex,
-                  onTap: () => onSelect(primary[row * 2].index),
-                ),
-              ),
-              const SizedBox(width: 10),
-              if (row * 2 + 1 < primary.length)
-                Expanded(
-                  child: _AdminPrimaryTile(
-                    spec: primary[row * 2 + 1],
-                    active: primary[row * 2 + 1].index == activeIndex,
-                    onTap: () => onSelect(primary[row * 2 + 1].index),
+    final tools = [...primary, ...secondary];
+    final active = tools.firstWhere(
+      (t) => t.index == activeIndex,
+      orElse: () => primary.first,
+    );
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        FRSpace.l - 2,
+        FRSpace.l - 2,
+        FRSpace.l - 2,
+        FRSpace.l - 2,
+      ),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.xl),
+        border: Border.all(color: FR.hairline),
+        boxShadow: frSoftShadow(opacity: .08),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              FRSpace.l - 2,
+              FRSpace.l - 2,
+              FRSpace.l - 2,
+              FRSpace.l - 2,
+            ),
+            decoration: BoxDecoration(
+              color: FRPalette.dark.bgElev,
+              borderRadius: FRRad.all(FRRad.l),
+              border: Border.all(color: FR.goldDeep.withOpacity(.38)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: FR.gold.withOpacity(.16),
+                    borderRadius: FRRad.all(14),
+                    border: Border.all(color: FR.goldDeep.withOpacity(.45)),
                   ),
-                )
-              else
-                const Expanded(child: SizedBox.shrink()),
-            ],
-          ),
-        ],
-        if (secondary.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 4),
-            child: Text(
-              'DİĞER ARAÇLAR',
-              style: frOverline(color: FR.ink3, size: 9.5),
+                  alignment: Alignment.center,
+                  child: Icon(active.icon, color: FR.goldHi, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('AKTİF MODÜL',
+                          style: frOverline(color: FR.goldHi, size: 9.5)),
+                      const SizedBox(height: 3),
+                      Text(active.label,
+                          style: frDisplay(19, FontWeight.w800,
+                              color: FRPalette.dark.ink)),
+                      if (active.subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(active.subtitle!,
+                            style: frText(11.5, FontWeight.w700,
+                                color: FRPalette.dark.ink2)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 12),
+          Text('ANA AKIŞ', style: frOverline(color: FR.ink3, size: 9.5)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final t in primary)
+                _AdminTabChip(
+                  spec: t,
+                  active: t.index == activeIndex,
+                  onTap: () => onSelect(t.index),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text('DESTEK ARAÇLARI', style: frOverline(color: FR.ink3, size: 9.5)),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -298,87 +339,6 @@ class _AdminTabBoard extends StatelessWidget {
             ],
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _AdminPrimaryTile extends StatelessWidget {
-  const _AdminPrimaryTile({
-    required this.spec,
-    required this.active,
-    required this.onTap,
-  });
-  final _AdminTabSpec spec;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: FRRad.all(FRRad.l),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-        decoration: BoxDecoration(
-          gradient: active
-              ? LinearGradient(
-                  colors: [FR.goldHi, FR.goldDeep],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: active ? null : FR.surface,
-          borderRadius: FRRad.all(FRRad.l),
-          border: Border.all(
-            color: active ? FR.gold : FR.hairline,
-          ),
-          boxShadow: active ? frGoldGlow(opacity: .22) : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: active
-                    ? FR.onGold.withOpacity(.22)
-                    : FR.gold.withOpacity(.14),
-                borderRadius: FRRad.all(11),
-                border: Border.all(
-                  color: active
-                      ? FR.onGold.withOpacity(.35)
-                      : FR.gold.withOpacity(.35),
-                ),
-              ),
-              child: Icon(
-                spec.icon,
-                size: 18,
-                color: active ? FR.onGold : FR.gold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              spec.label,
-              style: frDisplay(15, FontWeight.w800,
-                  color: active ? FR.onGold : FR.ink),
-            ),
-            if (spec.subtitle != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                spec.subtitle!,
-                style: frText(11, FontWeight.w700,
-                    color: active
-                        ? FR.onGold.withOpacity(.82)
-                        : FR.ink3),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

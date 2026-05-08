@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Dark-mode native splash. Logo intentionally omitted — Flutter's
-     _SplashScreen renders the FR mark once the engine boots so the user
-     never sees the brand twice in succession. -->
+<!-- Night launch keeps the same warm premium brand field to avoid a harsh flash. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/fr_splash_bg_dark"/>
+    <item android:drawable="@color/fr_splash_bg"/>
+    <item
+        android:width="192dp"
+        android:height="192dp"
+        android:drawable="@drawable/fr_splash_logo"
+        android:gravity="center"/>
 </layer-list>

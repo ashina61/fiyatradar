@@ -88,6 +88,13 @@ class FirebaseService {
     } catch (_) {
       // Token refresh is best-effort; upload will surface a clearer error.
     }
+    if (bytes.length > 5 * 1024 * 1024) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'image-too-large',
+        message: 'Profil fotoğrafı 5 MB üstünde, daha küçük bir dosya seç.',
+      );
+    }
     final detected = _detectImageType(bytes, fallback: contentType);
     final ts = DateTime.now().millisecondsSinceEpoch;
     final path = 'user_profiles/$uid/$ts.${detected.extension}';

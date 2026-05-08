@@ -4,6 +4,6 @@
     <color name="ic_launcher_background">#FCF6E9</color>
     <!-- Splash bg matches FR.bg (light theme). Keep in sync with
          lib/ui/tokens.dart::FR.bg if the brand palette changes. -->
-    <color name="fr_splash_bg">#FAF7F2</color>
-    <color name="fr_splash_bg_dark">#0E0E10</color>
+    <color name="fr_splash_bg">#FCF6E9</color>
+    <color name="fr_splash_bg_dark">#FCF6E9</color>
 </resources>
