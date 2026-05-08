@@ -3,7 +3,10 @@
      splash doesn't blast a white frame on devices in dark mode. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/fr_splash_bg_dark"/>
-    <item>
+    <item
+        android:width="200dp"
+        android:height="200dp"
+        android:gravity="center">
         <bitmap
             android:gravity="center"
             android:src="@drawable/fr_splash_logo"/>
