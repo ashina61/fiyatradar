@@ -1131,15 +1131,28 @@ class AppState extends ChangeNotifier {
     if (p == null) throw StateError('Ürün bulunamadı.');
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Fiyat eklemek için giriş yapmalısın.');
-    final cityTrim = TurkeyLocations.canonicalCity(city);
-    if (cityTrim == null) {
-      throw StateError('Geçersiz il: "$city". Listeden seç.');
-    }
-    final districtTrim =
-        TurkeyLocations.canonicalDistrict(cityTrim, district);
-    if (districtTrim == null) {
-      throw StateError(
-          'Geçersiz ilçe: "$district". $cityTrim ilçelerinden seç.');
+    final isOnlineSource = sourceType == PriceSourceType.online;
+    // Online entries are nationwide — they bypass the Türkiye city/district
+    // whitelist and use the canonical "Türkiye / Online" pair so the same
+    // schema still works.
+    final String cityTrim;
+    final String districtTrim;
+    if (isOnlineSource) {
+      cityTrim = 'Türkiye';
+      districtTrim = 'Online';
+    } else {
+      final canonicalCity = TurkeyLocations.canonicalCity(city);
+      if (canonicalCity == null) {
+        throw StateError('Geçersiz il: "$city". Listeden seç.');
+      }
+      final canonicalDistrict =
+          TurkeyLocations.canonicalDistrict(canonicalCity, district);
+      if (canonicalDistrict == null) {
+        throw StateError(
+            'Geçersiz ilçe: "$district". $canonicalCity ilçelerinden seç.');
+      }
+      cityTrim = canonicalCity;
+      districtTrim = canonicalDistrict;
     }
     final resolvedChainId = chainId.trim().isEmpty ? store : chainId;
     final resolvedChainName = chainName.trim().isEmpty ? store : chainName;
@@ -1244,6 +1257,21 @@ class AppState extends ChangeNotifier {
     );
 
     if (result.createdReport) {
+      // Optimistic local insert into the home community feed cache so that
+      // the price the user just submitted appears immediately on the home
+      // tab — the Firestore snapshot listener will reconcile within a
+      // tick and replace this entry with the canonical doc id.
+      _injectOptimisticHomeFeedEntry(
+        productId: productId,
+        sourceType: sourceType,
+        store: store,
+        price: price,
+        city: cityTrim,
+        district: districtTrim,
+        reporterName: resolvedReporterName,
+        reporterUid: uid,
+        note: note,
+      );
       // Streak ileri al + rozet ekle + temel +10 PT.
       // Fotoğraflı bildirim için ekstra +5 PT (PointsRules.photoBonus).
       // İlk fiyat / 10. fiyat / 50. fiyat eşiklerinde rozet ödülü.
@@ -1254,6 +1282,50 @@ class AppState extends ChangeNotifier {
       );
     }
     return result;
+  }
+
+  void _injectOptimisticHomeFeedEntry({
+    required String productId,
+    required PriceSourceType sourceType,
+    required String store,
+    required double price,
+    required String city,
+    required String district,
+    required String reporterName,
+    required String reporterUid,
+    required String note,
+  }) {
+    final entryScope = scopeForSourceType(sourceType);
+    final scopeMatches = switch (activeHomeScope) {
+      HomePriceScope.nearby =>
+        entryScope != 'online' && city == (cityName ?? '').trim() &&
+            district == (districtName ?? '').trim(),
+      HomePriceScope.city =>
+        entryScope != 'online' && city == (cityName ?? '').trim(),
+      HomePriceScope.online => entryScope == 'online',
+      HomePriceScope.turkeyWide => entryScope != 'online',
+    };
+    if (!scopeMatches) return;
+    final optimistic = PriceEntry(
+      id: '_optimistic_${DateTime.now().millisecondsSinceEpoch}',
+      store: store,
+      price: price,
+      date: DateTime.now(),
+      reportedBy: reporterName,
+      reportedByUid: reporterUid,
+      note: note,
+      city: city,
+      district: district,
+      status: PriceStatus.pending,
+    );
+    final next = <String, PriceEntry?>{
+      productId: optimistic,
+      ..._homeScopedEntryByProduct,
+    };
+    _homeScopedEntryByProduct
+      ..clear()
+      ..addAll(next);
+    notifyListeners();
   }
 
   Future<void> _awardContributionRewards({

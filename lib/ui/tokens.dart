@@ -132,16 +132,18 @@ class FRThemeController extends ChangeNotifier {
   static final FRThemeController instance = FRThemeController._();
 
   static const _prefsKey = 'fr_theme_mode_v2';
-  FRThemeMode _mode = FRThemeMode.dark;
+  FRThemeMode _mode = FRThemeMode.light;
   FRThemeMode get mode => _mode;
   bool get isDark => _mode == FRThemeMode.dark;
   FRPalette get palette =>
-      _mode == FRThemeMode.light ? FRPalette.light : FRPalette.dark;
+      _mode == FRThemeMode.dark ? FRPalette.dark : FRPalette.light;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final v = prefs.getString(_prefsKey);
-    _mode = v == 'light' ? FRThemeMode.light : FRThemeMode.dark;
+    // Light is the default — only switch to dark when the user has
+    // explicitly opted in.
+    _mode = v == 'dark' ? FRThemeMode.dark : FRThemeMode.light;
     notifyListeners();
   }
 

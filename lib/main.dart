@@ -220,32 +220,21 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Splash is intentionally pinned to the light palette: Firebase init
+    // runs before SharedPreferences hydrates the theme, and the previous
+    // dark-default left this screen near-black, which the launcher logo
+    // didn't sit well against.
+    const palette = FRPalette.light;
     return Scaffold(
-      backgroundColor: FR.bg,
+      backgroundColor: palette.bg,
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 200,
-              height: 170,
-              child: Image.asset(
-                'assets/images/fiyatradar_logo.png',
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Market fiyatları · canlı takip',
-              style: frText(12.5, FontWeight.w600, color: FR.ink3, letter: .4),
-            ),
-            const SizedBox(height: 36),
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.2, color: FR.gold),
-            ),
-          ],
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            color: palette.gold,
+          ),
         ),
       ),
     );
