@@ -252,6 +252,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       return;
     }
     if (x == null) return;
+    final mimeType = x.mimeType;
     final bytes = await x.readAsBytes();
     if (!mounted) return;
     if (bytes.isEmpty) {
@@ -269,7 +270,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     }
     setState(() {
       _pendingProfileImage = bytes;
-      _pendingProfileImageMimeType = x.mimeType;
+      _pendingProfileImageMimeType = mimeType;
     });
   }
 

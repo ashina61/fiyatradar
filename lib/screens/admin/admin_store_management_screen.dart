@@ -1185,9 +1185,11 @@ class _RegionFilterTileState extends State<_RegionFilterTile> {
 
 class _FilterDropdown extends StatelessWidget {
   const _FilterDropdown({
+    required this.value,
     required this.items,
     required this.onChanged,
   });
+  final String value;
   final List<(String, String)> items;
   final ValueChanged<String> onChanged;
 

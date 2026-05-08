@@ -255,7 +255,7 @@ class _AdminTabBoard extends StatelessWidget {
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.xl),
         border: Border.all(color: FR.hairline),
-        boxShadow: frSoftShadow(opacity: .08),
+        boxShadow: frShadow(opacity: .08),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
