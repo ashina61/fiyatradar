@@ -2,6 +2,15 @@
 
 Bu klasör, `firestore.rules` için emulator tabanlı regresyon testlerini içerir.
 
+## Kural dosyasını senkron tutma
+
+`firestore_rules_tests/firestore.rules`, kök dizindeki `firestore.rules` dosyasının birebir kopyasıdır.
+Kök kural dosyasını değiştirdikten sonra CI hata vermemesi için şu komutla test fixture dosyasını güncelleyin:
+
+```bash
+cp firestore.rules firestore_rules_tests/firestore.rules
+```
+
 ## Çalıştırma
 
 1. Bağımlılıkları yükleyin:
