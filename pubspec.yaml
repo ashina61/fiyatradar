@@ -33,6 +33,7 @@ dependencies:
 
   # UI / icons
   cupertino_icons: ^1.0.6
+  cached_network_image: ^3.3.1
 
   # Utilities
   image_picker: ^1.0.7

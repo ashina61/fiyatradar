@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/comment.dart';
 import '../models/gamification.dart';
@@ -175,6 +176,9 @@ class AppState extends ChangeNotifier {
   String? districtName;
   String? profileImageUrl;
   String? profileImagePath;
+
+  static String profileImageUrlCacheKey(String uid) =>
+      'profileImageUrl_$uid';
   HomePriceScope activeHomeScope = HomePriceScope.nearby;
 
   bool pushNotificationsEnabled = true;
@@ -368,6 +372,35 @@ class AppState extends ChangeNotifier {
   int get unreadNotificationCount =>
       notifications.where((n) => !n.isRead).length;
 
+  Future<void> _hydrateCachedProfileImageUrl(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString(profileImageUrlCacheKey(uid))?.trim();
+    if (cached == null || cached.isEmpty || profileImageUrl == cached) return;
+    profileImageUrl = cached;
+    notifyListeners();
+  }
+
+  Future<void> _writeCachedProfileImageUrl(String uid, String? url) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = profileImageUrlCacheKey(uid);
+    final normalized = url?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      await prefs.remove(key);
+      return;
+    }
+    if (prefs.getString(key) == normalized) return;
+    await prefs.setString(key, normalized);
+  }
+
+  Future<void> clearCachedProfileImageUrl({String? failedUrl}) async {
+    final uid = user?.uid;
+    if (uid == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = profileImageUrlCacheKey(uid);
+    if (failedUrl != null && prefs.getString(key) != failedUrl) return;
+    await prefs.remove(key);
+  }
+
   /// Aggregate new price entries reported in the last 24h, across all
   /// products. Used by the Home hero instead of mock values.
   int get freshContributionCountLast24h {
@@ -446,6 +479,10 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     });
     user = await _svc.ensureSignedIn();
+    final currentUid = user?.uid;
+    if (currentUid != null) {
+      await _hydrateCachedProfileImageUrl(currentUid);
+    }
     await _svc.bootstrap();
 
     _productsSub = _svc.products.snapshots().listen((snap) {
@@ -649,11 +686,15 @@ class AppState extends ChangeNotifier {
           : null;
       final cityRaw = ((m['cityName'] ?? m['city']) as String?)?.trim();
       cityName = (cityRaw?.isNotEmpty ?? false) ? cityRaw : null;
-      final districtRaw = ((m['district'] ?? m['neighborhood']) as String?)?.trim();
+      final districtRaw =
+          ((m['district'] ?? m['neighborhood']) as String?)?.trim();
       districtName = (districtRaw?.isNotEmpty ?? false) ? districtRaw : null;
-      profileImageUrl = (m['profileImageUrl'] as String?)?.trim().isNotEmpty == true
-          ? (m['profileImageUrl'] as String)
-          : null;
+      final nextProfileImageUrl =
+          (m['profileImageUrl'] as String?)?.trim().isNotEmpty == true
+              ? (m['profileImageUrl'] as String).trim()
+              : null;
+      profileImageUrl = nextProfileImageUrl;
+      unawaited(_writeCachedProfileImageUrl(user!.uid, nextProfileImageUrl));
       profileImagePath =
           (m['profileImagePath'] as String?)?.trim().isNotEmpty == true
               ? (m['profileImagePath'] as String)
@@ -2509,9 +2550,12 @@ class AppState extends ChangeNotifier {
       this.phoneNumber = nextPhone;
       changed = true;
     }
-    if (profileImageUrl != null && this.profileImageUrl != profileImageUrl) {
-      this.profileImageUrl = profileImageUrl;
-      changed = true;
+    if (profileImageUrl != null) {
+      await _writeCachedProfileImageUrl(user!.uid, profileImageUrl);
+      if (this.profileImageUrl != profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+        changed = true;
+      }
     }
     if (profileImagePath != null &&
         this.profileImagePath != profileImagePath) {
