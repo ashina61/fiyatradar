@@ -1294,7 +1294,12 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
           if (snap.connectionState == ConnectionState.waiting &&
               !snap.hasData) {
             return const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 24),
+              padding: EdgeInsetsDirectional.fromSTEB(
+                FRSpace.xl,
+                FRSpace.xs,
+                FRSpace.xl,
+                FRSpace.xxl - FRSpace.xs,
+              ),
               child: FRSkeletonList(
                 count: 5,
                 itemHeight: 76,
