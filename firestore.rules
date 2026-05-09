@@ -16,12 +16,36 @@ service cloud.firestore {
       );
     }
 
-    function immutable(field) {
-      return request.resource.data[field] == resource.data[field];
+    function hasNoImmutableUserChanges() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'isAdmin',
+        'isBanned',
+        'banReason',
+        'role',
+        'email',
+        // Premium durumu istemcide DEĞİŞTİRİLEMEZ. Cloud Function
+        // (in_app_purchase webhook + restore akışı) admin SDK ile yazar;
+        // istemci sadece okur ve UI'da kapı/açık gösterir.
+        'isPremium',
+        'premiumUntil',
+        'premiumPlan',
+        'premiumProductId',
+        'priceEntries',
+        'validations',
+        'inviteCount',
+        'reliabilityScore',
+        'reliabilityVotesTotal',
+        'reliabilityVotesUp',
+        'reliabilityVotesDown',
+        'trustScorePercent',
+        'inviteCode',
+        'invitedBy',
+        'createdAt'
+      ]);
     }
 
     function hasOnlyUserWritableKeys() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'name',
         'firstName',
         'lastName',
@@ -203,29 +227,7 @@ service cloud.firestore {
         (
           isOwner(uid) &&
           hasOnlyUserWritableKeys() &&
-          immutable('isAdmin') &&
-          immutable('isBanned') &&
-          immutable('banReason') &&
-          immutable('role') &&
-          immutable('email') &&
-          // Premium durumu istemcide DEĞİŞTİRİLEMEZ. Cloud Function
-          // (in_app_purchase webhook + restore akışı) admin SDK ile yazar;
-          // istemci sadece okur ve UI'da kapı/açık gösterir.
-          immutable('isPremium') &&
-          immutable('premiumUntil') &&
-          immutable('premiumPlan') &&
-          immutable('premiumProductId') &&
-          immutable('priceEntries') &&
-          immutable('validations') &&
-          immutable('inviteCount') &&
-          immutable('reliabilityScore') &&
-          immutable('reliabilityVotesTotal') &&
-          immutable('reliabilityVotesUp') &&
-          immutable('reliabilityVotesDown') &&
-          immutable('trustScorePercent') &&
-          immutable('inviteCode') &&
-          immutable('invitedBy') &&
-          immutable('createdAt') &&
+          hasNoImmutableUserChanges() &&
           hasSafeProfileImageMutation(uid) &&
           hasSafeUserGamificationMutation()
         );
