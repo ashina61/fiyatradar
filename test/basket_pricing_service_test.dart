@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fiyatradar/models/price_reporting.dart';
@@ -95,12 +94,12 @@ void main() {
 
   group('BasketPricingService.buildSmartSuggestion', () {
     test('küçük fark için tek market öner mesajı', () {
-      final mixed = BasketMixedEstimate(
+      const mixed = BasketMixedEstimate(
         estimatedTotal: 990,
         marketCount: 3,
-        lines: const [],
+        lines: [],
       );
-      final singles = [
+      const singles = [
         BasketStoreEstimate(
           chainName: 'A101',
           estimatedTotal: 1000,
@@ -108,7 +107,7 @@ void main() {
           missingItemCount: 0,
           confidence: 'high',
           usedPriceSource: 'trustedPrice',
-          missingProductIds: const [],
+          missingProductIds: [],
           oldestPriceAgeDays: 5,
         ),
       ];
@@ -119,12 +118,12 @@ void main() {
     });
 
     test('büyük fark + 2 market için karma sepet öner', () {
-      final mixed = BasketMixedEstimate(
+      const mixed = BasketMixedEstimate(
         estimatedTotal: 800,
         marketCount: 2,
-        lines: const [],
+        lines: [],
       );
-      final singles = [
+      const singles = [
         BasketStoreEstimate(
           chainName: 'A101',
           estimatedTotal: 1000,
@@ -132,7 +131,7 @@ void main() {
           missingItemCount: 0,
           confidence: 'high',
           usedPriceSource: 'trustedPrice',
-          missingProductIds: const [],
+          missingProductIds: [],
           oldestPriceAgeDays: 5,
         ),
       ];
