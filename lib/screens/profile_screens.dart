@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
@@ -78,6 +80,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   final _phoneCtrl = TextEditingController();
   Uint8List? _pendingProfileImage;
   String? _pendingProfileImageMimeType;
+  String? _pendingProfileImagePath;
+  bool? _pendingProfileImageExists;
+  int? _pendingProfileImageFileSize;
   bool _saving = false;
   bool _loaded = false;
 
@@ -123,6 +128,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
             message: 'Profil fotoğrafı 5 MB üstünde.',
           );
         }
+        _logProfileUploadContext(user.uid);
         // Retry transient storage failures (network blips, token-refresh races)
         // and write the Auth profile URL too; some widgets / rules key off
         // FirebaseAuth.currentUser.photoURL while Firestore catches up.
@@ -182,6 +188,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       setState(() {
         _pendingProfileImage = null;
         _pendingProfileImageMimeType = null;
+        _pendingProfileImagePath = null;
+        _pendingProfileImageExists = null;
+        _pendingProfileImageFileSize = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -216,12 +225,27 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     if (error is FirebaseException) {
       debugPrint(
         '$prefix FirebaseException plugin=${error.plugin} '
-        'code=${error.code} message=${error.message}',
+        'code=${error.code} message=${error.message} stackTrace=$stackTrace',
       );
     } else {
       debugPrint('$prefix ${error.runtimeType}: $error');
     }
     debugPrintStack(label: prefix, stackTrace: stackTrace);
+  }
+
+  void _logProfileUploadContext(String stateUid) {
+    final authUser = FirebaseAuth.instance.currentUser;
+    debugPrint(
+      '[profile-image-upload] auth uid=${authUser?.uid} '
+      'email=${authUser?.email} stateUid=$stateUid',
+    );
+    debugPrint(
+      '[profile-image-upload] selected file path=${_pendingProfileImagePath ?? '-'} '
+      'exists=${_pendingProfileImageExists ?? false} '
+      'fileSize=${_pendingProfileImageFileSize ?? _pendingProfileImage?.length ?? 0} '
+      'bytes=${_pendingProfileImage?.length ?? 0} '
+      'mime=${_pendingProfileImageMimeType ?? '-'}',
+    );
   }
 
   bool _shouldRetryProfileUpload(Object error) {
@@ -253,6 +277,12 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         case 'retry-limit-exceeded':
           return 'Profil fotoğrafı yüklenemedi: bağlantı zaman aşımına uğradı. Birazdan tekrar dene.';
         case 'unknown':
+          if (kDebugMode) {
+            final detail = (e.message ?? '').trim();
+            return detail.isEmpty
+                ? 'Profil fotoğrafı yüklenemedi: ${e.plugin}/${e.code}.'
+                : 'Profil fotoğrafı yüklenemedi: ${e.plugin}/${e.code}: $detail';
+          }
           return 'Profil fotoğrafı yüklenemedi: Firebase beklenmeyen bir hata döndürdü. Ayrıntı teknik kayıtlara yazıldı.';
       }
       final detail = (e.message ?? '').trim();
@@ -262,6 +292,12 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     }
     if (e is FirebaseException && e.plugin == 'cloud_firestore') {
       if (e.code == 'permission-denied') {
+        if (kDebugMode) {
+          final detail = (e.message ?? '').trim();
+          return detail.isEmpty
+              ? 'Profil güncellenemedi: ${e.plugin}/${e.code}.'
+              : 'Profil güncellenemedi: ${e.plugin}/${e.code}: $detail';
+        }
         return 'Profil güncellenemedi: profil alanlarını güncelleme yetkisi reddedildi.';
       }
       final detail = (e.message ?? '').trim();
@@ -296,7 +332,21 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     }
     if (x == null) return;
     final mimeType = x.mimeType;
+    final filePath = x.path;
+    var fileExists = false;
+    var fileSize = 0;
+    if (filePath.isNotEmpty) {
+      final file = File(filePath);
+      fileExists = await file.exists();
+      if (fileExists) {
+        fileSize = await file.length();
+      }
+    }
     final bytes = await x.readAsBytes();
+    debugPrint(
+      '[profile-image-upload] picked file path=$filePath exists=$fileExists '
+      'fileSize=$fileSize bytes=${bytes.length} mime=${mimeType ?? '-'}',
+    );
     if (!mounted) return;
     if (bytes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -314,6 +364,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     setState(() {
       _pendingProfileImage = bytes;
       _pendingProfileImageMimeType = mimeType;
+      _pendingProfileImagePath = filePath;
+      _pendingProfileImageExists = fileExists;
+      _pendingProfileImageFileSize = fileSize;
     });
   }
 

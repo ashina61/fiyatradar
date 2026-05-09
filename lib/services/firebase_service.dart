@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/price_v1.dart';
@@ -99,15 +100,29 @@ class FirebaseService {
     final ts = DateTime.now().millisecondsSinceEpoch;
     final path = 'user_profiles/$uid/$ts.${detected.extension}';
     final ref = storage.ref(path);
-    final snap = await ref.putData(
-      bytes,
-      SettableMetadata(
-        contentType: detected.contentType,
-        cacheControl: 'public, max-age=86400',
-      ),
+    debugPrint(
+      '[profile-image-upload] storage path=$path bucket=${storage.bucket} '
+      'contentType=${detected.contentType} bytes=${bytes.length} '
+      'authUid=${current.uid} authEmail=${current.email}',
     );
-    final url = await snap.ref.getDownloadURL();
-    return (url: url, path: path);
+    try {
+      final snap = await ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: detected.contentType,
+          cacheControl: 'public, max-age=86400',
+        ),
+      );
+      final url = await snap.ref.getDownloadURL();
+      return (url: url, path: path);
+    } on FirebaseException catch (e, st) {
+      debugPrint(
+        '[profile-image-upload] FirebaseException plugin=${e.plugin} '
+        'code=${e.code} message=${e.message} stackTrace=$st',
+      );
+      debugPrintStack(label: '[profile-image-upload]', stackTrace: st);
+      rethrow;
+    }
   }
 
   /// Upload a banner hero image under `banner_images/{bannerId}/…`.

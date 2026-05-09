@@ -28,6 +28,7 @@ service cloud.firestore {
         'photoUrl',
         'profileImageUrl',
         'profileImagePath',
+        'avatarUrl',
         'displayName',
         'username',
         'phoneNumber',
@@ -76,7 +77,10 @@ service cloud.firestore {
             request.resource.data.photoUrl.size() <= 2048)) &&
         (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImagePath']) ||
           (request.resource.data.profileImagePath is string &&
-            request.resource.data.profileImagePath.matches('^user_profiles/' + uid + '/[^/]+\\.(jpg|png|webp)$')));
+            request.resource.data.profileImagePath.matches('^user_profiles/' + uid + '/[^/]+\\.(jpg|png|webp)$'))) &&
+        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['avatarUrl']) ||
+          (request.resource.data.avatarUrl is string &&
+            request.resource.data.avatarUrl.size() <= 2048));
     }
 
     function hasSafeUserCreateDefaults() {
