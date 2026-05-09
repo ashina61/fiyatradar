@@ -67,6 +67,18 @@ service cloud.firestore {
       ]);
     }
 
+    function hasSafeProfileImageMutation(uid) {
+      return (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImageUrl']) ||
+          (request.resource.data.profileImageUrl is string &&
+            request.resource.data.profileImageUrl.size() <= 2048)) &&
+        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['photoUrl']) ||
+          (request.resource.data.photoUrl is string &&
+            request.resource.data.photoUrl.size() <= 2048)) &&
+        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImagePath']) ||
+          (request.resource.data.profileImagePath is string &&
+            request.resource.data.profileImagePath.matches('^user_profiles/' + uid + '/[^/]+\\.(jpg|png|webp)$')));
+    }
+
     function hasSafeUserCreateDefaults() {
       return (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false) &&
         (!('role' in request.resource.data) || request.resource.data.role == 'user') &&
@@ -210,6 +222,7 @@ service cloud.firestore {
           immutable('inviteCode') &&
           immutable('invitedBy') &&
           immutable('createdAt') &&
+          hasSafeProfileImageMutation(uid) &&
           hasSafeUserGamificationMutation()
         );
 

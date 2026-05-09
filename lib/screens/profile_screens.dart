@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -138,12 +139,10 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                 .timeout(const Duration(seconds: 45));
             lastError = null;
             break;
-          } catch (e) {
+          } catch (e, st) {
             lastError = e;
-            if (e is FirebaseException &&
-                (e.code == 'unauthenticated' ||
-                    e.code == 'unauthorized' ||
-                    e.code == 'canceled')) {
+            _logProfileUploadError(e, st, attempt: attempt + 1);
+            if (!_shouldRetryProfileUpload(e) || attempt == 2) {
               break;
             }
             await Future<void>.delayed(
@@ -156,6 +155,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
               FirebaseException(
                 plugin: 'firebase_storage',
                 code: 'unknown',
+                message: 'Storage upload returned no result.',
               );
         }
         imageUrl = res.url;
@@ -192,17 +192,50 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
           ),
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      _logProfileUploadError(e, st);
       if (!mounted) return;
+      final message = _describeProfileError(e);
+      if (message == null) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_describeProfileError(e))),
+        SnackBar(content: Text(message)),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  String _describeProfileError(Object e) {
+  void _logProfileUploadError(
+    Object error,
+    StackTrace stackTrace, {
+    int? attempt,
+  }) {
+    final prefix = attempt == null
+        ? '[profile-image-upload]'
+        : '[profile-image-upload attempt=$attempt]';
+    if (error is FirebaseException) {
+      debugPrint(
+        '$prefix FirebaseException plugin=${error.plugin} '
+        'code=${error.code} message=${error.message}',
+      );
+    } else {
+      debugPrint('$prefix ${error.runtimeType}: $error');
+    }
+    debugPrintStack(label: prefix, stackTrace: stackTrace);
+  }
+
+  bool _shouldRetryProfileUpload(Object error) {
+    if (error is TimeoutException) return true;
+    if (error is! FirebaseException || error.plugin != 'firebase_storage') {
+      return false;
+    }
+    return switch (error.code) {
+      'retry-limit-exceeded' || 'unknown' => true,
+      _ => false,
+    };
+  }
+
+  String? _describeProfileError(Object e) {
     if (e is FirebaseException && e.plugin == 'firebase_storage') {
       switch (e.code) {
         case 'unauthenticated':
@@ -210,7 +243,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         case 'unauthorized':
           return 'Profil güncellenemedi: bu fotoğrafı yüklemeye yetkin yok.';
         case 'canceled':
-          return 'Yükleme iptal edildi.';
+          return null;
         case 'object-not-found':
           return 'Profil fotoğrafı yüklenemedi: hedef bulut depolama yolu bulunamadı.';
         case 'quota-exceeded':
@@ -218,16 +251,26 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         case 'image-too-large':
           return 'Profil fotoğrafı 5 MB üstünde. Daha küçük bir görsel seç.';
         case 'retry-limit-exceeded':
+          return 'Profil fotoğrafı yüklenemedi: bağlantı zaman aşımına uğradı. Birazdan tekrar dene.';
         case 'unknown':
-          return 'Profil fotoğrafı yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.';
+          return 'Profil fotoğrafı yüklenemedi: Firebase beklenmeyen bir hata döndürdü. Ayrıntı teknik kayıtlara yazıldı.';
       }
-      return 'Profil fotoğrafı yüklenemedi (${e.code}). Tekrar dene.';
+      final detail = (e.message ?? '').trim();
+      return detail.isEmpty
+          ? 'Profil fotoğrafı yüklenemedi (${e.code}). Tekrar dene.'
+          : 'Profil fotoğrafı yüklenemedi (${e.code}): $detail';
     }
     if (e is FirebaseException && e.plugin == 'cloud_firestore') {
       if (e.code == 'permission-denied') {
-        return 'Profil güncellenemedi: yazma yetkisi reddedildi. Çıkış yapıp tekrar gir.';
+        return 'Profil güncellenemedi: profil alanlarını güncelleme yetkisi reddedildi.';
       }
-      return 'Profil güncellenemedi (${e.code}).';
+      final detail = (e.message ?? '').trim();
+      return detail.isEmpty
+          ? 'Profil güncellenemedi (${e.code}).'
+          : 'Profil güncellenemedi (${e.code}): $detail';
+    }
+    if (e is TimeoutException) {
+      return 'Profil fotoğrafı yüklenemedi: işlem zaman aşımına uğradı. Birazdan tekrar dene.';
     }
     return 'Profil güncellenemedi: $e';
   }
@@ -340,7 +383,26 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
               ),
               clipBehavior: Clip.antiAlias,
               child: hasPending
-                  ? Image.memory(_pendingProfileImage!, fit: BoxFit.cover)
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.memory(_pendingProfileImage!, fit: BoxFit.cover),
+                        if (_saving)
+                          ColoredBox(
+                            color: Colors.black.withOpacity(.34),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: FR.gold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
                   : (state.profileImageUrl != null
                       ? Image.network(
                           key: ValueKey(state.profileImageUrl),
@@ -387,7 +449,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                 children: [
                   Text('Profil fotoğrafı', style: frText(13, FontWeight.w800)),
                   Text(
-                    hasPending ? 'Kaydet ile yüklenir' : 'Galeri seç',
+                    _saving && hasPending
+                        ? 'Yükleniyor…'
+                        : (hasPending ? 'Kaydet ile yüklenir' : 'Galeri seç'),
                     style: frText(11.5, FontWeight.w600, color: FR.ink3),
                   ),
                 ],

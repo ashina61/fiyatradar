@@ -12,13 +12,8 @@
     <!-- Camera (image_picker proof + ileride barcode tarayıcı) -->
     <uses-permission android:name="android.permission.CAMERA"/>
 
-    <!-- SDK 33+ için sadece READ_MEDIA_IMAGES; eski izinler maxSdkVersion
-         ile sınırlandı (modern cihazlarda istenmez). -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29"/>
+    <!-- image_picker Android Photo Picker / ACTION_GET_CONTENT ile galeri seçer;
+         geniş depolama izinleri istemiyoruz. Kamera akışı için CAMERA yeterli. -->
 
     <!-- Notification permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
