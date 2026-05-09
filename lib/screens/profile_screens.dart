@@ -1,9 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1296,9 +1293,9 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting &&
               !snap.hasData) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-              child: const FRSkeletonList(
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 24),
+              child: FRSkeletonList(
                 count: 5,
                 itemHeight: 76,
                 radius: 16,
@@ -1534,6 +1531,7 @@ class _AccountScreenState extends State<AccountScreen> {
   Future<void> _deleteAccount() async {
     final ok = await _confirmDelete();
     if (ok != true) return;
+    if (!mounted) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     setState(() {

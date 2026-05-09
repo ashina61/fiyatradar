@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/price_v1.dart';
 import '../../models/turkey_locations.dart';
 import '../../services/firebase_service.dart';
 import '../../state/app_state.dart';

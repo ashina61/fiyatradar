@@ -233,7 +233,7 @@ class _ActiveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remaining = premium.remaining;
-    final daysLeft = remaining == null ? null : remaining.inDays;
+    final daysLeft = remaining?.inDays;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: frSurface(radius: FRRad.l),
@@ -272,7 +272,7 @@ class _BenefitList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = const [
+    const items = [
       ('🛡', 'Bölgesel bayat-fiyat alarmı',
           'Bölgendeki fiyat 7 gün üstü ise haber al.'),
       ('🏆', 'Leaderboard top-100',

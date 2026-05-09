@@ -676,7 +676,7 @@ class _GuestProfile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          _ListGroup(items: [const _ThemeListItem()]),
+          const _ListGroup(items: [_ThemeListItem()]),
         ],
       ),
     );
