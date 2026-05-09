@@ -260,12 +260,15 @@ class _AddPriceTabState extends State<AddPriceTab> {
           _snack('Doğrulaman kaydedildi.');
         }
       } else {
+        final hasProofPhoto = (proofUrl ?? '').isNotEmpty;
         _snack(
-          isOnline
-              ? 'Online fiyat eklendi · $chainName · ${result.sourceLabel}'
-              : 'Fiyat eklendi · '
-                  '$chainName / $district bölgesine işlendi · '
-                  '${result.sourceLabel}',
+          hasProofPhoto
+              ? 'Fotoğraflı fiyat admin kontrolüne gönderildi; onay sonrası yayına alınacak.'
+              : isOnline
+                  ? 'Online fiyat eklendi · $chainName · ${result.sourceLabel}'
+                  : 'Fiyat eklendi · '
+                      '$chainName / $district bölgesine işlendi · '
+                      '${result.sourceLabel}',
         );
         if (mounted) {
           setState(() {
@@ -1687,7 +1690,7 @@ class _ProofPhotoPicker extends StatelessWidget {
                     style: frText(12.5, FontWeight.w800, color: FR.ink)),
                 const SizedBox(height: 2),
                 Text(
-                  uploading ? 'Yükleniyor…' : 'Submit edince yüklenecek.',
+                  uploading ? 'Yükleniyor…' : 'Gönderince admin kontrolüne düşecek.',
                   style: frText(11, FontWeight.w600, color: FR.ink3),
                 ),
               ],

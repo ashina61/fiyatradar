@@ -39,13 +39,15 @@ class _AdminScreenState extends State<AdminScreen> {
         subtitle: 'Fiyat moderasyonu'),
     _AdminTabSpec(6, 'Moderasyon', Icons.gavel_rounded,
         subtitle: 'Topluluk kararları'),
+    _AdminTabSpec(7, 'Mağazalar', Icons.storefront_rounded,
+        subtitle: 'Fiziksel ve online ağ'),
   ];
 
   static const _secondaryTabs = <_AdminTabSpec>[
     _AdminTabSpec(2, 'Banner', Icons.campaign_rounded),
     _AdminTabSpec(3, 'Talepler', Icons.inbox_rounded),
     _AdminTabSpec(5, 'Doğrulama', Icons.verified_rounded),
-    _AdminTabSpec(7, 'Ayarlar', Icons.settings_rounded),
+    _AdminTabSpec(8, 'Ayarlar', Icons.settings_rounded),
   ];
 
   String get _activeLabel {
@@ -147,6 +149,8 @@ class _AdminScreenState extends State<AdminScreen> {
         return _VerificationTab(state: state);
       case 6:
         return _ModerationTab(state: state);
+      case 7:
+        return const _StoresTab();
       default:
         return _SettingsTab(state: state);
     }
@@ -245,98 +249,70 @@ class _AdminTabBoard extends StatelessWidget {
       orElse: () => primary.first,
     );
     return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(
-        FRSpace.l - 2,
-        FRSpace.l - 2,
-        FRSpace.l - 2,
-        FRSpace.l - 2,
-      ),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: FR.surface,
+        color: FRPalette.dark.bgElev,
         borderRadius: FRRad.all(FRRad.xl),
-        border: Border.all(color: FR.hairline),
-        boxShadow: frShadow(opacity: .08),
+        border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+        boxShadow: frShadow(opacity: .10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsetsDirectional.fromSTEB(
-              FRSpace.l - 2,
-              FRSpace.l - 2,
-              FRSpace.l - 2,
-              FRSpace.l - 2,
-            ),
-            decoration: BoxDecoration(
-              color: FRPalette.dark.bgElev,
-              borderRadius: FRRad.all(FRRad.l),
-              border: Border.all(color: FR.goldDeep.withOpacity(.38)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: FR.gold.withOpacity(.16),
-                    borderRadius: FRRad.all(14),
-                    border: Border.all(color: FR.goldDeep.withOpacity(.45)),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(active.icon, color: FR.goldHi, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('AKTİF MODÜL',
-                          style: frOverline(color: FR.goldHi, size: 9.5)),
-                      const SizedBox(height: 3),
-                      Text(active.label,
-                          style: frDisplay(19, FontWeight.w800,
-                              color: FRPalette.dark.ink)),
-                      if (active.subtitle != null) ...[
-                        const SizedBox(height: 2),
-                        Text(active.subtitle!,
-                            style: frText(11.5, FontWeight.w700,
-                                color: FRPalette.dark.ink2)),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text('ANA AKIŞ', style: frOverline(color: FR.ink3, size: 9.5)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
-              for (final t in primary)
-                _AdminTabChip(
-                  spec: t,
-                  active: t.index == activeIndex,
-                  onTap: () => onSelect(t.index),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: FR.gold.withOpacity(.16),
+                  borderRadius: FRRad.all(14),
+                  border: Border.all(color: FR.goldDeep.withOpacity(.45)),
                 ),
+                alignment: Alignment.center,
+                child: Icon(active.icon, color: FR.goldHi, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('AKTİF MODÜL',
+                        style: frOverline(color: FR.goldHi, size: 9.5)),
+                    const SizedBox(height: 3),
+                    Text(
+                      active.subtitle == null
+                          ? active.label
+                          : '${active.label} · ${active.subtitle}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frText(
+                        15,
+                        FontWeight.w800,
+                        color: FRPalette.dark.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          Text('DESTEK ARAÇLARI', style: frOverline(color: FR.ink3, size: 9.5)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final t in secondary)
-                _AdminTabChip(
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: tools.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final t = tools[i];
+                return _AdminTabChip(
                   spec: t,
                   active: t.index == activeIndex,
                   onTap: () => onSelect(t.index),
-                ),
-            ],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -1364,6 +1340,70 @@ class _ModerationTab extends StatelessWidget {
   }
 }
 
+class _StoresTab extends StatelessWidget {
+  const _StoresTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: FRPalette.dark.bgElev,
+            borderRadius: FRRad.all(FRRad.xl),
+            border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+            boxShadow: frShadow(opacity: .10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('MAĞAZA AĞI', style: frOverline(color: FR.goldHi, size: 9.5)),
+              const SizedBox(height: 6),
+              Text(
+                'Fiziksel ve online mağazaları ayrı yönet',
+                style: frDisplay(22, FontWeight.w800, color: FRPalette.dark.ink),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Yeni mağaza eklerken satış kanalını seç; online mağazalar il / ilçe istemez, fiziksel mağazalar bölgeyle fiyat akışına bağlanır.',
+                style: frText(12.5, FontWeight.w700, color: FRPalette.dark.ink2, height: 1.45),
+              ),
+              const SizedBox(height: 16),
+              FRCta(
+                label: 'Mağaza yönetimini aç',
+                icon: Icons.storefront_rounded,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminStoreManagementScreen(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        adminRowList(const [
+          _GenericRow(
+            title: 'Fiziksel mağazalar',
+            subtitle: 'Zincir / yerel / pazar · il ve ilçe zorunlu',
+            icon: Icons.storefront_rounded,
+            withActions: false,
+          ),
+          _GenericRow(
+            title: 'Online mağazalar',
+            subtitle: 'Türkiye geneli kaynak · bölge filtresi yok',
+            icon: Icons.language_rounded,
+            withActions: false,
+          ),
+        ]),
+      ],
+    );
+  }
+}
+
 class _SettingsTab extends StatelessWidget {
   const _SettingsTab({required this.state});
   final AppState state;
@@ -1398,16 +1438,6 @@ class _SettingsTab extends StatelessWidget {
             '%${state.trustScorePercent} güven · oyun ${state.voteWeight.toStringAsFixed(2)}x ağırlıkta',
         icon: Icons.shield_moon_outlined,
         withActions: false,
-      ),
-      _GenericRow(
-        title: 'Mağaza Yönetimi',
-        subtitle: 'Zincirler · mağazalar · pending · eski kayıtlar',
-        icon: Icons.domain_add_rounded,
-        withActions: true,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminStoreManagementScreen()),
-        ),
       ),
       _GenericRow(
         title: 'Kategori yönetimi',

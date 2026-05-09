@@ -88,6 +88,7 @@ class PriceReportService {
     String? note,
     String? photoUrl,
     String? barcode,
+    bool requiresReview = false,
     Future<void Function(Transaction tx, String reportId)> Function(Transaction tx)?
         prepareLegacyMirror,
   }) async {
@@ -116,13 +117,15 @@ class PriceReportService {
       hasLocation: location != null,
     );
 
-    final duplicate = await _checkDuplicate(
-      dedupeKeyValue: deKey,
-      groupId: groupId,
-      userId: userId,
-      sourceType: sourceType,
-    );
-    if (duplicate != null) return duplicate;
+    if (!requiresReview) {
+      final duplicate = await _checkDuplicate(
+        dedupeKeyValue: deKey,
+        groupId: groupId,
+        userId: userId,
+        sourceType: sourceType,
+      );
+      if (duplicate != null) return duplicate;
+    }
 
     final reportId = '${userId}_${now.millisecondsSinceEpoch}';
     final reportRef = _svc.priceReports.doc(reportId);
@@ -135,11 +138,13 @@ class PriceReportService {
       // kodun ek okumalarını da burada (yazmalardan önce) yapmasına izin
       // veriyoruz; kendisi geri döndürdüğü closure ile yazma fazında devreye
       // girer.
-      final groupSnap = await tx.get(groupRef);
+      final groupSnap = requiresReview ? null : await tx.get(groupRef);
       final void Function(Transaction tx, String reportId)? legacyWrites =
-          prepareLegacyMirror != null ? await prepareLegacyMirror(tx) : null;
+          (!requiresReview && prepareLegacyMirror != null)
+              ? await prepareLegacyMirror(tx)
+              : null;
 
-      final groupData = groupSnap.data() ?? <String, dynamic>{};
+      final groupData = groupSnap?.data() ?? <String, dynamic>{};
       final currentCount = (groupData['reportCount'] as num?)?.toInt() ?? 0;
       final currentAvg = (groupData['avgPrice'] as num?)?.toDouble() ?? price;
       final minPrice = (groupData['minPrice'] as num?)?.toDouble();
@@ -177,8 +182,13 @@ class PriceReportService {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'localDateKey': dateKey,
-        'status': 'active',
+        'status': requiresReview ? 'pending_photo_review' : 'active',
+        'reviewReason': requiresReview ? 'photo_proof' : null,
+        'dedupeKey': deKey,
+        'groupId': groupId,
       });
+
+      if (requiresReview) return;
 
       tx.set(dedupeRef, {
         'groupId': groupId,
