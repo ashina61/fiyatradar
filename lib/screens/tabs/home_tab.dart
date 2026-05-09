@@ -9,6 +9,7 @@ import '../main_screen.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
 import '../widgets/region_picker_sheet.dart';
+import '../widgets/profile_avatar.dart';
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
@@ -201,12 +202,7 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstName =
-        state.displayName.split(' ').first.trim();
-    final initial = state.displayName.isEmpty
-        ? 'FR'
-        : state.displayName[0].toUpperCase();
-
+    final firstName = state.displayName.split(' ').first.trim();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -226,22 +222,17 @@ class _HomeHeader extends StatelessWidget {
               boxShadow: frGoldGlow(opacity: .18),
             ),
             clipBehavior: Clip.antiAlias,
-            child: state.profileImageUrl != null
-                ? Image.network(
-                    key: ValueKey(state.profileImageUrl),
-                    state.profileImageUrl!,
-                    fit: BoxFit.cover,
-                    cacheWidth: 156,
-                    filterQuality: FilterQuality.medium,
-                    errorBuilder: (_, __, ___) => Text(
-                      initial,
-                      style: frDisplay(20, FontWeight.w800, color: FR.onGold),
-                    ),
-                  )
-                : Text(
-                    initial,
-                    style: frDisplay(20, FontWeight.w800, color: FR.onGold),
-                  ),
+            child: ProfileAvatarImage(
+              imageUrl: state.profileImageUrl,
+              displayName: state.displayName,
+              size: 52,
+              radius: 16,
+              cacheWidth: 156,
+              initialStyle: frDisplay(20, FontWeight.w800, color: FR.onGold),
+              onImageError: (url) => state.clearCachedProfileImageUrl(
+                failedUrl: url,
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 14),

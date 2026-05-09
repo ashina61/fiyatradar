@@ -16,6 +16,7 @@ import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
 import 'product_detail_screen.dart';
+import 'widgets/profile_avatar.dart';
 
 /// Shared chrome for a "profile sub-page": back button + header + scrolling body.
 class _ProfileSubScaffold extends StatelessWidget {
@@ -161,7 +162,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                 message: 'Storage upload returned no result.',
               );
         }
-        imageUrl = res.url;
+        imageUrl = _withProfileAvatarCacheBust(res.url);
         imagePath = res.path;
         try {
           await user.updatePhotoURL(imageUrl);
@@ -209,6 +210,19 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _withProfileAvatarCacheBust(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    return uri
+        .replace(
+          queryParameters: <String, String>{
+            ...uri.queryParameters,
+            'frAvatarUpdated': DateTime.now().millisecondsSinceEpoch.toString(),
+          },
+        )
+        .toString();
   }
 
   void _logProfileUploadError(
@@ -453,44 +467,22 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                           ),
                       ],
                     )
-                  : (state.profileImageUrl != null
-                      ? Image.network(
-                          key: ValueKey(state.profileImageUrl),
-                          state.profileImageUrl!,
-                          fit: BoxFit.cover,
-                          cacheWidth: 192,
-                          filterQuality: FilterQuality.medium,
-                          loadingBuilder: (_, child, progress) =>
-                              progress == null
-                                  ? child
-                                  : Center(
-                                      child: SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: FR.gold,
-                                        ),
-                                      ),
-                                    ),
-                          errorBuilder: (_, __, ___) => Center(
-                            child: Text(
-                              state.displayName.isEmpty
-                                  ? 'F'
-                                  : state.displayName[0].toUpperCase(),
-                              style: frDisplay(24, FontWeight.w800,
-                                  color: FR.gold),
-                            ),
-                          ),
-                        )
-                      : Center(
-                          child: Text(
-                            state.displayName.isEmpty
-                                ? 'F'
-                                : state.displayName[0].toUpperCase(),
-                            style: frDisplay(24, FontWeight.w800, color: FR.gold),
-                          ),
-                        )),
+                  : ProfileAvatarImage(
+                      imageUrl: state.profileImageUrl,
+                      displayName: state.displayName,
+                      size: 64,
+                      radius: 18,
+                      cacheWidth: 192,
+                      initialStyle: frDisplay(
+                        24,
+                        FontWeight.w800,
+                        color: FR.gold,
+                      ),
+                      fallbackColor: FR.surfaceHi,
+                      onImageError: (url) => state.clearCachedProfileImageUrl(
+                        failedUrl: url,
+                      ),
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(

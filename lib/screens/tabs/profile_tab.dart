@@ -12,6 +12,7 @@ import '../notifications_screen.dart';
 import '../profile_screens.dart';
 import '../product_request_screen.dart';
 import '../watchlist_screen.dart';
+import '../widgets/profile_avatar.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -251,8 +252,6 @@ class _IdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial =
-        state.displayName.isEmpty ? 'F' : state.displayName[0].toUpperCase();
     return InkWell(
       onTap: () => Navigator.push(
         context,
@@ -280,32 +279,18 @@ class _IdentityCard extends StatelessWidget {
                 borderRadius: FRRad.all(22),
                 boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 20)],
               ),
-              alignment: Alignment.center,
               clipBehavior: Clip.antiAlias,
-              child: state.profileImageUrl != null
-                  ? Image.network(
-                      key: ValueKey(state.profileImageUrl),
-                      state.profileImageUrl!,
-                      fit: BoxFit.cover,
-                      cacheWidth: 228,
-                      filterQuality: FilterQuality.medium,
-                      loadingBuilder: (_, child, progress) => progress == null
-                          ? child
-                          : Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: FR.onGold,
-                                ),
-                              ),
-                            ),
-                      errorBuilder: (_, __, ___) => Text(initial,
-                          style: frDisplay(34, FontWeight.w800,
-                              color: FR.onGold)),
-                    )
-                  : Text(initial, style: frDisplay(34, FontWeight.w800, color: FR.onGold)),
+              child: ProfileAvatarImage(
+                imageUrl: state.profileImageUrl,
+                displayName: state.displayName,
+                size: 76,
+                radius: 22,
+                cacheWidth: 228,
+                initialStyle: frDisplay(34, FontWeight.w800, color: FR.onGold),
+                onImageError: (url) => state.clearCachedProfileImageUrl(
+                  failedUrl: url,
+                ),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
