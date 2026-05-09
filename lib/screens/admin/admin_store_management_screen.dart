@@ -1452,7 +1452,7 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
       city == null ? null : TurkeyLocations.canonicalDistrict(city, initialDistrict);
   String sourceType = 'physical';
   String type = 'local_market';
-  String status = 'pending';
+  String status = 'verified';
   try {
     final ok = await showModalBottomSheet<bool>(
       context: context,

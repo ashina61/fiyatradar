@@ -1089,9 +1089,17 @@ class _CompareMixedCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Tahmini toplam ₺${mixed.estimatedTotal.toStringAsFixed(2)} · $bestSingle alternatifine kıyasla',
+                  'Tahmini toplam ₺${mixed.estimatedTotal.toStringAsFixed(2)} · '
+                  '${mixed.coveredItemCount}/${mixed.totalItemCount} ürün fiyatlandı',
                   style: frText(11.5, FontWeight.w700, color: FR.ink3, height: 1.3),
                 ),
+                if (mixed.hasMissingItems) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '${mixed.missingProductIds.length} ürün için bölgesel fiyat yok; toplam eksik ürünlerden dolayı düşük görünebilir.',
+                    style: frText(11, FontWeight.w800, color: FR.warn, height: 1.35),
+                  ),
+                ],
               ],
             ),
           ),

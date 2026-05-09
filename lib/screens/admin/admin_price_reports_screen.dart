@@ -99,12 +99,13 @@ class _PriceReportRowState extends State<_PriceReportRow> {
     final m = widget.data;
     final productId = (m['productId'] ?? '').toString();
     final price = (m['price'] ?? 0).toString();
-    final by = (m['createdByUid'] ?? '').toString();
+    final by = (m['userId'] ?? m['createdByUid'] ?? '').toString();
     final status = (m['status'] ?? 'active').toString();
-    final reason = (m['reason'] ?? '').toString();
+    final reason = (m['reviewReason'] ?? m['reason'] ?? '').toString();
+    final photoUrl = (m['photoUrl'] ?? '').toString();
     return CrudRow(
       title: 'Ürün: $productId · $price ₺',
-      subtitle: 'Raporlayan: $by · $status${reason.isEmpty ? '' : ' · $reason'}',
+      subtitle: 'Raporlayan: $by · $status${reason.isEmpty ? '' : ' · $reason'}${photoUrl.isEmpty ? '' : ' · fotoğraflı'}',
       onEdit: _busy ? () {} : () => _resolve(removeEntry: true),
       onDelete: _busy ? () {} : () => _resolve(removeEntry: false),
       editLabel: _busy ? 'İşleniyor…' : 'Girdiyi kaldır',

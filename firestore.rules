@@ -512,7 +512,7 @@ service cloud.firestore {
         'location', 'photoUrl', 'note', 'barcode',
         'userId', 'userDisplayName',
         'createdAt', 'updatedAt',
-        'localDateKey', 'status'
+        'localDateKey', 'status', 'reviewReason', 'dedupeKey', 'groupId'
       ]) &&
       request.resource.data.productId is string &&
       request.resource.data.chainId is string &&
@@ -539,7 +539,8 @@ service cloud.firestore {
 
       allow get: if isAdmin() ||
         (signedIn() && priceId.matches('^' + request.auth.uid + '_.*'));
-      allow list: if isAdmin();
+      allow list: if isAdmin() ||
+        (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if signedIn() && (
         (
           hasSafePriceReportCreatePayload() &&
@@ -550,7 +551,8 @@ service cloud.firestore {
         ) || (
           hasSafeRegionalPriceReportCreatePayload() &&
           request.resource.data.userId == request.auth.uid &&
-          (!('status' in request.resource.data) || request.resource.data.status == 'active')
+          (!('status' in request.resource.data) ||
+            request.resource.data.status in ['active', 'pending_photo_review'])
         )
       );
       allow update: if isAdmin() || (

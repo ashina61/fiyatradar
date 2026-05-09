@@ -480,6 +480,10 @@ class AppState extends ChangeNotifier {
     });
     user = await _svc.ensureSignedIn();
     final currentUid = user?.uid;
+    final authPhotoUrl = user?.photoURL?.trim();
+    if (authPhotoUrl != null && authPhotoUrl.isNotEmpty) {
+      profileImageUrl = authPhotoUrl;
+    }
     if (currentUid != null) {
       await _hydrateCachedProfileImageUrl(currentUid);
     }
@@ -689,10 +693,15 @@ class AppState extends ChangeNotifier {
       final districtRaw =
           ((m['district'] ?? m['neighborhood']) as String?)?.trim();
       districtName = (districtRaw?.isNotEmpty ?? false) ? districtRaw : null;
-      final nextProfileImageUrl =
+      final firestoreProfileImageUrl =
           (m['profileImageUrl'] as String?)?.trim().isNotEmpty == true
               ? (m['profileImageUrl'] as String).trim()
               : null;
+      final authProfileImageUrl = user?.photoURL?.trim();
+      final nextProfileImageUrl = firestoreProfileImageUrl ??
+          ((authProfileImageUrl?.isNotEmpty ?? false)
+              ? authProfileImageUrl
+              : profileImageUrl);
       profileImageUrl = nextProfileImageUrl;
       unawaited(_writeCachedProfileImageUrl(user!.uid, nextProfileImageUrl));
       profileImagePath =
@@ -1264,6 +1273,7 @@ class AppState extends ChangeNotifier {
     };
     final productRef = _svc.products.doc(productId);
     final legacyEntryRef = _svc.priceEntries.doc(entryId);
+    final requiresPhotoReview = (proofImageUrl ?? '').trim().isNotEmpty;
 
     final result = await _priceReportService.submitRegionalPrice(
       productId: productId,
@@ -1283,6 +1293,7 @@ class AppState extends ChangeNotifier {
       note: note.trim().isEmpty ? null : note.trim(),
       photoUrl: proofImageUrl,
       barcode: barcode,
+      requiresReview: requiresPhotoReview,
       // Legacy mirror writes — `kEnableLegacyPriceHistoryMirror` flag'i
       // `false` olduğunda atlanır. Yeni omurga (priceReports +
       // priceGroups) zaten tüm UX yollarına bağlı; mirror sadece eski
@@ -1313,21 +1324,25 @@ class AppState extends ChangeNotifier {
     );
 
     if (result.createdReport) {
-      // Optimistic local insert into the home community feed cache so that
-      // the price the user just submitted appears immediately on the home
-      // tab — the Firestore snapshot listener will reconcile within a
-      // tick and replace this entry with the canonical doc id.
-      _injectOptimisticHomeFeedEntry(
-        productId: productId,
-        sourceType: sourceType,
-        store: store,
-        price: price,
-        city: cityTrim,
-        district: districtTrim,
-        reporterName: resolvedReporterName,
-        reporterUid: uid,
-        note: note,
-      );
+      // Fotoğraflı bildirimler önce admin kontrolüne düşer; bu yüzden
+      // home feed / priceGroups tarafına iyimser olarak basmayız.
+      if (!requiresPhotoReview) {
+        // Optimistic local insert into the home community feed cache so that
+        // the price the user just submitted appears immediately on the home
+        // tab — the Firestore snapshot listener will reconcile within a
+        // tick and replace this entry with the canonical doc id.
+        _injectOptimisticHomeFeedEntry(
+          productId: productId,
+          sourceType: sourceType,
+          store: store,
+          price: price,
+          city: cityTrim,
+          district: districtTrim,
+          reporterName: resolvedReporterName,
+          reporterUid: uid,
+          note: note,
+        );
+      }
       // Streak ileri al + rozet ekle + temel +10 PT.
       // Fotoğraflı bildirim için ekstra +5 PT (PointsRules.photoBonus).
       // İlk fiyat / 10. fiyat / 50. fiyat eşiklerinde rozet ödülü.
@@ -1629,11 +1644,19 @@ class AppState extends ChangeNotifier {
     }
     return _svc.priceReports
         .where('userId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map(MyPriceContribution.fromDoc).toList(growable: false));
+        .map((snap) {
+      final list = snap.docs
+          .map(MyPriceContribution.fromDoc)
+          .toList(growable: false);
+      return [...list]
+        ..sort((a, b) {
+          final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bd.compareTo(ad);
+        });
+    });
   }
 
   /// Admin moderation: yakın zamanda güncellenmiş priceGroups dokümanlarını

@@ -60,12 +60,18 @@ class BasketMixedEstimate {
   final double estimatedTotal;
   final int marketCount;
   final List<BasketLineResolution> lines;
+  final List<String> missingProductIds;
 
   const BasketMixedEstimate({
     required this.estimatedTotal,
     required this.marketCount,
     required this.lines,
+    this.missingProductIds = const <String>[],
   });
+
+  int get coveredItemCount => lines.length;
+  int get totalItemCount => lines.length + missingProductIds.length;
+  bool get hasMissingItems => missingProductIds.isNotEmpty;
 }
 
 class BasketSmartSuggestion {
@@ -187,12 +193,16 @@ class BasketPricingService {
     required List<PriceGroupModel> groups,
   }) {
     final lines = <BasketLineResolution>[];
+    final missing = <String>[];
     for (final item in items) {
       final options = groups
           .where((g) => g.productId == item.productId && g.preferredPrice != null)
           .toList()
         ..sort((a, b) => a.preferredPrice!.compareTo(b.preferredPrice!));
-      if (options.isEmpty) continue;
+      if (options.isEmpty) {
+        missing.add(item.productId);
+        continue;
+      }
       final best = options.first;
       lines.add(
         BasketLineResolution(
@@ -213,6 +223,7 @@ class BasketPricingService {
       estimatedTotal: total,
       marketCount: marketCount,
       lines: lines,
+      missingProductIds: missing,
     );
   }
 
