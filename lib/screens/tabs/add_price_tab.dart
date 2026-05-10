@@ -40,6 +40,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
   // Free-text market fallback — eğer kullanıcı listede market bulamazsa
   // raporu yine de gönderebilsin. Spec "şube zorunlu değil" diyor.
   String? _freeTextStoreName;
+  String? _freeTextChainId;
   bool _submitting = false;
   bool _locating = false;
   bool _showOptional = false;
@@ -57,17 +58,21 @@ class _AddPriceTabState extends State<AddPriceTab> {
     super.didChangeDependencies();
     if (_presetConsumed) return;
     _presetConsumed = true;
-    final state = AppStateScope.of(context);
-    final preset = state.consumeAddPricePreset();
-    if (preset.productId != null) {
-      final product = state.findById(preset.productId!);
-      if (product != null) {
-        _selectedProduct = product;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = AppStateScope.read(context);
+      final preset = state.consumeAddPricePreset();
+      Product? product;
+      if (preset.productId != null) {
+        product = state.findById(preset.productId!);
       }
-    }
-    if ((preset.chainName ?? '').trim().isNotEmpty) {
-      _storeQueryCtrl.text = preset.chainName!.trim();
-    }
+      final presetChainName = (preset.chainName ?? '').trim();
+      if (product == null && presetChainName.isEmpty) return;
+      setState(() {
+        if (product != null) _selectedProduct = product;
+        if (presetChainName.isNotEmpty) _storeQueryCtrl.text = presetChainName;
+      });
+    });
   }
 
   @override
@@ -207,9 +212,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
       }
 
       final storeDisplay = place?.displayName ?? freeText;
-      final chainId = place?.chainId ??
-          place?.displayName ??
-          freeText;
+      final chainId = place?.chainId ?? _freeTextChainId ?? place?.displayName ?? freeText;
       final chainName = place?.chainName ??
           place?.displayName ??
           freeText;
@@ -371,6 +374,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
     setState(() {
       _selectedPlace = null;
       _freeTextStoreName = trimmed.isEmpty ? null : trimmed;
+      _freeTextChainId = null;
     });
   }
 
@@ -764,6 +768,17 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                _ChainQuickPickRow(
+                  sourceType: _sourceType,
+                  selectedChainId: _freeTextChainId,
+                  onPick: (id, name) => setState(() {
+                    _selectedPlace = null;
+                    _freeTextChainId = id;
+                    _freeTextStoreName = name;
+                    _storeQueryCtrl.text = name;
+                  }),
+                ),
+                const SizedBox(height: 10),
                 if (!_isOnlineSource && regionMissing)
                   _missingRegionEmpty(state)
                 else
@@ -784,7 +799,11 @@ class _AddPriceTabState extends State<AddPriceTab> {
                           final selected = _selectedPlace?.id == place.id;
                           final isPending = place.status == 'pending';
                           return InkWell(
-                            onTap: () => setState(() => _selectedPlace = place),
+                            onTap: () => setState(() {
+                              _selectedPlace = place;
+                              _freeTextStoreName = null;
+                              _freeTextChainId = null;
+                            }),
                             borderRadius: FRRad.all(999),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
@@ -1137,7 +1156,10 @@ class _AddPriceTabState extends State<AddPriceTab> {
               style: frText(11.5, FontWeight.w700, color: FR.ink2)),
         ),
         InkWell(
-          onTap: () => setState(() => _freeTextStoreName = null),
+          onTap: () => setState(() {
+            _freeTextStoreName = null;
+            _freeTextChainId = null;
+          }),
           child: Icon(Icons.close_rounded, color: FR.ink3, size: 16),
         ),
       ]),
@@ -1211,6 +1233,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
         _sourceType = type;
         _selectedPlace = null;
         _freeTextStoreName = null;
+        _freeTextChainId = null;
       }),
       borderRadius: FRRad.all(999),
       child: Container(
@@ -1222,6 +1245,80 @@ class _AddPriceTabState extends State<AddPriceTab> {
         ),
         child: Text(label, style: frText(12, FontWeight.w800, color: selected ? FR.onGold : FR.ink)),
       ),
+    );
+  }
+}
+
+
+class _ChainQuickPickRow extends StatelessWidget {
+  const _ChainQuickPickRow({
+    required this.sourceType,
+    required this.selectedChainId,
+    required this.onPick,
+  });
+  final PriceSourceType sourceType;
+  final String? selectedChainId;
+  final void Function(String id, String name) onPick;
+
+  String get _channelKey => sourceType == PriceSourceType.online ? 'online' : 'physical';
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseService.instance.storeChains
+          .orderBy('name')
+          .limit(24)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.hasError) return const SizedBox.shrink();
+        final docs = (snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
+            .where((d) {
+          final m = d.data();
+          if (!((m['isActive'] as bool?) ?? true)) return false;
+          final supported = m['supportedChannels'];
+          if (supported is Map && supported[_channelKey] is bool) {
+            return supported[_channelKey] == true;
+          }
+          if (_channelKey == 'online') {
+            return (m['isOnlineEnabled'] as bool?) ??
+                (m['supportsOnline'] as bool?) ??
+                false;
+          }
+          return (m['isPhysicalEnabled'] as bool?) ??
+              (m['supportsPhysical'] as bool?) ??
+              true;
+        }).toList(growable: false);
+        if (docs.isEmpty) return const SizedBox.shrink();
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final d in docs)
+              Builder(builder: (context) {
+                final selected = selectedChainId == d.id;
+                final name = (d.data()['name'] ?? '').toString();
+                return InkWell(
+                  onTap: () => onPick(d.id, name),
+                  borderRadius: FRRad.all(999),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
+                    decoration: BoxDecoration(
+                      color: selected ? FR.gold : FR.surface,
+                      borderRadius: FRRad.all(999),
+                      border: Border.all(color: selected ? FR.gold : FR.hairline),
+                      boxShadow: selected ? frGoldGlow(opacity: .14) : null,
+                    ),
+                    child: Text(
+                      name,
+                      style: frText(11.5, FontWeight.w800, color: selected ? FR.onGold : FR.ink),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
     );
   }
 }
@@ -1274,7 +1371,7 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
   }
 
   Future<void> _save() async {
-    final state = AppStateScope.of(context);
+    final state = AppStateScope.read(context);
     final uid = state.user?.uid;
     if (uid == null || uid.isEmpty) return;
     final name = _nameCtrl.text.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -1324,6 +1421,16 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
         'chainId': null,
         'chainName': null,
         'type': type,
+        'sourceType': widget.sourceType == PriceSourceType.online
+            ? 'online'
+            : widget.sourceType == PriceSourceType.bazaar
+                ? 'bazaar'
+                : 'physical',
+        'channel': widget.sourceType == PriceSourceType.online
+            ? 'online'
+            : widget.sourceType == PriceSourceType.bazaar
+                ? 'bazaar'
+                : 'physical',
         'displayName': name,
         'normalizedName': normalized,
         'city': city,

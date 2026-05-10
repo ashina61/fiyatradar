@@ -332,6 +332,11 @@ service cloud.firestore {
           'neighborhood',
           'lat',
           'lng',
+          'channel',
+          'sourceType',
+          'address',
+          'websiteUrl',
+          'appDeepLink',
           'status',
           'isActive',
           'usageCount',
@@ -348,6 +353,12 @@ service cloud.firestore {
         (!('neighborhood' in request.resource.data) || request.resource.data.neighborhood == null || request.resource.data.neighborhood is string) &&
         (!('lat' in request.resource.data) || request.resource.data.lat == null || request.resource.data.lat is number) &&
         (!('lng' in request.resource.data) || request.resource.data.lng == null || request.resource.data.lng is number) &&
+        (!('channel' in request.resource.data) || request.resource.data.channel in ['physical', 'online', 'bazaar']) &&
+        (!('sourceType' in request.resource.data) || request.resource.data.sourceType in ['physical', 'online', 'bazaar']) &&
+        (!('address' in request.resource.data) || request.resource.data.address is string) &&
+        (!('websiteUrl' in request.resource.data) || request.resource.data.websiteUrl is string) &&
+        (!('appDeepLink' in request.resource.data) || request.resource.data.appDeepLink is string) &&
+        (request.resource.data.type == 'online_market' || (request.resource.data.city.size() > 0 && request.resource.data.district.size() > 0)) &&
         request.resource.data.usageCount == 0;
       }
 
