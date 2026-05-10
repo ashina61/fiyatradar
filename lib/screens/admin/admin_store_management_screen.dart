@@ -148,6 +148,7 @@ class _AdminStoreManagementScreenState
 
   Future<void> _createChainFromSheet() async {
     final messenger = ScaffoldMessenger.of(context);
+    final uid = AppStateScope.read(context).user?.uid;
     final result = await _showChainFormSheet(context: context);
     if (result == null) return;
     final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -189,7 +190,7 @@ class _AdminStoreManagementScreenState
         'physical': result.isPhysicalEnabled,
         'online': result.isOnlineEnabled,
       },
-      'createdByUid': AppStateScope.read(context).user?.uid,
+      'createdByUid': uid,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -1461,62 +1462,6 @@ class _AdminBottomSheetShell extends StatelessWidget {
   }
 }
 
-Future<String?> _showStoreNameSheet({
-  required BuildContext context,
-  required String title,
-  required String subtitle,
-  required String hint,
-  required String saveLabel,
-}) async {
-  final ctrl = TextEditingController();
-  try {
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _AdminBottomSheetShell(
-        title: title,
-        subtitle: subtitle,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              decoration: InputDecoration(hintText: hint),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: FRCta(
-                    label: 'İptal',
-                    filled: false,
-                    onTap: () => Navigator.pop(ctx, false),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FRCta(
-                    label: saveLabel,
-                    icon: Icons.add_rounded,
-                    onTap: () => Navigator.pop(ctx, true),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ok != true) return null;
-    return ctrl.text;
-  } finally {
-    ctrl.dispose();
-  }
-}
-
-
 class _ChainFormResult {
   const _ChainFormResult({
     required this.name,
@@ -1655,7 +1600,12 @@ class _ChainDropdownTile extends StatelessWidget {
         if (docs.isEmpty) {
           return Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              FRSpace.m,
+              FRSpace.m,
+              FRSpace.m,
+              FRSpace.m,
+            ),
             decoration: BoxDecoration(
               color: FR.surfaceHi,
               borderRadius: FRRad.all(FRRad.m),
