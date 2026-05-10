@@ -97,7 +97,7 @@ class _AdminStoreManagementScreenState
   }
 
   Future<void> _loadPlaces({bool reset = false}) async {
-    if (_loadingPlaces) return;
+    if (!mounted || _loadingPlaces) return;
     setState(() => _loadingPlaces = true);
     try {
       var q = _placesQuery();
@@ -129,10 +129,12 @@ class _AdminStoreManagementScreenState
       final m = d.data();
       final city = _cityCtrl.text.trim().toLowerCase();
       final district = _districtCtrl.text.trim().toLowerCase();
-      if (city.isNotEmpty &&
-          (m['city'] ?? '').toString().toLowerCase() != city) return false;
-      if (district.isNotEmpty &&
-          (m['district'] ?? '').toString().toLowerCase() != district) return false;
+      final rowCity =
+          (m['cityName'] ?? m['city'] ?? '').toString().toLowerCase();
+      final rowDistrict =
+          (m['districtName'] ?? m['district'] ?? '').toString().toLowerCase();
+      if (city.isNotEmpty && rowCity != city) return false;
+      if (district.isNotEmpty && rowDistrict != district) return false;
       if (_status != 'all' && (m['status'] ?? '').toString() != _status) return false;
       final channel = _placeChannelFor(m);
       if (channel != _placeChannel) return false;
@@ -150,7 +152,7 @@ class _AdminStoreManagementScreenState
     final messenger = ScaffoldMessenger.of(context);
     final uid = AppStateScope.read(context).user?.uid;
     final result = await _showChainFormSheet(context: context);
-    if (result == null) return;
+    if (!mounted || result == null) return;
     final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
     final normalized = _normalizeName(name);
     if (normalized.isEmpty) {
@@ -210,7 +212,7 @@ class _AdminStoreManagementScreenState
       initial: data,
       title: 'Zincir düzenle',
     );
-    if (result == null) return;
+    if (!mounted || result == null) return;
     final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
     final normalized = _normalizeName(name);
     if (normalized.isEmpty) {
@@ -267,7 +269,7 @@ class _AdminStoreManagementScreenState
       initialCity: _cityCtrl.text.trim(),
       initialDistrict: _districtCtrl.text.trim(),
     );
-    if (result == null) return;
+    if (!mounted || result == null) return;
     final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
     final city = result.city.trim();
     final district = result.district.trim();
@@ -294,13 +296,18 @@ class _AdminStoreManagementScreenState
     await FirebaseService.instance.storePlaces.add({
       'chainId': result.chainId,
       'chainName': result.chainName,
+      'name': name,
       'displayName': name,
       'normalizedName': _normalizeName(name),
       'type': result.type,
       'sourceType': sourceType,
       'channel': sourceType,
       'city': sourceType == 'online' ? '' : city,
+      'cityId': sourceType == 'online' ? '' : city,
+      'cityName': sourceType == 'online' ? '' : city,
       'district': sourceType == 'online' ? '' : district,
+      'districtId': sourceType == 'online' ? '' : district,
+      'districtName': sourceType == 'online' ? '' : district,
       if (result.address.trim().isNotEmpty) 'address': result.address.trim(),
       if (result.websiteUrl.trim().isNotEmpty) 'websiteUrl': result.websiteUrl.trim(),
       if (result.appDeepLink.trim().isNotEmpty) 'appDeepLink': result.appDeepLink.trim(),
@@ -335,7 +342,7 @@ class _AdminStoreManagementScreenState
       lockedSourceType: _placeChannelFor(data),
       initial: data,
     );
-    if (result == null) return;
+    if (!mounted || result == null) return;
     final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
     final city = result.city.trim();
     final district = result.district.trim();
@@ -362,13 +369,18 @@ class _AdminStoreManagementScreenState
     await doc.reference.update({
       'chainId': result.chainId,
       'chainName': result.chainName,
+      'name': name,
       'displayName': name,
       'normalizedName': _normalizeName(name),
       'type': result.type,
       'sourceType': sourceType,
       'channel': sourceType,
       'city': sourceType == 'online' ? '' : city,
+      'cityId': sourceType == 'online' ? '' : city,
+      'cityName': sourceType == 'online' ? '' : city,
       'district': sourceType == 'online' ? '' : district,
+      'districtId': sourceType == 'online' ? '' : district,
+      'districtName': sourceType == 'online' ? '' : district,
       'address': sourceType == 'physical' ? result.address.trim() : '',
       'websiteUrl': sourceType == 'online' ? result.websiteUrl.trim() : '',
       'appDeepLink': sourceType == 'online' ? result.appDeepLink.trim() : '',
@@ -842,7 +854,7 @@ class _PlaceRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  (data['displayName'] ?? '—').toString(),
+                  (data['name'] ?? data['displayName'] ?? '—').toString(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: frText(13.5, FontWeight.w800),
@@ -969,7 +981,7 @@ class _PendingRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  (data['displayName'] ?? '—').toString(),
+                  (data['name'] ?? data['displayName'] ?? '—').toString(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: frText(13.5, FontWeight.w800),
@@ -1362,7 +1374,7 @@ class _RegionFilterTileState extends State<_RegionFilterTile> {
       initialCity: widget.cityCtrl.text,
       initialDistrict: widget.districtCtrl.text,
     );
-    if (result == null) return;
+    if (!mounted || result == null) return;
     widget.cityCtrl.text = result.city;
     widget.districtCtrl.text = result.district;
     setState(() {});
@@ -1556,8 +1568,9 @@ String _placeRegionLabel(Map<String, dynamic> data) {
   final type = (data['type'] ?? '').toString();
   final sourceType = (data['sourceType'] ?? '').toString();
   if (type == 'online_market' || sourceType == 'online') return 'Online mağaza';
-  final city = (data['city'] ?? '').toString().trim();
-  final district = (data['district'] ?? '').toString().trim();
+  final city = (data['cityName'] ?? data['city'] ?? '').toString().trim();
+  final district =
+      (data['districtName'] ?? data['district'] ?? '').toString().trim();
   if (city.isEmpty && district.isEmpty) return 'Bölge bekliyor';
   if (district.isEmpty) return city;
   return '$city / $district';
@@ -1648,90 +1661,135 @@ Future<_ChainFormResult?> _showChainFormSheet({
   required BuildContext context,
   Map<String, dynamic>? initial,
   String title = 'Zincir ekle',
-}) async {
-  final ctrl = TextEditingController(text: (initial?['name'] ?? '').toString());
-  final supported = initial?['supportedChannels'];
-  var physical = (initial?['isPhysicalEnabled'] as bool?) ??
-      (initial?['supportsPhysical'] as bool?) ??
-      (supported is Map ? (supported['physical'] as bool? ?? true) : true);
-  var online = (initial?['isOnlineEnabled'] as bool?) ??
-      (initial?['supportsOnline'] as bool?) ??
-      (supported is Map ? (supported['online'] as bool? ?? false) : false);
-  var active = (initial?['isActive'] as bool?) ?? true;
-  try {
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _AdminBottomSheetShell(
-        title: title,
-        subtitle: 'Marka / kaynak adını ve desteklediği satış kanallarını belirt.',
-        child: StatefulBuilder(
-          builder: (ctx, setInner) {
-            final canSave = ctrl.text.trim().isNotEmpty && (physical || online);
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  onChanged: (_) => setInner(() {}),
-                  decoration: const InputDecoration(hintText: 'Örn. A101, BİM, Migros'),
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile.adaptive(
-                  value: physical,
-                  onChanged: (v) => setInner(() => physical = v),
-                  title: Text('Fiziksel mağazaları destekler', style: frText(12.5, FontWeight.w800)),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                SwitchListTile.adaptive(
-                  value: online,
-                  onChanged: (v) => setInner(() => online = v),
-                  title: Text('Online kaynağı destekler', style: frText(12.5, FontWeight.w800)),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                SwitchListTile.adaptive(
-                  value: active,
-                  onChanged: (v) => setInner(() => active = v),
-                  title: Text('Aktif', style: frText(12.5, FontWeight.w800)),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FRCta(
-                        label: 'İptal',
-                        filled: false,
-                        onTap: () => Navigator.pop(ctx, false),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FRCta(
-                        label: initial == null ? 'Zinciri ekle' : 'Güncelle',
-                        icon: Icons.add_rounded,
-                        onTap: canSave ? () => Navigator.pop(ctx, true) : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
+}) {
+  return showModalBottomSheet<_ChainFormResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ChainFormSheetContent(
+      initial: initial,
+      title: title,
+    ),
+  );
+}
+
+class _ChainFormSheetContent extends StatefulWidget {
+  const _ChainFormSheetContent({
+    required this.title,
+    this.initial,
+  });
+
+  final String title;
+  final Map<String, dynamic>? initial;
+
+  @override
+  State<_ChainFormSheetContent> createState() => _ChainFormSheetContentState();
+}
+
+class _ChainFormSheetContentState extends State<_ChainFormSheetContent> {
+  late final TextEditingController _ctrl;
+  late bool _physical;
+  late bool _online;
+  late bool _active;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    final supported = initial?['supportedChannels'];
+    _ctrl = TextEditingController(text: (initial?['name'] ?? '').toString());
+    _physical = (initial?['isPhysicalEnabled'] as bool?) ??
+        (initial?['supportsPhysical'] as bool?) ??
+        (supported is Map ? (supported['physical'] as bool? ?? true) : true);
+    _online = (initial?['isOnlineEnabled'] as bool?) ??
+        (initial?['supportsOnline'] as bool?) ??
+        (supported is Map ? (supported['online'] as bool? ?? false) : false);
+    _active = (initial?['isActive'] as bool?) ?? true;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.pop(
+      context,
+      _ChainFormResult(
+        name: _ctrl.text,
+        isPhysicalEnabled: _physical,
+        isOnlineEnabled: _online,
+        isActive: _active,
       ),
     );
-    if (ok != true) return null;
-    return _ChainFormResult(
-      name: ctrl.text,
-      isPhysicalEnabled: physical,
-      isOnlineEnabled: online,
-      isActive: active,
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSave = _ctrl.text.trim().length >= 2 && (_physical || _online);
+    return _AdminBottomSheetShell(
+      title: widget.title,
+      subtitle: 'Marka / kaynak adını ve desteklediği satış kanallarını belirt.',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              hintText: 'Örn. A101, BİM, Migros',
+            ),
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile.adaptive(
+            value: _physical,
+            onChanged: (v) => setState(() => _physical = v),
+            title: Text(
+              'Fiziksel mağazaları destekler',
+              style: frText(12.5, FontWeight.w800),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+          SwitchListTile.adaptive(
+            value: _online,
+            onChanged: (v) => setState(() => _online = v),
+            title: Text(
+              'Online kaynağı destekler',
+              style: frText(12.5, FontWeight.w800),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+          SwitchListTile.adaptive(
+            value: _active,
+            onChanged: (v) => setState(() => _active = v),
+            title: Text('Aktif', style: frText(12.5, FontWeight.w800)),
+            contentPadding: EdgeInsets.zero,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FRCta(
+                  label: 'İptal',
+                  filled: false,
+                  onTap: () => Navigator.pop(context),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FRCta(
+                  label: widget.initial == null ? 'Zinciri ekle' : 'Güncelle',
+                  icon: Icons.add_rounded,
+                  onTap: canSave ? _submit : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
-  } finally {
-    ctrl.dispose();
   }
 }
 
@@ -1814,6 +1872,22 @@ class _ChainDropdownTile extends StatelessWidget {
   }
 }
 
+String _derivedPlaceName({
+  required String sourceType,
+  required String? chainName,
+  required String? city,
+  required String? district,
+}) {
+  final chain = (chainName ?? '').trim();
+  if (chain.isEmpty) return '';
+  if (sourceType == 'online') return chain;
+  final districtName = (district ?? '').trim();
+  if (districtName.isNotEmpty) return '$chain $districtName';
+  final cityName = (city ?? '').trim();
+  if (cityName.isNotEmpty) return '$chain $cityName';
+  return chain;
+}
+
 class _PlaceFormResult {
   const _PlaceFormResult({
     required this.name,
@@ -1848,282 +1922,387 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
   String initialDistrict = '',
   String? lockedSourceType,
   Map<String, dynamic>? initial,
-}) async {
-  final initialSourceType = (initial?['sourceType'] ??
-          initial?['channel'] ??
-          lockedSourceType ??
-          'physical')
-      .toString();
-  final sourceFromType = (initial?['type'] ?? '').toString() == 'online_market'
-      ? 'online'
-      : initialSourceType;
-  final nameCtrl = TextEditingController(
-    text: (initial?['displayName'] ?? '').toString(),
+}) {
+  return showModalBottomSheet<_PlaceFormResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _PlaceFormSheetContent(
+      title: title,
+      initialCity: initialCity,
+      initialDistrict: initialDistrict,
+      lockedSourceType: lockedSourceType,
+      initial: initial,
+    ),
   );
-  final addressCtrl = TextEditingController(
-    text: (initial?['address'] ?? '').toString(),
-  );
-  final websiteCtrl = TextEditingController(
-    text: (initial?['websiteUrl'] ?? '').toString(),
-  );
-  final deepLinkCtrl = TextEditingController(
-    text: (initial?['appDeepLink'] ?? '').toString(),
-  );
-  final initialCityValue = (initial?['city'] ?? initialCity).toString();
-  final initialDistrictValue = (initial?['district'] ?? initialDistrict).toString();
-  String? city = TurkeyLocations.canonicalCity(initialCityValue);
-  String? district =
-      city == null ? null : TurkeyLocations.canonicalDistrict(city, initialDistrictValue);
-  String sourceType = lockedSourceType ??
-      (sourceFromType == 'online' ? 'online' : 'physical');
-  String? chainId = (initial?['chainId'] ?? '').toString().trim().isEmpty
-      ? null
-      : (initial?['chainId'] ?? '').toString();
-  String? chainName = (initial?['chainName'] ?? '').toString().trim().isEmpty
-      ? null
-      : (initial?['chainName'] ?? '').toString();
-  String type = (initial?['type'] ?? '').toString().trim().isEmpty
-      ? (sourceType == 'online' ? 'online_market' : 'local_market')
-      : (initial?['type'] ?? '').toString();
-  String status = (initial?['status'] ?? 'verified').toString();
-  try {
-    final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _AdminBottomSheetShell(
-        title: title,
-        subtitle: lockedSourceType == null
-            ? 'Önce satış kanalını seç: fiziksel veya online'
-            : 'Bilgileri güncelle; kanal sabit tutulur.',
-        child: StatefulBuilder(
-          builder: (ctx, setInner) {
-            final hasName = nameCtrl.text.trim().isNotEmpty;
-            final hasChain = (chainId ?? '').trim().isNotEmpty;
-            final hasRequiredRegion = sourceType == 'online' ||
-                ((city ?? '').trim().isNotEmpty &&
-                    (district ?? '').trim().isNotEmpty);
-            final canSave = hasName && hasChain && hasRequiredRegion;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                onChanged: (_) => setInner(() {}),
-                decoration: const InputDecoration(hintText: 'Görünen ad'),
-              ),
-              const SizedBox(height: 12),
-              if (lockedSourceType == null)
-                Row(
-                children: [
-                  Expanded(
-                    child: _SourceChoice(
-                      label: 'Fiziksel mağaza',
-                      icon: Icons.storefront_rounded,
-                      active: sourceType == 'physical',
-                      onTap: () => setInner(() {
-                        sourceType = 'physical';
-                        if (type == 'online_market') type = 'local_market';
-                      }),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _SourceChoice(
-                      label: 'Online mağaza',
-                      icon: Icons.language_rounded,
-                      active: sourceType == 'online',
-                      onTap: () => setInner(() {
-                        sourceType = 'online';
-                        type = 'online_market';
-                        city = null;
-                        district = null;
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-              if (lockedSourceType == null) const SizedBox(height: 10),
-              _ChainDropdownTile(
-                sourceType: sourceType,
-                selectedId: chainId,
-                selectedName: chainName,
-                onChanged: (id, name) => setInner(() {
-                  chainId = id;
-                  chainName = name;
-                }),
-              ),
-              const SizedBox(height: 10),
-              if (sourceType == 'physical') ...[
-                InkWell(
-                  borderRadius: FRRad.all(FRRad.m),
-                  onTap: () async {
-                    final r = await showRegionPickerSheet(
-                      context,
-                      initialCity: city,
-                      initialDistrict: district,
-                    );
-                    if (r != null) {
-                      setInner(() {
-                        city = r.city;
-                        district = r.district;
-                      });
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      FRSpace.m,
-                      FRSpace.l - 2,
-                      FRSpace.m,
-                      FRSpace.l - 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: FR.surfaceHi,
-                      borderRadius: FRRad.all(FRRad.m),
-                      border: Border.all(color: FR.hairline),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.place_outlined, color: FR.gold, size: 16),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            (city != null && district != null)
-                                ? '$city / $district'
-                                : 'İl ve ilçe seç',
-                            style: frText(13, FontWeight.w800,
-                                color: city == null ? FR.ink3 : FR.ink),
-                          ),
-                        ),
-                        Icon(Icons.keyboard_arrow_right_rounded,
-                            size: 18, color: FR.ink2),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ] else ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsetsDirectional.fromSTEB(
-                    FRSpace.m,
-                    FRSpace.m,
-                    FRSpace.m,
-                    FRSpace.m,
-                  ),
-                  decoration: BoxDecoration(
-                    color: FR.gold.withOpacity(.10),
-                    borderRadius: FRRad.all(FRRad.m),
-                    border: Border.all(color: FR.goldDeep.withOpacity(.28)),
-                  ),
-                  child: Text(
-                    'Online mağazada il / ilçe zorunlu değildir; fiyat ekleme akışı bunu online kaynak olarak kullanır.',
-                    style: frText(
-                      11.5,
-                      FontWeight.w700,
-                      color: FR.ink2,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (sourceType == 'physical') ...[
-                TextField(
-                  controller: addressCtrl,
-                  decoration: const InputDecoration(hintText: 'Adres (opsiyonel)'),
-                ),
-                const SizedBox(height: 10),
-              ] else ...[
-                TextField(
-                  controller: websiteCtrl,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(hintText: 'Website URL'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: deepLinkCtrl,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(hintText: 'App / deeplink (opsiyonel)'),
-                ),
-                const SizedBox(height: 10),
-              ],
-              Row(
-                children: [
-                  Expanded(
-                    child: _FilterDropdown(
-                      value: type,
-                      items: sourceType == 'online'
-                          ? const [('online_market', 'Online')]
-                          : const [
-                              ('chain_market', 'Zincir'),
-                              ('local_market', 'Yerel'),
-                              ('bazaar', 'Pazar'),
-                            ],
-                      onChanged: (v) => setInner(() => type = v),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _FilterDropdown(
-                      value: status,
-                      items: const [
-                        ('pending', 'Pending'),
-                        ('verified', 'Verified'),
-                        ('trusted', 'Trusted'),
-                        ('rejected', 'Rejected'),
-                      ],
-                      onChanged: (v) => setInner(() => status = v),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: FRCta(
-                      label: 'İptal',
-                      filled: false,
-                      onTap: () => Navigator.pop(ctx, false),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FRCta(
-                      label: initial == null ? 'Kaydet' : 'Güncelle',
-                      icon: Icons.check_rounded,
-                      onTap: canSave ? () => Navigator.pop(ctx, true) : null,
-                    ),
-                  ),
-                ],
-              ),
-              ],
-            );
-          },
-        ),
+}
+
+class _PlaceFormSheetContent extends StatefulWidget {
+  const _PlaceFormSheetContent({
+    required this.title,
+    required this.initialCity,
+    required this.initialDistrict,
+    this.lockedSourceType,
+    this.initial,
+  });
+
+  final String title;
+  final String initialCity;
+  final String initialDistrict;
+  final String? lockedSourceType;
+  final Map<String, dynamic>? initial;
+
+  @override
+  State<_PlaceFormSheetContent> createState() => _PlaceFormSheetContentState();
+}
+
+class _PlaceFormSheetContentState extends State<_PlaceFormSheetContent> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _addressCtrl;
+  late final TextEditingController _websiteCtrl;
+  late final TextEditingController _deepLinkCtrl;
+  late String _sourceType;
+  late String? _city;
+  late String? _district;
+  late String? _chainId;
+  late String? _chainName;
+  late String _type;
+  late String _status;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    final initialSourceType = (initial?['sourceType'] ??
+            initial?['channel'] ??
+            widget.lockedSourceType ??
+            'physical')
+        .toString();
+    final sourceFromType = (initial?['type'] ?? '').toString() == 'online_market'
+        ? 'online'
+        : initialSourceType;
+    final initialCityValue =
+        (initial?['cityName'] ?? initial?['city'] ?? widget.initialCity)
+            .toString();
+    final initialDistrictValue =
+        (initial?['districtName'] ?? initial?['district'] ?? widget.initialDistrict)
+            .toString();
+
+    _sourceType = widget.lockedSourceType ??
+        (sourceFromType == 'online' ? 'online' : 'physical');
+    _city = TurkeyLocations.canonicalCity(initialCityValue);
+    _district = _city == null
+        ? null
+        : TurkeyLocations.canonicalDistrict(_city, initialDistrictValue);
+    _chainId = (initial?['chainId'] ?? '').toString().trim().isEmpty
+        ? null
+        : (initial?['chainId'] ?? '').toString();
+    _chainName = (initial?['chainName'] ?? '').toString().trim().isEmpty
+        ? null
+        : (initial?['chainName'] ?? '').toString();
+    _type = (initial?['type'] ?? '').toString().trim().isEmpty
+        ? (_sourceType == 'online' ? 'online_market' : 'local_market')
+        : (initial?['type'] ?? '').toString();
+    _status = (initial?['status'] ?? 'verified').toString();
+
+    _nameCtrl = TextEditingController(
+      text: (initial?['name'] ?? initial?['displayName'] ?? '').toString(),
+    );
+    _addressCtrl = TextEditingController(
+      text: (initial?['address'] ?? '').toString(),
+    );
+    _websiteCtrl = TextEditingController(
+      text: (initial?['websiteUrl'] ?? '').toString(),
+    );
+    _deepLinkCtrl = TextEditingController(
+      text: (initial?['appDeepLink'] ?? '').toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _addressCtrl.dispose();
+    _websiteCtrl.dispose();
+    _deepLinkCtrl.dispose();
+    super.dispose();
+  }
+
+  String get _derivedName => _derivedPlaceName(
+        sourceType: _sourceType,
+        chainName: _chainName,
+        city: _city,
+        district: _district,
+      );
+
+  String get _effectiveName {
+    final explicit = _nameCtrl.text.trim();
+    return explicit.isNotEmpty ? explicit : _derivedName;
+  }
+
+  bool get _canSave {
+    final hasChain = (_chainId ?? '').trim().isNotEmpty &&
+        (_chainName ?? '').trim().isNotEmpty;
+    final hasRegion = _sourceType == 'online' ||
+        ((_city ?? '').trim().isNotEmpty &&
+            (_district ?? '').trim().isNotEmpty);
+    return hasChain && _effectiveName.trim().isNotEmpty && hasRegion;
+  }
+
+  void _selectSourceType(String value) {
+    setState(() {
+      _sourceType = value;
+      if (value == 'online') {
+        _type = 'online_market';
+        _city = null;
+        _district = null;
+      } else if (_type == 'online_market') {
+        _type = 'local_market';
+      }
+    });
+  }
+
+  void _selectChain(String? id, String? name) {
+    setState(() {
+      _chainId = id;
+      _chainName = name;
+      if (_nameCtrl.text.trim().isEmpty) {
+        _nameCtrl.text = _derivedPlaceName(
+          sourceType: _sourceType,
+          chainName: _chainName,
+          city: _city,
+          district: _district,
+        );
+      }
+    });
+  }
+
+  Future<void> _pickRegion() async {
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: _city,
+      initialDistrict: _district,
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _city = result.city;
+      _district = result.district;
+      if (_nameCtrl.text.trim().isEmpty) {
+        _nameCtrl.text = _derivedName;
+      }
+    });
+  }
+
+  void _submit() {
+    Navigator.pop(
+      context,
+      _PlaceFormResult(
+        name: _effectiveName,
+        city: _sourceType == 'online' ? '' : (_city ?? ''),
+        district: _sourceType == 'online' ? '' : (_district ?? ''),
+        type: _sourceType == 'online' ? 'online_market' : _type,
+        sourceType: _sourceType,
+        status: _status,
+        chainId: _chainId,
+        chainName: _chainName,
+        address: _addressCtrl.text,
+        websiteUrl: _websiteCtrl.text,
+        appDeepLink: _deepLinkCtrl.text,
       ),
     );
-    if (ok != true) return null;
-    return _PlaceFormResult(
-      name: nameCtrl.text,
-      city: sourceType == 'online' ? '' : (city ?? ''),
-      district: sourceType == 'online' ? '' : (district ?? ''),
-      type: sourceType == 'online' ? 'online_market' : type,
-      sourceType: sourceType,
-      status: status,
-      chainId: chainId,
-      chainName: chainName,
-      address: addressCtrl.text,
-      websiteUrl: websiteCtrl.text,
-      appDeepLink: deepLinkCtrl.text,
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdminBottomSheetShell(
+      title: widget.title,
+      subtitle: widget.lockedSourceType == null
+          ? 'Önce satış kanalını seç: fiziksel veya online'
+          : 'Bilgileri güncelle; kanal sabit tutulur.',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameCtrl,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(hintText: 'Görünen ad'),
+          ),
+          const SizedBox(height: 12),
+          if (widget.lockedSourceType == null) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _SourceChoice(
+                    label: 'Fiziksel mağaza',
+                    icon: Icons.storefront_rounded,
+                    active: _sourceType == 'physical',
+                    onTap: () => _selectSourceType('physical'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SourceChoice(
+                    label: 'Online mağaza',
+                    icon: Icons.language_rounded,
+                    active: _sourceType == 'online',
+                    onTap: () => _selectSourceType('online'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          _ChainDropdownTile(
+            sourceType: _sourceType,
+            selectedId: _chainId,
+            selectedName: _chainName,
+            onChanged: _selectChain,
+          ),
+          const SizedBox(height: 10),
+          if (_sourceType == 'physical') ...[
+            InkWell(
+              borderRadius: FRRad.all(FRRad.m),
+              onTap: _pickRegion,
+              child: Container(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  FRSpace.m,
+                  FRSpace.l - 2,
+                  FRSpace.m,
+                  FRSpace.l - 2,
+                ),
+                decoration: BoxDecoration(
+                  color: FR.surfaceHi,
+                  borderRadius: FRRad.all(FRRad.m),
+                  border: Border.all(color: FR.hairline),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.place_outlined, color: FR.gold, size: 16),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        (_city != null && _district != null)
+                            ? '$_city / $_district'
+                            : 'İl ve ilçe seç',
+                        style: frText(
+                          13,
+                          FontWeight.w800,
+                          color: _city == null ? FR.ink3 : FR.ink,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.keyboard_arrow_right_rounded,
+                      size: 18,
+                      color: FR.ink2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                FRSpace.m,
+                FRSpace.m,
+                FRSpace.m,
+                FRSpace.m,
+              ),
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.10),
+                borderRadius: FRRad.all(FRRad.m),
+                border: Border.all(color: FR.goldDeep.withOpacity(.28)),
+              ),
+              child: Text(
+                'Online mağazada il / ilçe zorunlu değildir; fiyat ekleme akışı bunu online kaynak olarak kullanır.',
+                style: frText(
+                  11.5,
+                  FontWeight.w700,
+                  color: FR.ink2,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (_sourceType == 'physical') ...[
+            TextField(
+              controller: _addressCtrl,
+              decoration: const InputDecoration(hintText: 'Adres (opsiyonel)'),
+            ),
+            const SizedBox(height: 10),
+          ] else ...[
+            TextField(
+              controller: _websiteCtrl,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(hintText: 'Website URL'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _deepLinkCtrl,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                hintText: 'App / deeplink (opsiyonel)',
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: _FilterDropdown(
+                  value: _type,
+                  items: _sourceType == 'online'
+                      ? const [('online_market', 'Online')]
+                      : const [
+                          ('chain_market', 'Zincir'),
+                          ('local_market', 'Yerel'),
+                          ('bazaar', 'Pazar'),
+                        ],
+                  onChanged: (v) => setState(() => _type = v),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FilterDropdown(
+                  value: _status,
+                  items: const [
+                    ('pending', 'Pending'),
+                    ('verified', 'Verified'),
+                    ('trusted', 'Trusted'),
+                    ('rejected', 'Rejected'),
+                  ],
+                  onChanged: (v) => setState(() => _status = v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: FRCta(
+                  label: 'İptal',
+                  filled: false,
+                  onTap: () => Navigator.pop(context),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FRCta(
+                  label: widget.initial == null ? 'Kaydet' : 'Güncelle',
+                  icon: Icons.check_rounded,
+                  onTap: _canSave ? _submit : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
-  } finally {
-    nameCtrl.dispose();
-    addressCtrl.dispose();
-    websiteCtrl.dispose();
-    deepLinkCtrl.dispose();
   }
 }
 
@@ -2141,103 +2320,131 @@ class _RegionAssignResult {
 Future<_RegionAssignResult?> _showRegionAssignSheet({
   required BuildContext context,
   required String legacyName,
-}) async {
-  String? city;
-  String? district;
-  String type = 'local_market';
-  final ok = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _AdminBottomSheetShell(
-        title: 'Bölge ata ve taşı',
-        subtitle: legacyName,
-        child: StatefulBuilder(
-          builder: (ctx, setInner) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
+}) {
+  return showModalBottomSheet<_RegionAssignResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _RegionAssignSheetContent(legacyName: legacyName),
+  );
+}
+
+class _RegionAssignSheetContent extends StatefulWidget {
+  const _RegionAssignSheetContent({required this.legacyName});
+
+  final String legacyName;
+
+  @override
+  State<_RegionAssignSheetContent> createState() => _RegionAssignSheetContentState();
+}
+
+class _RegionAssignSheetContentState extends State<_RegionAssignSheetContent> {
+  String? _city;
+  String? _district;
+  String _type = 'local_market';
+
+  Future<void> _pickRegion() async {
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: _city,
+      initialDistrict: _district,
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _city = result.city;
+      _district = result.district;
+    });
+  }
+
+  void _submit() {
+    final city = _city;
+    final district = _district;
+    if (city == null || district == null) return;
+    Navigator.pop(
+      context,
+      _RegionAssignResult(
+        city: city,
+        district: district,
+        type: _type,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdminBottomSheetShell(
+      title: 'Bölge ata ve taşı',
+      subtitle: widget.legacyName,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            borderRadius: FRRad.all(FRRad.m),
+            onTap: _pickRegion,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
                 borderRadius: FRRad.all(FRRad.m),
-                onTap: () async {
-                  final r = await showRegionPickerSheet(
-                    ctx,
-                    initialCity: city,
-                    initialDistrict: district,
-                  );
-                  if (r != null) {
-                    setInner(() {
-                      city = r.city;
-                      district = r.district;
-                    });
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: FR.surfaceHi,
-                    borderRadius: FRRad.all(FRRad.m),
-                    border: Border.all(color: FR.hairline),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.place_outlined, color: FR.gold, size: 16),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          (city != null && district != null)
-                              ? '$city / $district'
-                              : 'İl ve ilçe seç',
-                          style: frText(13, FontWeight.w800,
-                              color: city == null ? FR.ink3 : FR.ink),
-                        ),
-                      ),
-                      Icon(Icons.keyboard_arrow_right_rounded,
-                          size: 18, color: FR.ink2),
-                    ],
-                  ),
-                ),
+                border: Border.all(color: FR.hairline),
               ),
-              const SizedBox(height: 10),
-              _FilterDropdown(
-                value: type,
-                items: const [
-                  ('local_market', 'Local'),
-                  ('chain_market', 'Chain'),
-                  ('bazaar', 'Pazar'),
-                ],
-                onChanged: (v) => setInner(() => type = v),
-              ),
-              const SizedBox(height: 18),
-              Row(
+              child: Row(
                 children: [
-                  Expanded(
-                    child: FRCta(
-                      label: 'İptal',
-                      filled: false,
-                      onTap: () => Navigator.pop(ctx, false),
-                    ),
-                  ),
+                  Icon(Icons.place_outlined, color: FR.gold, size: 16),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: FRCta(
-                      label: 'Taşı',
-                      icon: Icons.east_rounded,
-                      onTap: () => Navigator.pop(ctx, true),
+                    child: Text(
+                      (_city != null && _district != null)
+                          ? '$_city / $_district'
+                          : 'İl ve ilçe seç',
+                      style: frText(
+                        13,
+                        FontWeight.w800,
+                        color: _city == null ? FR.ink3 : FR.ink,
+                      ),
                     ),
                   ),
+                  Icon(
+                    Icons.keyboard_arrow_right_rounded,
+                    size: 18,
+                    color: FR.ink2,
+                  ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _FilterDropdown(
+            value: _type,
+            items: const [
+              ('local_market', 'Local'),
+              ('chain_market', 'Chain'),
+              ('bazaar', 'Pazar'),
+            ],
+            onChanged: (v) => setState(() => _type = v),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: FRCta(
+                  label: 'İptal',
+                  filled: false,
+                  onTap: () => Navigator.pop(context),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FRCta(
+                  label: 'Taşı',
+                  icon: Icons.east_rounded,
+                  onTap: (_city != null && _district != null) ? _submit : null,
+                ),
               ),
             ],
           ),
-        ),
+        ],
       ),
-  );
-  if (ok != true) return null;
-  if (city == null || district == null) return null;
-  return _RegionAssignResult(
-    city: city!,
-    district: district!,
-    type: type,
-  );
+    );
+  }
 }
