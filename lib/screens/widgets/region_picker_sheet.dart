@@ -126,7 +126,7 @@ class _RegionPickerSheetState extends State<RegionPickerSheet> {
         selected: _city,
       ),
     );
-    if (selected == null) return;
+    if (!mounted || selected == null) return;
     setState(() {
       _city = selected;
       // District whitelist depends on city; clear if it's no longer valid.
@@ -157,7 +157,7 @@ class _RegionPickerSheetState extends State<RegionPickerSheet> {
         selected: _district,
       ),
     );
-    if (selected == null) return;
+    if (!mounted || selected == null) return;
     setState(() => _district = selected);
   }
 

@@ -52,6 +52,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
   String? _proofPhotoContentType;
   bool _uploadingPhoto = false;
   bool _presetConsumed = false;
+  String? _placeResultsKey;
+  Future<List<StorePlace>>? _placeResultsFuture;
 
   @override
   void didChangeDependencies() {
@@ -68,9 +70,17 @@ class _AddPriceTabState extends State<AddPriceTab> {
       }
       final presetChainName = (preset.chainName ?? '').trim();
       if (product == null && presetChainName.isEmpty) return;
+      if (presetChainName.isNotEmpty && _storeQueryCtrl.text != presetChainName) {
+        _storeQueryCtrl.text = presetChainName;
+      }
       setState(() {
         if (product != null) _selectedProduct = product;
-        if (presetChainName.isNotEmpty) _storeQueryCtrl.text = presetChainName;
+        if (presetChainName.isNotEmpty) {
+          _freeTextStoreName = presetChainName;
+          _freeTextChainId = preset.chainId;
+          _selectedPlace = null;
+          _invalidatePlaceResults();
+        }
       });
     });
   }
@@ -500,13 +510,35 @@ class _AddPriceTabState extends State<AddPriceTab> {
     return q.orderBy('usageCount', descending: true).limit(_kStoreResultLimit);
   }
 
-  Stream<List<StorePlace>> _placeStream(AppState state) async* {
+  void _invalidatePlaceResults() {
+    _placeResultsKey = null;
+    _placeResultsFuture = null;
+  }
+
+  String _placeResultsCacheKey(AppState state) => [
+        _sourceType.name,
+        (state.cityName ?? '').trim(),
+        (state.districtName ?? '').trim(),
+        _storeQueryCtrl.text.trim().toLowerCase(),
+        state.user?.uid ?? '',
+      ].join('¦');
+
+  Future<List<StorePlace>> _placeResults(AppState state) {
+    final key = _placeResultsCacheKey(state);
+    if (_placeResultsKey == key && _placeResultsFuture != null) {
+      return _placeResultsFuture!;
+    }
+    _placeResultsKey = key;
+    _placeResultsFuture = _loadPlaceResults(state);
+    return _placeResultsFuture!;
+  }
+
+  Future<List<StorePlace>> _loadPlaceResults(AppState state) async {
     final isOnline = _sourceType == PriceSourceType.online;
     if (!isOnline &&
         ((state.cityName ?? '').trim().isEmpty ||
             (state.districtName ?? '').trim().isEmpty)) {
-      yield const <StorePlace>[];
-      return;
+      return const <StorePlace>[];
     }
 
     final ownUid = state.user?.uid;
@@ -562,7 +594,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
     final list = all.values.toList()
       ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
-    yield list.take(_kStoreResultLimit).toList();
+    return list.take(_kStoreResultLimit).toList();
   }
 
   Future<void> _openSuggestPlaceSheet(AppState state) async {
@@ -754,7 +786,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                   decoration: frSurface(radius: FRRad.m),
                   child: TextField(
                     controller: _storeQueryCtrl,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => setState(() => _invalidatePlaceResults()),
                     style: frText(13, FontWeight.w700),
                     cursorColor: FR.gold,
                     decoration: InputDecoration(
@@ -771,19 +803,22 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 _ChainQuickPickRow(
                   sourceType: _sourceType,
                   selectedChainId: _freeTextChainId,
-                  onPick: (id, name) => setState(() {
-                    _selectedPlace = null;
-                    _freeTextChainId = id;
-                    _freeTextStoreName = name;
-                    _storeQueryCtrl.text = name;
-                  }),
+                  onPick: (id, name) {
+                    if (_storeQueryCtrl.text != name) _storeQueryCtrl.text = name;
+                    setState(() {
+                      _selectedPlace = null;
+                      _freeTextChainId = id;
+                      _freeTextStoreName = name;
+                      _invalidatePlaceResults();
+                    });
+                  },
                 ),
                 const SizedBox(height: 10),
                 if (!_isOnlineSource && regionMissing)
                   _missingRegionEmpty(state)
                 else
-                  StreamBuilder<List<StorePlace>>(
-                    stream: _placeStream(state),
+                  FutureBuilder<List<StorePlace>>(
+                    future: _placeResults(state),
                     builder: (context, snapshot) {
                       final places = snapshot.data ?? const <StorePlace>[];
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1234,6 +1269,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
         _selectedPlace = null;
         _freeTextStoreName = null;
         _freeTextChainId = null;
+        _invalidatePlaceResults();
       }),
       borderRadius: FRRad.all(999),
       child: Container(
