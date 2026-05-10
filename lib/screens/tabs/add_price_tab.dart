@@ -1266,7 +1266,6 @@ class _ChainQuickPickRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseService.instance.storeChains
-          .where('isActive', isEqualTo: true)
           .orderBy('name')
           .limit(24)
           .snapshots(),
@@ -1275,14 +1274,19 @@ class _ChainQuickPickRow extends StatelessWidget {
         final docs = (snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
             .where((d) {
           final m = d.data();
+          if (!((m['isActive'] as bool?) ?? true)) return false;
           final supported = m['supportedChannels'];
           if (supported is Map && supported[_channelKey] is bool) {
             return supported[_channelKey] == true;
           }
           if (_channelKey == 'online') {
-            return (m['isOnlineEnabled'] as bool?) ?? false;
+            return (m['isOnlineEnabled'] as bool?) ??
+                (m['supportsOnline'] as bool?) ??
+                false;
           }
-          return (m['isPhysicalEnabled'] as bool?) ?? true;
+          return (m['isPhysicalEnabled'] as bool?) ??
+              (m['supportsPhysical'] as bool?) ??
+              true;
         }).toList(growable: false);
         if (docs.isEmpty) return const SizedBox.shrink();
         return Wrap(

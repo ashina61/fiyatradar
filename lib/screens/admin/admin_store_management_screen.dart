@@ -159,10 +159,18 @@ class _AdminStoreManagementScreenState
       return;
     }
     final duplicate = await FirebaseService.instance.storeChains
-        .where('normalizedName', isEqualTo: normalized)
-        .limit(1)
+        .limit(200)
         .get();
-    if (duplicate.docs.isNotEmpty) {
+    final hasDuplicate = duplicate.docs.any((d) {
+      final data = d.data();
+      final existingNormalized = (data['normalizedName'] ?? '').toString();
+      final existingName = (data['name'] ?? '').toString();
+      return _normalizeName(existingNormalized.isNotEmpty
+              ? existingNormalized
+              : existingName) ==
+          normalized;
+    });
+    if (hasDuplicate) {
       if (!mounted) return;
       messenger.showSnackBar(
         const SnackBar(content: Text('Bu zincir zaten kayıtlı.')),
@@ -175,6 +183,8 @@ class _AdminStoreManagementScreenState
       'isActive': result.isActive,
       'isPhysicalEnabled': result.isPhysicalEnabled,
       'isOnlineEnabled': result.isOnlineEnabled,
+      'supportsPhysical': result.isPhysicalEnabled,
+      'supportsOnline': result.isOnlineEnabled,
       'supportedChannels': {
         'physical': result.isPhysicalEnabled,
         'online': result.isOnlineEnabled,
@@ -204,8 +214,25 @@ class _AdminStoreManagementScreenState
     final city = result.city.trim();
     final district = result.district.trim();
     final sourceType = result.sourceType;
-    if (name.isEmpty) return;
-    if (sourceType == 'physical' && (city.isEmpty || district.isEmpty)) return;
+    if (name.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Mağaza adı gerekli.')),
+      );
+      return;
+    }
+    if ((result.chainId ?? '').trim().isEmpty ||
+        (result.chainName ?? '').trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Önce zincir seç.')),
+      );
+      return;
+    }
+    if (sourceType == 'physical' && (city.isEmpty || district.isEmpty)) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Fiziksel mağaza için il ve ilçe seç.')),
+      );
+      return;
+    }
     await FirebaseService.instance.storePlaces.add({
       'chainId': result.chainId,
       'chainName': result.chainName,
@@ -1603,7 +1630,6 @@ class _ChainDropdownTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseService.instance.storeChains
-          .where('isActive', isEqualTo: true)
           .orderBy('name')
           .limit(100)
           .snapshots(),
@@ -1612,14 +1638,19 @@ class _ChainDropdownTile extends StatelessWidget {
         final docs = (snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
             .where((d) {
           final m = d.data();
+          if (!((m['isActive'] as bool?) ?? true)) return false;
           final supported = m['supportedChannels'];
           if (supported is Map && supported[sourceType] is bool) {
             return supported[sourceType] == true;
           }
           if (sourceType == 'online') {
-            return (m['isOnlineEnabled'] as bool?) ?? true;
+            return (m['isOnlineEnabled'] as bool?) ??
+                (m['supportsOnline'] as bool?) ??
+                true;
           }
-          return (m['isPhysicalEnabled'] as bool?) ?? true;
+          return (m['isPhysicalEnabled'] as bool?) ??
+              (m['supportsPhysical'] as bool?) ??
+              true;
         }).toList(growable: false);
         if (docs.isEmpty) {
           return Container(
@@ -1631,7 +1662,7 @@ class _ChainDropdownTile extends StatelessWidget {
               border: Border.all(color: FR.hairline),
             ),
             child: Text(
-              'Aktif zincir yok; kayıt zincirsiz oluşturulabilir.',
+              'Aktif zincir yok; önce Zincirler sekmesinden bir zincir ekle.',
               style: frText(11.5, FontWeight.w700, color: FR.ink3),
             ),
           );
@@ -1640,7 +1671,7 @@ class _ChainDropdownTile extends StatelessWidget {
         return _FilterDropdown(
           value: hasSelected ? selectedId! : '__none__',
           items: [
-            const ('__none__', 'Zincir seç (opsiyonel)'),
+            const ('__none__', 'Zincir seç (zorunlu)'),
             for (final d in docs) (d.id, (d.data()['name'] ?? '—').toString()),
           ],
           onChanged: (v) {
@@ -1712,12 +1743,20 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
         title: title,
         subtitle: 'Önce satış kanalını seç: fiziksel veya online',
         child: StatefulBuilder(
-          builder: (ctx, setInner) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          builder: (ctx, setInner) {
+            final hasName = nameCtrl.text.trim().isNotEmpty;
+            final hasChain = (chainId ?? '').trim().isNotEmpty;
+            final hasRequiredRegion = sourceType == 'online' ||
+                ((city ?? '').trim().isNotEmpty &&
+                    (district ?? '').trim().isNotEmpty);
+            final canSave = hasName && hasChain && hasRequiredRegion;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               TextField(
                 controller: nameCtrl,
                 autofocus: true,
+                onChanged: (_) => setInner(() {}),
                 decoration: const InputDecoration(hintText: 'Görünen ad'),
               ),
               const SizedBox(height: 12),
@@ -1900,13 +1939,14 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                     child: FRCta(
                       label: 'Kaydet',
                       icon: Icons.check_rounded,
-                      onTap: () => Navigator.pop(ctx, true),
+                      onTap: canSave ? () => Navigator.pop(ctx, true) : null,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
       ),
     );
