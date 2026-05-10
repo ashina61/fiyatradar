@@ -22,9 +22,10 @@ class _AdminStoreManagementScreenState
   static const _pageSize = 50;
   static const _tabs = [
     'Zincirler',
-    'Mağazalar',
-    'Onay bekleyen',
-    'Eski kayıtlar',
+    'Fiziksel Mağazalar',
+    'Online Mağazalar',
+    'Onay Bekleyen',
+    'Eski Kayıtlar',
   ];
 
   int _tab = 0;
@@ -32,6 +33,7 @@ class _AdminStoreManagementScreenState
   final _districtCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   String _type = 'all';
+  String _placeChannel = 'physical';
   String _status = 'all';
   QueryDocumentSnapshot<Map<String, dynamic>>? _placesLastDoc;
   final List<QueryDocumentSnapshot<Map<String, dynamic>>> _placeDocs = [];
@@ -76,31 +78,22 @@ class _AdminStoreManagementScreenState
       .trim();
 
   Query<Map<String, dynamic>> _placesQuery() {
-    // Admins need to see every market in the catalog, including the ones a
-    // user has flipped to inactive, so we no longer hard-filter by isActive
-    // on the server. Use whereIn so the existing composite indexes that key
-    // off `isActive` still apply.
-    Query<Map<String, dynamic>> q = FirebaseService.instance.storePlaces
-        .where('isActive', whereIn: const [true, false]);
-    final city = _cityCtrl.text.trim();
-    final district = _districtCtrl.text.trim();
+    // Keep the admin inventory query intentionally broad. Channel, status,
+    // type and region filters are applied client-side so the global admin view
+    // does not depend on brittle composite indexes and does not hide inactive
+    // or legacy records.
     final hasSearch = _hasSearchFilter;
-    if (city.isNotEmpty) {
-      q = q.where('city', isEqualTo: city);
-    }
-    if (district.isNotEmpty) {
-      q = q.where('district', isEqualTo: district);
-    }
-
     if (hasSearch) {
       final search = _searchCtrl.text.trim().toLowerCase();
-      return q
+      return FirebaseService.instance.storePlaces
           .orderBy('normalizedName')
           .startAt([search])
           .endAt(['$search\uf8ff'])
           .limit(_pageSize);
     }
-    return q.orderBy('updatedAt', descending: true).limit(_pageSize);
+    return FirebaseService.instance.storePlaces
+        .orderBy('updatedAt', descending: true)
+        .limit(_pageSize);
   }
 
   Future<void> _loadPlaces({bool reset = false}) async {
@@ -119,6 +112,12 @@ class _AdminStoreManagementScreenState
         _placesLastDoc = snap.docs.isNotEmpty ? snap.docs.last : _placesLastDoc;
         _hasMorePlaces = snap.docs.length == _pageSize;
       });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Mağazalar yüklenemedi: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loadingPlaces = false);
     }
@@ -135,6 +134,8 @@ class _AdminStoreManagementScreenState
       if (district.isNotEmpty &&
           (m['district'] ?? '').toString().toLowerCase() != district) return false;
       if (_status != 'all' && (m['status'] ?? '').toString() != _status) return false;
+      final channel = _placeChannelFor(m);
+      if (channel != _placeChannel) return false;
       if (_type != 'all' && (m['type'] ?? '').toString() != _type) return false;
       if (search.isNotEmpty) {
         final normalized = (m['normalizedName'] ?? '').toString().toLowerCase();
@@ -147,20 +148,38 @@ class _AdminStoreManagementScreenState
 
   Future<void> _createChainFromSheet() async {
     final messenger = ScaffoldMessenger.of(context);
-    final raw = await _showStoreNameSheet(
-      context: context,
-      title: 'Yeni zincir',
-      subtitle: 'Markette tek başına yer alacak zincirin adı',
-      hint: 'Örn. A101, BİM, Migros',
-      saveLabel: 'Zinciri ekle',
-    );
-    if (raw == null) return;
-    final name = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (name.isEmpty) return;
+    final result = await _showChainFormSheet(context: context);
+    if (result == null) return;
+    final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = _normalizeName(name);
+    if (normalized.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Zincir adı gerekli.')),
+      );
+      return;
+    }
+    final duplicate = await FirebaseService.instance.storeChains
+        .where('normalizedName', isEqualTo: normalized)
+        .limit(1)
+        .get();
+    if (duplicate.docs.isNotEmpty) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Bu zincir zaten kayıtlı.')),
+      );
+      return;
+    }
     await FirebaseService.instance.storeChains.add({
       'name': name,
-      'normalizedName': _normalizeName(name),
-      'isActive': true,
+      'normalizedName': normalized,
+      'isActive': result.isActive,
+      'isPhysicalEnabled': result.isPhysicalEnabled,
+      'isOnlineEnabled': result.isOnlineEnabled,
+      'supportedChannels': {
+        'physical': result.isPhysicalEnabled,
+        'online': result.isOnlineEnabled,
+      },
+      'createdByUid': AppStateScope.read(context).user?.uid,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -170,12 +189,13 @@ class _AdminStoreManagementScreenState
     );
   }
 
-  Future<void> _createPlaceFromSheet() async {
-    final uid = AppStateScope.of(context).user?.uid;
+  Future<void> _createPlaceFromSheet({required String channel}) async {
+    final uid = AppStateScope.read(context).user?.uid;
     final messenger = ScaffoldMessenger.of(context);
     final result = await _showPlaceFormSheet(
       context: context,
-      title: 'Yeni mağaza',
+      title: channel == 'online' ? 'Online mağaza ekle' : 'Fiziksel mağaza ekle',
+      lockedSourceType: channel,
       initialCity: _cityCtrl.text.trim(),
       initialDistrict: _districtCtrl.text.trim(),
     );
@@ -187,12 +207,18 @@ class _AdminStoreManagementScreenState
     if (name.isEmpty) return;
     if (sourceType == 'physical' && (city.isEmpty || district.isEmpty)) return;
     await FirebaseService.instance.storePlaces.add({
+      'chainId': result.chainId,
+      'chainName': result.chainName,
       'displayName': name,
       'normalizedName': _normalizeName(name),
       'type': result.type,
       'sourceType': sourceType,
+      'channel': sourceType,
       'city': sourceType == 'online' ? '' : city,
       'district': sourceType == 'online' ? '' : district,
+      if (result.address.trim().isNotEmpty) 'address': result.address.trim(),
+      if (result.websiteUrl.trim().isNotEmpty) 'websiteUrl': result.websiteUrl.trim(),
+      if (result.appDeepLink.trim().isNotEmpty) 'appDeepLink': result.appDeepLink.trim(),
       'status': result.status,
       'isActive': true,
       'usageCount': 0,
@@ -236,7 +262,7 @@ class _AdminStoreManagementScreenState
   Future<void> _migrateMissingRegion(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
   ) async {
-    final uid = AppStateScope.of(context).user?.uid;
+    final uid = AppStateScope.read(context).user?.uid;
     final messenger = ScaffoldMessenger.of(context);
     if (uid == null || uid.isEmpty) return;
     final result = await _showRegionAssignSheet(
@@ -262,15 +288,17 @@ class _AdminStoreManagementScreenState
   void _onAddPressed() {
     if (_tab == 0) {
       _createChainFromSheet();
-    } else if (_tab == 3) {
+    } else if (_tab == 1) {
+      _createPlaceFromSheet(channel: 'physical');
+    } else if (_tab == 2) {
+      _createPlaceFromSheet(channel: 'online');
+    } else if (_tab == 4) {
       _runLegacyMigrationBatch();
-    } else {
-      _createPlaceFromSheet();
     }
   }
 
   IconData get _addIcon =>
-      _tab == 3 ? Icons.sync_rounded : Icons.add_rounded;
+      _tab == 4 ? Icons.sync_rounded : Icons.add_rounded;
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +340,22 @@ class _AdminStoreManagementScreenState
                 itemBuilder: (_, i) => FRFilterChip(
                   _tabs[i],
                   active: _tab == i,
-                  onTap: () => setState(() => _tab = i),
+                  onTap: () {
+                    setState(() {
+                      _tab = i;
+                      if (i == 1) _placeChannel = 'physical';
+                      if (i == 2) _placeChannel = 'online';
+                      if (i == 1 || i == 2) {
+                        _placesLastDoc = null;
+                        _placeDocs.clear();
+                      }
+                    });
+                    if (i == 1 || i == 2) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _loadPlaces(reset: true);
+                      });
+                    }
+                  },
                 ),
               ),
             ),
@@ -329,8 +372,10 @@ class _AdminStoreManagementScreenState
       case 0:
         return _buildChainsTab();
       case 1:
-        return _buildPlacesTab();
+        return _buildPlacesTab(channel: 'physical');
       case 2:
+        return _buildPlacesTab(channel: 'online');
+      case 3:
         return _buildPendingTab();
       default:
         return _buildLegacyTab();
@@ -373,7 +418,7 @@ class _AdminStoreManagementScreenState
     );
   }
 
-  Widget _buildPlacesTab() {
+  Widget _buildPlacesTab({required String channel}) {
     final filtered = _filteredPlaceDocs;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -399,7 +444,9 @@ class _AdminStoreManagementScreenState
         ),
         const SizedBox(height: 12),
         if (filtered.isEmpty && !_loadingPlaces)
-          adminEmpty('Bu filtre için yüklü mağaza yok.')
+          adminEmpty(channel == 'online'
+              ? 'Henüz online mağaza/kaynak eklenmemiş.'
+              : 'Henüz fiziksel mağaza/şube eklenmemiş.')
         else
           adminRowList([
             for (final d in filtered)
@@ -573,7 +620,19 @@ class _ChainRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  active ? 'Aktif zincir' : 'Pasifte',
+                  [
+                    active ? 'Aktif zincir' : 'Pasifte',
+                    if (((data['isPhysicalEnabled'] as bool?) ??
+                        ((data['supportedChannels'] is Map)
+                            ? ((data['supportedChannels'] as Map)['physical'] as bool? ?? true)
+                            : true)))
+                      'fiziksel',
+                    if (((data['isOnlineEnabled'] as bool?) ??
+                        ((data['supportedChannels'] is Map)
+                            ? ((data['supportedChannels'] as Map)['online'] as bool? ?? false)
+                            : false)))
+                      'online',
+                  ].join(' · '),
                   style: frText(11, FontWeight.w700,
                       color: active ? FR.good : FR.ink3),
                 ),
@@ -1280,6 +1339,13 @@ class _SourceChoice extends StatelessWidget {
   }
 }
 
+String _placeChannelFor(Map<String, dynamic> data) {
+  final sourceType = (data['sourceType'] ?? data['channel'] ?? '').toString();
+  final type = (data['type'] ?? '').toString();
+  if (sourceType == 'online' || type == 'online_market') return 'online';
+  return 'physical';
+}
+
 String _typeLabel(String t) => switch (t) {
       'chain_market' => 'Zincir',
       'local_market' => 'Yerel',
@@ -1423,6 +1489,174 @@ Future<String?> _showStoreNameSheet({
   }
 }
 
+
+class _ChainFormResult {
+  const _ChainFormResult({
+    required this.name,
+    required this.isPhysicalEnabled,
+    required this.isOnlineEnabled,
+    required this.isActive,
+  });
+  final String name;
+  final bool isPhysicalEnabled;
+  final bool isOnlineEnabled;
+  final bool isActive;
+}
+
+Future<_ChainFormResult?> _showChainFormSheet({
+  required BuildContext context,
+}) async {
+  final ctrl = TextEditingController();
+  var physical = true;
+  var online = false;
+  var active = true;
+  try {
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AdminBottomSheetShell(
+        title: 'Zincir ekle',
+        subtitle: 'Marka / kaynak adını ve desteklediği satış kanallarını belirt.',
+        child: StatefulBuilder(
+          builder: (ctx, setInner) {
+            final canSave = ctrl.text.trim().isNotEmpty && (physical || online);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  onChanged: (_) => setInner(() {}),
+                  decoration: const InputDecoration(hintText: 'Örn. A101, BİM, Migros'),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  value: physical,
+                  onChanged: (v) => setInner(() => physical = v),
+                  title: Text('Fiziksel mağazaları destekler', style: frText(12.5, FontWeight.w800)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                SwitchListTile.adaptive(
+                  value: online,
+                  onChanged: (v) => setInner(() => online = v),
+                  title: Text('Online kaynağı destekler', style: frText(12.5, FontWeight.w800)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                SwitchListTile.adaptive(
+                  value: active,
+                  onChanged: (v) => setInner(() => active = v),
+                  title: Text('Aktif', style: frText(12.5, FontWeight.w800)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FRCta(
+                        label: 'İptal',
+                        filled: false,
+                        onTap: () => Navigator.pop(ctx, false),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FRCta(
+                        label: 'Zinciri ekle',
+                        icon: Icons.add_rounded,
+                        onTap: canSave ? () => Navigator.pop(ctx, true) : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+    if (ok != true) return null;
+    return _ChainFormResult(
+      name: ctrl.text,
+      isPhysicalEnabled: physical,
+      isOnlineEnabled: online,
+      isActive: active,
+    );
+  } finally {
+    ctrl.dispose();
+  }
+}
+
+class _ChainDropdownTile extends StatelessWidget {
+  const _ChainDropdownTile({
+    required this.sourceType,
+    required this.selectedId,
+    required this.selectedName,
+    required this.onChanged,
+  });
+  final String sourceType;
+  final String? selectedId;
+  final String? selectedName;
+  final void Function(String? id, String? name) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseService.instance.storeChains
+          .where('isActive', isEqualTo: true)
+          .orderBy('name')
+          .limit(100)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.hasError) return const SizedBox.shrink();
+        final docs = (snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
+            .where((d) {
+          final m = d.data();
+          final supported = m['supportedChannels'];
+          if (supported is Map && supported[sourceType] is bool) {
+            return supported[sourceType] == true;
+          }
+          if (sourceType == 'online') {
+            return (m['isOnlineEnabled'] as bool?) ?? true;
+          }
+          return (m['isPhysicalEnabled'] as bool?) ?? true;
+        }).toList(growable: false);
+        if (docs.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: FR.surfaceHi,
+              borderRadius: FRRad.all(FRRad.m),
+              border: Border.all(color: FR.hairline),
+            ),
+            child: Text(
+              'Aktif zincir yok; kayıt zincirsiz oluşturulabilir.',
+              style: frText(11.5, FontWeight.w700, color: FR.ink3),
+            ),
+          );
+        }
+        final hasSelected = selectedId != null && docs.any((d) => d.id == selectedId);
+        return _FilterDropdown(
+          value: hasSelected ? selectedId! : '__none__',
+          items: [
+            const ('__none__', 'Zincir seç (opsiyonel)'),
+            for (final d in docs) (d.id, (d.data()['name'] ?? '—').toString()),
+          ],
+          onChanged: (v) {
+            if (v == '__none__') {
+              onChanged(null, null);
+              return;
+            }
+            final d = docs.firstWhere((e) => e.id == v);
+            onChanged(d.id, (d.data()['name'] ?? '').toString());
+          },
+        );
+      },
+    );
+  }
+}
+
 class _PlaceFormResult {
   const _PlaceFormResult({
     required this.name,
@@ -1431,6 +1665,11 @@ class _PlaceFormResult {
     required this.type,
     required this.sourceType,
     required this.status,
+    required this.chainId,
+    required this.chainName,
+    required this.address,
+    required this.websiteUrl,
+    required this.appDeepLink,
   });
   final String name;
   final String city;
@@ -1438,6 +1677,11 @@ class _PlaceFormResult {
   final String type;
   final String sourceType;
   final String status;
+  final String? chainId;
+  final String? chainName;
+  final String address;
+  final String websiteUrl;
+  final String appDeepLink;
 }
 
 Future<_PlaceFormResult?> _showPlaceFormSheet({
@@ -1445,13 +1689,19 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
   required String title,
   String initialCity = '',
   String initialDistrict = '',
+  String? lockedSourceType,
 }) async {
   final nameCtrl = TextEditingController();
+  final addressCtrl = TextEditingController();
+  final websiteCtrl = TextEditingController();
+  final deepLinkCtrl = TextEditingController();
   String? city = TurkeyLocations.canonicalCity(initialCity);
   String? district =
       city == null ? null : TurkeyLocations.canonicalDistrict(city, initialDistrict);
-  String sourceType = 'physical';
-  String type = 'local_market';
+  String sourceType = lockedSourceType ?? 'physical';
+  String? chainId;
+  String? chainName;
+  String type = sourceType == 'online' ? 'online_market' : 'local_market';
   String status = 'verified';
   try {
     final ok = await showModalBottomSheet<bool>(
@@ -1471,7 +1721,8 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                 decoration: const InputDecoration(hintText: 'Görünen ad'),
               ),
               const SizedBox(height: 12),
-              Row(
+              if (lockedSourceType == null)
+                Row(
                 children: [
                   Expanded(
                     child: _SourceChoice(
@@ -1499,6 +1750,16 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                     ),
                   ),
                 ],
+              ),
+              if (lockedSourceType == null) const SizedBox(height: 10),
+              _ChainDropdownTile(
+                sourceType: sourceType,
+                selectedId: chainId,
+                selectedName: chainName,
+                onChanged: (id, name) => setInner(() {
+                  chainId = id;
+                  chainName = name;
+                }),
               ),
               const SizedBox(height: 10),
               if (sourceType == 'physical') ...[
@@ -1575,6 +1836,26 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                 ),
                 const SizedBox(height: 10),
               ],
+              if (sourceType == 'physical') ...[
+                TextField(
+                  controller: addressCtrl,
+                  decoration: const InputDecoration(hintText: 'Adres (opsiyonel)'),
+                ),
+                const SizedBox(height: 10),
+              ] else ...[
+                TextField(
+                  controller: websiteCtrl,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(hintText: 'Website URL'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: deepLinkCtrl,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(hintText: 'App / deeplink (opsiyonel)'),
+                ),
+                const SizedBox(height: 10),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -1637,9 +1918,17 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
       type: sourceType == 'online' ? 'online_market' : type,
       sourceType: sourceType,
       status: status,
+      chainId: chainId,
+      chainName: chainName,
+      address: addressCtrl.text,
+      websiteUrl: websiteCtrl.text,
+      appDeepLink: deepLinkCtrl.text,
     );
   } finally {
     nameCtrl.dispose();
+    addressCtrl.dispose();
+    websiteCtrl.dispose();
+    deepLinkCtrl.dispose();
   }
 }
 
