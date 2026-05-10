@@ -200,6 +200,63 @@ class _AdminStoreManagementScreenState
     );
   }
 
+  Future<void> _editChainFromSheet(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final data = doc.data();
+    final result = await _showChainFormSheet(
+      context: context,
+      initial: data,
+      title: 'Zincir düzenle',
+    );
+    if (result == null) return;
+    final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = _normalizeName(name);
+    if (normalized.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Zincir adı gerekli.')),
+      );
+      return;
+    }
+    final duplicate = await FirebaseService.instance.storeChains.limit(200).get();
+    final hasDuplicate = duplicate.docs.any((d) {
+      if (d.id == doc.id) return false;
+      final data = d.data();
+      final existingNormalized = (data['normalizedName'] ?? '').toString();
+      final existingName = (data['name'] ?? '').toString();
+      return _normalizeName(existingNormalized.isNotEmpty
+              ? existingNormalized
+              : existingName) ==
+          normalized;
+    });
+    if (hasDuplicate) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Bu zincir adı zaten kayıtlı.')),
+      );
+      return;
+    }
+    await doc.reference.update({
+      'name': name,
+      'normalizedName': normalized,
+      'isActive': result.isActive,
+      'isPhysicalEnabled': result.isPhysicalEnabled,
+      'isOnlineEnabled': result.isOnlineEnabled,
+      'supportsPhysical': result.isPhysicalEnabled,
+      'supportsOnline': result.isOnlineEnabled,
+      'supportedChannels': {
+        'physical': result.isPhysicalEnabled,
+        'online': result.isOnlineEnabled,
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Zincir güncellendi.')),
+    );
+  }
+
   Future<void> _createPlaceFromSheet({required String channel}) async {
     final uid = AppStateScope.read(context).user?.uid;
     final messenger = ScaffoldMessenger.of(context);
@@ -261,11 +318,73 @@ class _AdminStoreManagementScreenState
         _districtCtrl.text = district;
       });
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _resetAndLoadPlaces();
-    });
+    _resetAndLoadPlaces();
     messenger.showSnackBar(
       const SnackBar(content: Text('Mağaza eklendi.')),
+    );
+  }
+
+  Future<void> _editPlaceFromSheet(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final data = doc.data();
+    final result = await _showPlaceFormSheet(
+      context: context,
+      title: 'Mağaza düzenle',
+      lockedSourceType: _placeChannelFor(data),
+      initial: data,
+    );
+    if (result == null) return;
+    final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final city = result.city.trim();
+    final district = result.district.trim();
+    final sourceType = result.sourceType;
+    if (name.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Mağaza adı gerekli.')),
+      );
+      return;
+    }
+    if ((result.chainId ?? '').trim().isEmpty ||
+        (result.chainName ?? '').trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Önce zincir seç.')),
+      );
+      return;
+    }
+    if (sourceType == 'physical' && (city.isEmpty || district.isEmpty)) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Fiziksel mağaza için il ve ilçe seç.')),
+      );
+      return;
+    }
+    await doc.reference.update({
+      'chainId': result.chainId,
+      'chainName': result.chainName,
+      'displayName': name,
+      'normalizedName': _normalizeName(name),
+      'type': result.type,
+      'sourceType': sourceType,
+      'channel': sourceType,
+      'city': sourceType == 'online' ? '' : city,
+      'district': sourceType == 'online' ? '' : district,
+      'address': sourceType == 'physical' ? result.address.trim() : '',
+      'websiteUrl': sourceType == 'online' ? result.websiteUrl.trim() : '',
+      'appDeepLink': sourceType == 'online' ? result.appDeepLink.trim() : '',
+      'status': result.status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (!mounted) return;
+    if (sourceType == 'physical') {
+      setState(() {
+        _cityCtrl.text = city;
+        _districtCtrl.text = district;
+      });
+    }
+    _resetAndLoadPlaces();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Mağaza güncellendi.')),
     );
   }
 
@@ -434,6 +553,7 @@ class _AdminStoreManagementScreenState
               for (final d in docs)
                 _ChainRow(
                   data: d.data(),
+                  onEdit: () => _editChainFromSheet(d),
                   onToggleActive: (v) => d.reference.update({
                     'isActive': v,
                     'updatedAt': FieldValue.serverTimestamp(),
@@ -480,6 +600,7 @@ class _AdminStoreManagementScreenState
             for (final d in filtered)
               _PlaceRow(
                 data: d.data(),
+                onEdit: () => _editPlaceFromSheet(d),
                 onToggleActive: () => d.reference.update({
                   'isActive': !((d.data()['isActive'] as bool?) ?? true),
                   'updatedAt': FieldValue.serverTimestamp(),
@@ -610,8 +731,13 @@ class _AdminStoreManagementScreenState
 // ─── Sub-widgets ─────────────────────────────────────────────────────────────
 
 class _ChainRow extends StatelessWidget {
-  const _ChainRow({required this.data, required this.onToggleActive});
+  const _ChainRow({
+    required this.data,
+    required this.onEdit,
+    required this.onToggleActive,
+  });
   final Map<String, dynamic> data;
+  final VoidCallback onEdit;
   final ValueChanged<bool> onToggleActive;
 
   @override
@@ -667,6 +793,11 @@ class _ChainRow extends StatelessWidget {
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'Zinciri düzenle',
+            onPressed: onEdit,
+            icon: Icon(Icons.edit_rounded, color: FR.ink2, size: 19),
+          ),
           Switch(
             value: active,
             onChanged: onToggleActive,
@@ -682,8 +813,13 @@ class _ChainRow extends StatelessWidget {
 }
 
 class _PlaceRow extends StatelessWidget {
-  const _PlaceRow({required this.data, required this.onToggleActive});
+  const _PlaceRow({
+    required this.data,
+    required this.onEdit,
+    required this.onToggleActive,
+  });
   final Map<String, dynamic> data;
+  final VoidCallback onEdit;
   final VoidCallback onToggleActive;
 
   @override
@@ -742,6 +878,31 @@ class _PlaceRow extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              InkWell(
+                onTap: onEdit,
+                borderRadius: FRRad.all(999),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: FR.surfaceHi,
+                    borderRadius: FRRad.all(999),
+                    border: Border.all(color: FR.hairline),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.edit_rounded, size: 15, color: FR.ink2),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Düzenle',
+                        style: frText(11.5, FontWeight.w800, color: FR.ink),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: onToggleActive,
                 borderRadius: FRRad.all(999),
@@ -1281,6 +1442,14 @@ class _FilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final uniqueItems = <(String, String)>[];
+    final seenValues = <String>{};
+    for (final item in items) {
+      if (seenValues.add(item.$1)) uniqueItems.add(item);
+    }
+    final resolvedValue = seenValues.contains(value)
+        ? value
+        : (uniqueItems.isEmpty ? null : uniqueItems.first.$1);
     return Container(
       height: 48,
       padding: const EdgeInsetsDirectional.fromSTEB(
@@ -1296,13 +1465,13 @@ class _FilterDropdown extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: value,
+          value: resolvedValue,
           isExpanded: true,
           dropdownColor: FR.surface,
           icon: Icon(Icons.keyboard_arrow_down_rounded, color: FR.ink2),
           style: frText(12.5, FontWeight.w700, color: FR.ink),
           items: [
-            for (final (v, l) in items)
+            for (final (v, l) in uniqueItems)
               DropdownMenuItem(value: v, child: Text(l)),
           ],
           onChanged: (v) {
@@ -1477,18 +1646,25 @@ class _ChainFormResult {
 
 Future<_ChainFormResult?> _showChainFormSheet({
   required BuildContext context,
+  Map<String, dynamic>? initial,
+  String title = 'Zincir ekle',
 }) async {
-  final ctrl = TextEditingController();
-  var physical = true;
-  var online = false;
-  var active = true;
+  final ctrl = TextEditingController(text: (initial?['name'] ?? '').toString());
+  final supported = initial?['supportedChannels'];
+  var physical = (initial?['isPhysicalEnabled'] as bool?) ??
+      (initial?['supportsPhysical'] as bool?) ??
+      (supported is Map ? (supported['physical'] as bool? ?? true) : true);
+  var online = (initial?['isOnlineEnabled'] as bool?) ??
+      (initial?['supportsOnline'] as bool?) ??
+      (supported is Map ? (supported['online'] as bool? ?? false) : false);
+  var active = (initial?['isActive'] as bool?) ?? true;
   try {
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _AdminBottomSheetShell(
-        title: 'Zincir ekle',
+        title: title,
         subtitle: 'Marka / kaynak adını ve desteklediği satış kanallarını belirt.',
         child: StatefulBuilder(
           builder: (ctx, setInner) {
@@ -1534,7 +1710,7 @@ Future<_ChainFormResult?> _showChainFormSheet({
                     const SizedBox(width: 10),
                     Expanded(
                       child: FRCta(
-                        label: 'Zinciri ekle',
+                        label: initial == null ? 'Zinciri ekle' : 'Güncelle',
                         icon: Icons.add_rounded,
                         onTap: canSave ? () => Navigator.pop(ctx, true) : null,
                       ),
@@ -1671,19 +1847,45 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
   String initialCity = '',
   String initialDistrict = '',
   String? lockedSourceType,
+  Map<String, dynamic>? initial,
 }) async {
-  final nameCtrl = TextEditingController();
-  final addressCtrl = TextEditingController();
-  final websiteCtrl = TextEditingController();
-  final deepLinkCtrl = TextEditingController();
-  String? city = TurkeyLocations.canonicalCity(initialCity);
+  final initialSourceType = (initial?['sourceType'] ??
+          initial?['channel'] ??
+          lockedSourceType ??
+          'physical')
+      .toString();
+  final sourceFromType = (initial?['type'] ?? '').toString() == 'online_market'
+      ? 'online'
+      : initialSourceType;
+  final nameCtrl = TextEditingController(
+    text: (initial?['displayName'] ?? '').toString(),
+  );
+  final addressCtrl = TextEditingController(
+    text: (initial?['address'] ?? '').toString(),
+  );
+  final websiteCtrl = TextEditingController(
+    text: (initial?['websiteUrl'] ?? '').toString(),
+  );
+  final deepLinkCtrl = TextEditingController(
+    text: (initial?['appDeepLink'] ?? '').toString(),
+  );
+  final initialCityValue = (initial?['city'] ?? initialCity).toString();
+  final initialDistrictValue = (initial?['district'] ?? initialDistrict).toString();
+  String? city = TurkeyLocations.canonicalCity(initialCityValue);
   String? district =
-      city == null ? null : TurkeyLocations.canonicalDistrict(city, initialDistrict);
-  String sourceType = lockedSourceType ?? 'physical';
-  String? chainId;
-  String? chainName;
-  String type = sourceType == 'online' ? 'online_market' : 'local_market';
-  String status = 'verified';
+      city == null ? null : TurkeyLocations.canonicalDistrict(city, initialDistrictValue);
+  String sourceType = lockedSourceType ??
+      (sourceFromType == 'online' ? 'online' : 'physical');
+  String? chainId = (initial?['chainId'] ?? '').toString().trim().isEmpty
+      ? null
+      : (initial?['chainId'] ?? '').toString();
+  String? chainName = (initial?['chainName'] ?? '').toString().trim().isEmpty
+      ? null
+      : (initial?['chainName'] ?? '').toString();
+  String type = (initial?['type'] ?? '').toString().trim().isEmpty
+      ? (sourceType == 'online' ? 'online_market' : 'local_market')
+      : (initial?['type'] ?? '').toString();
+  String status = (initial?['status'] ?? 'verified').toString();
   try {
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -1691,7 +1893,9 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
       backgroundColor: Colors.transparent,
       builder: (ctx) => _AdminBottomSheetShell(
         title: title,
-        subtitle: 'Önce satış kanalını seç: fiziksel veya online',
+        subtitle: lockedSourceType == null
+            ? 'Önce satış kanalını seç: fiziksel veya online'
+            : 'Bilgileri güncelle; kanal sabit tutulur.',
         child: StatefulBuilder(
           builder: (ctx, setInner) {
             final hasName = nameCtrl.text.trim().isNotEmpty;
@@ -1756,7 +1960,7 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                   borderRadius: FRRad.all(FRRad.m),
                   onTap: () async {
                     final r = await showRegionPickerSheet(
-                      ctx,
+                      context,
                       initialCity: city,
                       initialDistrict: district,
                     );
@@ -1868,6 +2072,7 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                         ('pending', 'Pending'),
                         ('verified', 'Verified'),
                         ('trusted', 'Trusted'),
+                        ('rejected', 'Rejected'),
                       ],
                       onChanged: (v) => setInner(() => status = v),
                     ),
@@ -1887,7 +2092,7 @@ Future<_PlaceFormResult?> _showPlaceFormSheet({
                   const SizedBox(width: 10),
                   Expanded(
                     child: FRCta(
-                      label: 'Kaydet',
+                      label: initial == null ? 'Kaydet' : 'Güncelle',
                       icon: Icons.check_rounded,
                       onTap: canSave ? () => Navigator.pop(ctx, true) : null,
                     ),
