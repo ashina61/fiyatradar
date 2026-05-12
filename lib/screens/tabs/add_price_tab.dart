@@ -24,6 +24,7 @@ class AddPriceTab extends StatefulWidget {
 
 class _AddPriceTabState extends State<AddPriceTab> {
   static const _kStoreResultLimit = 30;
+  static const _kDefaultStoreResultLimit = 5;
   static const double _kPriceWarnLow = 0.5;
   // 5000 yerine 50000 — lüks et, kuruyemiş, alkollü içecek vb. uç ürünler
   // için bile makul. Üst limit hâlâ "uyarı modal", hard reject değil.
@@ -711,9 +712,13 @@ class _AddPriceTabState extends State<AddPriceTab> {
       ..sort((a, b) {
         final byStatus = _statusRank(a).compareTo(_statusRank(b));
         if (byStatus != 0) return byStatus;
-        return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
+        return a.displayName
+            .toLowerCase()
+            .compareTo(b.displayName.toLowerCase());
       });
-    return list.take(_kStoreResultLimit).toList();
+    final resultLimit =
+        hasSearch ? _kStoreResultLimit : _kDefaultStoreResultLimit;
+    return list.take(resultLimit).toList();
   }
 
   Future<void> _openSuggestPlaceSheet(AppState state) async {
@@ -914,7 +919,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
                           ? 'Migros Sanal, CarrefourSA Online, Trendyol Yemek…'
                           : 'BİM, A101, ŞOK, Migros…',
                       hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
-                      prefixIcon: Icon(Icons.search_rounded, color: FR.ink3, size: 18),
+                      prefixIcon:
+                          Icon(Icons.search_rounded, color: FR.ink3, size: 18),
                     ),
                   ),
                 ),
@@ -922,9 +928,11 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 _ChainQuickPickRow(
                   sourceType: _sourceType,
                   selectedChainId: _freeTextChainId,
-                  legacyStores: state.stores,
+                  quickPickStores: state.topStoresByFrequency(limit: 5),
                   onPick: (id, name) {
-                    if (_storeQueryCtrl.text != name) _storeQueryCtrl.text = name;
+                    if (_storeQueryCtrl.text != name) {
+                      _storeQueryCtrl.text = name;
+                    }
                     setState(() {
                       _selectedPlace = null;
                       _freeTextChainId = id;
@@ -1410,12 +1418,12 @@ class _ChainQuickPickRow extends StatelessWidget {
   const _ChainQuickPickRow({
     required this.sourceType,
     required this.selectedChainId,
-    required this.legacyStores,
+    required this.quickPickStores,
     required this.onPick,
   });
   final PriceSourceType sourceType;
   final String? selectedChainId;
-  final List<String> legacyStores;
+  final List<String> quickPickStores;
   final void Function(String id, String name) onPick;
 
   String get _channelKey => sourceType == PriceSourceType.online ? 'online' : 'physical';
@@ -1453,20 +1461,23 @@ class _ChainQuickPickRow extends StatelessWidget {
         }).toList(growable: false);
         final picks = <({String id, String name, bool legacy})>[];
         final seen = <String>{};
+        if (sourceType == PriceSourceType.physical) {
+          // Only the five most-used market names should be surfaced by default;
+          // everything else remains available through the search field below.
+          for (final legacyName in quickPickStores.take(5)) {
+            final name = legacyName.trim();
+            if (name.isEmpty) continue;
+            if (seen.add(name.toLowerCase())) {
+              picks.add((id: 'quick:$name', name: name, legacy: true));
+            }
+          }
+        }
         for (final d in docs) {
+          if (picks.length >= 5) break;
           final name = (d.data()['name'] ?? '').toString().trim();
           if (name.isEmpty) continue;
           if (seen.add(name.toLowerCase())) {
             picks.add((id: d.id, name: name, legacy: false));
-          }
-        }
-        if (sourceType == PriceSourceType.physical) {
-          for (final legacyName in legacyStores) {
-            final name = legacyName.trim();
-            if (name.isEmpty) continue;
-            if (seen.add(name.toLowerCase())) {
-              picks.add((id: 'legacy:$name', name: name, legacy: true));
-            }
           }
         }
         if (picks.isEmpty) return const SizedBox.shrink();
@@ -1474,7 +1485,7 @@ class _ChainQuickPickRow extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final pick in picks.take(32))
+            for (final pick in picks.take(5))
               Builder(builder: (context) {
                 final selected = selectedChainId == pick.id;
                 return InkWell(
