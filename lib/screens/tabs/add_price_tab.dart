@@ -1426,7 +1426,37 @@ class _ChainQuickPickRow extends StatelessWidget {
   final List<String> quickPickStores;
   final void Function(String id, String name) onPick;
 
-  String get _channelKey => sourceType == PriceSourceType.online ? 'online' : 'physical';
+  String get _channelKey =>
+      sourceType == PriceSourceType.online ? 'online' : 'physical';
+
+  bool _supportsSelectedChannel(Map<String, dynamic> data) {
+    final channel = (data['channel'] ?? data['sourceType'] ?? '').toString();
+    final type = (data['type'] ?? '').toString();
+    final supported = data['supportedChannels'];
+    if (supported is Map && supported[_channelKey] is bool) {
+      return supported[_channelKey] == true;
+    }
+    if (_channelKey == 'online') {
+      if (channel == 'online' || type == 'online_market') return true;
+      if (channel == 'physical' ||
+          type == 'chain_market' ||
+          type == 'local_market') {
+        return false;
+      }
+      return (data['isOnlineEnabled'] as bool?) ??
+          (data['supportsOnline'] as bool?) ??
+          false;
+    }
+    if (channel == 'online' || type == 'online_market') return false;
+    if (channel == 'physical' ||
+        type == 'chain_market' ||
+        type == 'local_market') {
+      return true;
+    }
+    return (data['isPhysicalEnabled'] as bool?) ??
+        (data['supportsPhysical'] as bool?) ??
+        true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1446,18 +1476,7 @@ class _ChainQuickPickRow extends StatelessWidget {
             .where((d) {
           final m = d.data();
           if (!((m['isActive'] as bool?) ?? true)) return false;
-          final supported = m['supportedChannels'];
-          if (supported is Map && supported[_channelKey] is bool) {
-            return supported[_channelKey] == true;
-          }
-          if (_channelKey == 'online') {
-            return (m['isOnlineEnabled'] as bool?) ??
-                (m['supportsOnline'] as bool?) ??
-                false;
-          }
-          return (m['isPhysicalEnabled'] as bool?) ??
-              (m['supportsPhysical'] as bool?) ??
-              true;
+          return _supportsSelectedChannel(m);
         }).toList(growable: false);
         final picks = <({String id, String name, bool legacy})>[];
         final seen = <String>{};

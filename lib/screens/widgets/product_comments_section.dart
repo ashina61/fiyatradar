@@ -18,6 +18,7 @@ class ProductCommentsSection extends StatefulWidget {
 class _ProductCommentsSectionState extends State<ProductCommentsSection> {
   final TextEditingController _controller = TextEditingController();
   bool _busy = false;
+  bool _showAllComments = false;
   String? _error;
 
   @override
@@ -99,9 +100,32 @@ class _ProductCommentsSectionState extends State<ProductCommentsSection> {
                 ),
               );
             }
+            final visible = _showAllComments ? list : list.take(3).toList();
             return Column(
               children: [
-                for (final c in list) ...[
+                if (list.length > 3) ...[
+                  Row(
+                    children: [
+                      Text(
+                        _showAllComments
+                            ? 'Tüm yorumlar gösteriliyor'
+                            : 'Son 3 yorum',
+                        style: frText(11.5, FontWeight.w800, color: FR.ink3),
+                      ),
+                      const Spacer(),
+                      _CommentsTogglePill(
+                        label: _showAllComments
+                            ? 'Son 3'
+                            : 'Tümü ${list.length}',
+                        onTap: () => setState(
+                          () => _showAllComments = !_showAllComments,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                for (final c in visible) ...[
                   _CommentTile(
                     comment: c,
                     isOwn: c.isOwnedBy(uid),
@@ -260,6 +284,46 @@ class _ProductCommentsSectionState extends State<ProductCommentsSection> {
         SnackBar(content: Text('Silinemedi: $e')),
       );
     }
+  }
+}
+
+class _CommentsTogglePill extends StatelessWidget {
+  const _CommentsTogglePill({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          FRSpace.m,
+          FRSpace.s,
+          FRSpace.m,
+          FRSpace.s,
+        ),
+        decoration: BoxDecoration(
+          color: FR.surfaceLo,
+          borderRadius: FRRad.all(999),
+          border: Border.all(color: FR.gold.withOpacity(.38)),
+          boxShadow: frGoldGlow(opacity: .08),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: frText(11.5, FontWeight.w800, color: FR.gold),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded, color: FR.gold, size: 16),
+          ],
+        ),
+      ),
+    );
   }
 }
 
