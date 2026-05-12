@@ -352,14 +352,17 @@ service cloud.firestore {
       }
 
       allow read: if true;
-      // Community can only create pending place requests; moderation is admin-only.
-      allow create: if signedIn() &&
-        hasSafeStorePlaceRequestPayload() &&
-        request.resource.data.status == 'pending' &&
-        request.resource.data.isActive == true &&
-        request.resource.data.createdByUid == request.auth.uid &&
-        (!('chainId' in request.resource.data) || request.resource.data.chainId == null || request.resource.data.chainId is string) &&
-        (!('chainName' in request.resource.data) || request.resource.data.chainName == null || request.resource.data.chainName is string);
+      // Admin panel owns the canonical store inventory. Admin-created places may
+      // include verified/trusted status and admin-only metadata; community users
+      // can only create pending place suggestions with the safe public payload.
+      allow create: if isAdmin() ||
+        (signedIn() &&
+          hasSafeStorePlaceRequestPayload() &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.isActive == true &&
+          request.resource.data.createdByUid == request.auth.uid &&
+          (!('chainId' in request.resource.data) || request.resource.data.chainId == null || request.resource.data.chainId is string) &&
+          (!('chainName' in request.resource.data) || request.resource.data.chainName == null || request.resource.data.chainName is string));
       allow update, delete: if isAdmin();
     }
 
