@@ -96,10 +96,10 @@ class StorePlace {
           ? (m['chainName'] as String)
           : null,
       type: storePlaceTypeFromString(m['type'] as String?),
-      displayName: (m['displayName'] ?? '') as String,
+      displayName: (m['displayName'] ?? m['name'] ?? '') as String,
       normalizedName: (m['normalizedName'] ?? '') as String,
-      city: (m['city'] ?? '') as String,
-      district: (m['district'] ?? '') as String,
+      city: (m['city'] ?? m['cityName'] ?? '') as String,
+      district: (m['district'] ?? m['districtName'] ?? '') as String,
       neighborhood: m['neighborhood'] as String?,
       lat: (m['lat'] as num?)?.toDouble(),
       lng: (m['lng'] as num?)?.toDouble(),

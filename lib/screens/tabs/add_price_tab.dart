@@ -501,13 +501,86 @@ class _AddPriceTabState extends State<AddPriceTab> {
     }
     q = q.where('status', whereIn: const ['verified', 'trusted']);
 
-    final searchText = _storeQueryCtrl.text.trim().toLowerCase();
+    final searchText = _normalizedStoreSearch;
     if (search && searchText.isNotEmpty) {
       return q
           .orderBy('normalizedName')
           .startAt([searchText]).endAt(['$searchText\uf8ff']).limit(_kStoreResultLimit);
     }
     return q.orderBy('usageCount', descending: true).limit(_kStoreResultLimit);
+  }
+
+  String get _normalizedStoreSearch => _normalizeStoreText(_storeQueryCtrl.text);
+
+  String _normalizeStoreText(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[^a-z0-9çğıöşü ]', unicode: true), '')
+      .trim();
+
+  bool _placeMatchesSource(StorePlace place) {
+    switch (_sourceType) {
+      case PriceSourceType.physical:
+        return place.type == StorePlaceType.chainMarket ||
+            place.type == StorePlaceType.localMarket;
+      case PriceSourceType.online:
+        return place.type == StorePlaceType.onlineMarket;
+      case PriceSourceType.bazaar:
+        return place.type == StorePlaceType.bazaar;
+    }
+  }
+
+  bool _placeMatchesRegion(StorePlace place, AppState state) {
+    if (_sourceType == PriceSourceType.online) return true;
+    final city = _normalizeStoreText(state.cityName ?? '');
+    final district = _normalizeStoreText(state.districtName ?? '');
+    return city.isNotEmpty &&
+        district.isNotEmpty &&
+        _normalizeStoreText(place.city) == city &&
+        _normalizeStoreText(place.district) == district;
+  }
+
+  bool _placeMatchesSearch(StorePlace place) {
+    final search = _normalizedStoreSearch;
+    if (search.isEmpty) return true;
+    final normalizedName = place.normalizedName.trim().isNotEmpty
+        ? _normalizeStoreText(place.normalizedName)
+        : _normalizeStoreText(place.displayName);
+    final displayName = _normalizeStoreText(place.displayName);
+    final chainName = _normalizeStoreText(place.chainName ?? '');
+    return normalizedName.contains(search) ||
+        displayName.contains(search) ||
+        chainName.contains(search);
+  }
+
+  bool _placeIsVisible(
+    StorePlace place,
+    AppState state, {
+    required bool includePending,
+  }) {
+    final status = place.status.trim().toLowerCase();
+    final visibleStatus = status == 'verified' ||
+        status == 'trusted' ||
+        (includePending && status == 'pending');
+    return place.isActive &&
+        visibleStatus &&
+        _placeMatchesSource(place) &&
+        _placeMatchesRegion(place, state) &&
+        _placeMatchesSearch(place);
+  }
+
+  int _statusRank(StorePlace place) {
+    switch (place.status.trim().toLowerCase()) {
+      case 'trusted':
+        return 0;
+      case 'verified':
+        return 1;
+      case 'pending':
+        return 2;
+      default:
+        return 3;
+    }
   }
 
   void _invalidatePlaceResults() {
@@ -542,20 +615,70 @@ class _AddPriceTabState extends State<AddPriceTab> {
     }
 
     final ownUid = state.user?.uid;
-    final hasSearch = _storeQueryCtrl.text.trim().isNotEmpty;
+    final hasSearch = _normalizedStoreSearch.isNotEmpty;
     final all = <String, StorePlace>{};
+
+    // Fast path: use the exact indexed query when the project has the store
+    // indexes deployed. This is intentionally followed by index-free fallbacks
+    // below; otherwise a missing composite index makes admin-created stores look
+    // like they do not exist in the add-price flow.
     try {
       final normalQuery = _basePlaceQuery(state, search: hasSearch);
       final normalSnap = await normalQuery.get();
       for (final d in normalSnap.docs) {
-        all[d.id] = StorePlace.fromDoc(d);
+        final place = StorePlace.fromDoc(d);
+        if (_placeIsVisible(place, state, includePending: false)) {
+          all[d.id] = place;
+        }
       }
     } catch (e) {
       // Surface via Flutter's debug log so it shows up in `flutter logs`
-      // (and gets stripped from release builds), instead of writing to
-      // stdout. We still try the user's own pending places below so the
-      // picker isn't completely empty if a Firestore index is missing.
-      debugPrint('add_price: place query failed → $e');
+      // (and gets stripped from release builds). Fallbacks below keep the
+      // picker usable even when Firestore indexes are not deployed yet.
+      debugPrint('add_price: indexed place query failed → $e');
+    }
+
+    // Fallback 1: broad active-place scan, filtered client-side. This avoids
+    // type/status/city/orderBy composite-index fragility and also tolerates
+    // legacy docs that have cityName/districtName mirrors but no deployed index.
+    if (all.length < _kStoreResultLimit) {
+      try {
+        final broadSnap = await FirebaseService.instance.storePlaces
+            .where('isActive', isEqualTo: true)
+            .limit(200)
+            .get();
+        for (final d in broadSnap.docs) {
+          final place = StorePlace.fromDoc(d);
+          if (_placeIsVisible(place, state, includePending: false)) {
+            all[d.id] = place;
+          }
+        }
+      } catch (e) {
+        debugPrint('add_price: broad place fallback failed → $e');
+      }
+    }
+
+    // Fallback 2: when the user searches, query only normalizedName prefix and
+    // then apply source/region/status locally. This catches admin-created
+    // stores outside the first 200 broad rows.
+    if (hasSearch && all.length < _kStoreResultLimit) {
+      try {
+        final search = _normalizedStoreSearch;
+        final searchSnap = await FirebaseService.instance.storePlaces
+            .orderBy('normalizedName')
+            .startAt([search])
+            .endAt(['$search\uf8ff'])
+            .limit(80)
+            .get();
+        for (final d in searchSnap.docs) {
+          final place = StorePlace.fromDoc(d);
+          if (_placeIsVisible(place, state, includePending: false)) {
+            all[d.id] = place;
+          }
+        }
+      } catch (e) {
+        debugPrint('add_price: search place fallback failed → $e');
+      }
     }
 
     if (ownUid != null && ownUid.isNotEmpty) {
@@ -575,25 +698,21 @@ class _AddPriceTabState extends State<AddPriceTab> {
             await ownPendingQ.limit(_kStoreResultLimit).get();
         for (final d in ownPendingSnap.docs) {
           final place = StorePlace.fromDoc(d);
-          if (_sourceType == PriceSourceType.physical &&
-              !(place.type == StorePlaceType.chainMarket || place.type == StorePlaceType.localMarket)) {
-            continue;
+          if (_placeIsVisible(place, state, includePending: true)) {
+            all[d.id] = place;
           }
-          if (_sourceType == PriceSourceType.bazaar && place.type != StorePlaceType.bazaar) {
-            continue;
-          }
-          if (isOnline && place.type != StorePlaceType.onlineMarket) {
-            continue;
-          }
-          all[d.id] = place;
         }
-      } catch (_) {
-        // Pending lookup is best-effort; fall through.
+      } catch (e) {
+        debugPrint('add_price: own pending place lookup failed → $e');
       }
     }
 
     final list = all.values.toList()
-      ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+      ..sort((a, b) {
+        final byStatus = _statusRank(a).compareTo(_statusRank(b));
+        if (byStatus != 0) return byStatus;
+        return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
+      });
     return list.take(_kStoreResultLimit).toList();
   }
 
@@ -803,6 +922,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 _ChainQuickPickRow(
                   sourceType: _sourceType,
                   selectedChainId: _freeTextChainId,
+                  legacyStores: state.stores,
                   onPick: (id, name) {
                     if (_storeQueryCtrl.text != name) _storeQueryCtrl.text = name;
                     setState(() {
@@ -1290,10 +1410,12 @@ class _ChainQuickPickRow extends StatelessWidget {
   const _ChainQuickPickRow({
     required this.sourceType,
     required this.selectedChainId,
+    required this.legacyStores,
     required this.onPick,
   });
   final PriceSourceType sourceType;
   final String? selectedChainId;
+  final List<String> legacyStores;
   final void Function(String id, String name) onPick;
 
   String get _channelKey => sourceType == PriceSourceType.online ? 'online' : 'physical';
@@ -1306,8 +1428,13 @@ class _ChainQuickPickRow extends StatelessWidget {
           .limit(24)
           .snapshots(),
       builder: (context, snap) {
-        if (snap.hasError) return const SizedBox.shrink();
-        final docs = (snap.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
+        if (snap.hasError) {
+          debugPrint('add_price: chain quick-pick failed → ${snap.error}');
+        }
+        final docs = (snap.hasError
+                ? const <QueryDocumentSnapshot<Map<String, dynamic>>>[]
+                : snap.data?.docs ??
+                    const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
             .where((d) {
           final m = d.data();
           if (!((m['isActive'] as bool?) ?? true)) return false;
@@ -1324,17 +1451,34 @@ class _ChainQuickPickRow extends StatelessWidget {
               (m['supportsPhysical'] as bool?) ??
               true;
         }).toList(growable: false);
-        if (docs.isEmpty) return const SizedBox.shrink();
+        final picks = <({String id, String name, bool legacy})>[];
+        final seen = <String>{};
+        for (final d in docs) {
+          final name = (d.data()['name'] ?? '').toString().trim();
+          if (name.isEmpty) continue;
+          if (seen.add(name.toLowerCase())) {
+            picks.add((id: d.id, name: name, legacy: false));
+          }
+        }
+        if (sourceType == PriceSourceType.physical) {
+          for (final legacyName in legacyStores) {
+            final name = legacyName.trim();
+            if (name.isEmpty) continue;
+            if (seen.add(name.toLowerCase())) {
+              picks.add((id: 'legacy:$name', name: name, legacy: true));
+            }
+          }
+        }
+        if (picks.isEmpty) return const SizedBox.shrink();
         return Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final d in docs)
+            for (final pick in picks.take(32))
               Builder(builder: (context) {
-                final selected = selectedChainId == d.id;
-                final name = (d.data()['name'] ?? '').toString();
+                final selected = selectedChainId == pick.id;
                 return InkWell(
-                  onTap: () => onPick(d.id, name),
+                  onTap: () => onPick(pick.id, pick.name),
                   borderRadius: FRRad.all(999),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
@@ -1345,9 +1489,26 @@ class _ChainQuickPickRow extends StatelessWidget {
                       border: Border.all(color: selected ? FR.gold : FR.hairline),
                       boxShadow: selected ? frGoldGlow(opacity: .14) : null,
                     ),
-                    child: Text(
-                      name,
-                      style: frText(11.5, FontWeight.w800, color: selected ? FR.onGold : FR.ink),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          pick.name,
+                          style: frText(
+                            11.5,
+                            FontWeight.w800,
+                            color: selected ? FR.onGold : FR.ink,
+                          ),
+                        ),
+                        if (pick.legacy) ...[
+                          const SizedBox(width: 5),
+                          Icon(
+                            Icons.history_rounded,
+                            size: 11,
+                            color: selected ? FR.onGold : FR.ink3,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 );
