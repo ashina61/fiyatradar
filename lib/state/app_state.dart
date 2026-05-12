@@ -985,6 +985,12 @@ class AppState extends ChangeNotifier {
         .limit(limit);
   }
 
+  Query<Map<String, dynamic>> _baseCommunityGroupQuery({required int limit}) {
+    return _svc.priceGroups
+        .orderBy('lastReportedAt', descending: true)
+        .limit(limit);
+  }
+
   PriceEntry _priceEntryFromDoc(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
   ) {
@@ -1010,6 +1016,34 @@ class AppState extends ChangeNotifier {
         'rejected' => PriceStatus.rejected,
         _ => PriceStatus.pending,
       },
+    );
+  }
+
+  PriceEntry _priceEntryFromGroupDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final m = doc.data();
+    final ts = m['lastReportedAt'];
+    final verifiedCount = (m['verifiedCount'] as num?)?.toInt() ?? 0;
+    return PriceEntry(
+      id: doc.id,
+      store: (m['chainName'] ?? '').toString(),
+      price: (m['latestPrice'] as num?)?.toDouble() ??
+          (m['trustedPrice'] as num?)?.toDouble() ??
+          (m['avgPrice'] as num?)?.toDouble() ??
+          0,
+      date: ts is Timestamp ? ts.toDate() : DateTime.now(),
+      reportedBy: 'Topluluk',
+      reportedByUid: (m['lastReporterId'] ?? '').toString(),
+      city: (m['cityName'] as String?)?.trim().isNotEmpty == true
+          ? (m['cityName'] as String)
+          : null,
+      district: (m['districtName'] as String?)?.trim().isNotEmpty == true
+          ? (m['districtName'] as String)
+          : null,
+      status: verifiedCount > 0
+          ? PriceStatus.communityVerified
+          : PriceStatus.pending,
     );
   }
 
@@ -1080,13 +1114,13 @@ class AppState extends ChangeNotifier {
     _regionalPriceEntriesSub?.cancel();
     final city = (cityName ?? '').trim();
     final district = (districtName ?? '').trim();
-    Query<Map<String, dynamic>> q = _baseScopedPriceQuery(limit: 120);
-    // Fresh-install / guest fallback: when the user lands on Yakınımda or
-    // Şehrimde without a saved region, we used to clear the feed and the
-    // home tab went silent — old prices that friends had added stayed
-    // hidden until the user remembered to pick İl/İlçe. Falling back to
-    // Türkiye-wide local entries keeps community contributions visible
-    // and the user can still scope down by tapping the filter chip.
+    // Home community feed follows the current regional aggregate backbone
+    // (`priceGroups`). The legacy `price_entries` mirror can be disabled or
+    // absent, so listening to it made newly submitted prices disappear from the
+    // public home feed even though the report was accepted.
+    final q = _baseCommunityGroupQuery(limit: 120);
+    // Keep the query index-light (order + limit only) and filter scope locally;
+    // priceGroups are public-readable aggregate documents, not private reports.
     var effectiveScope = activeHomeScope;
     if (effectiveScope == HomePriceScope.nearby &&
         (city.isEmpty || district.isEmpty)) {
@@ -1094,37 +1128,32 @@ class AppState extends ChangeNotifier {
     } else if (effectiveScope == HomePriceScope.city && city.isEmpty) {
       effectiveScope = HomePriceScope.turkeyWide;
     }
-    switch (effectiveScope) {
-      case HomePriceScope.nearby:
-        q = q
-            .where('scope', whereIn: const ['local', 'bazaar'])
-            .where('city', isEqualTo: city)
-            .where('district', isEqualTo: district);
-        break;
-      case HomePriceScope.city:
-        q = q
-            .where('scope', whereIn: const ['local', 'bazaar'])
-            .where('city', isEqualTo: city);
-        break;
-      case HomePriceScope.online:
-        q = q.where('scope', isEqualTo: 'online');
-        break;
-      case HomePriceScope.turkeyWide:
-        q = q.where('scope', whereIn: const ['local', 'bazaar']);
-        break;
-    }
     _regionalPriceEntriesSub = q.snapshots().listen((snap) {
       final next = <String, PriceEntry?>{};
       for (final d in snap.docs) {
         final m = d.data();
         final pid = (m['productId'] ?? '').toString();
         if (pid.isEmpty || next.containsKey(pid)) continue;
-        next[pid] = _priceEntryFromDoc(d);
+        final groupCity = (m['cityName'] ?? '').toString().trim();
+        final groupDistrict = (m['districtName'] ?? '').toString().trim();
+        final isOnlineGroup =
+            groupCity == 'Türkiye' && groupDistrict == 'Online';
+        final scopeMatches = switch (effectiveScope) {
+          HomePriceScope.nearby =>
+            !isOnlineGroup && groupCity == city && groupDistrict == district,
+          HomePriceScope.city => !isOnlineGroup && groupCity == city,
+          HomePriceScope.online => isOnlineGroup,
+          HomePriceScope.turkeyWide => !isOnlineGroup,
+        };
+        if (!scopeMatches) continue;
+        next[pid] = _priceEntryFromGroupDoc(d);
       }
       _homeScopedEntryByProduct
         ..clear()
         ..addAll(next);
       notifyListeners();
+    }, onError: (Object e) {
+      debugPrint('home_feed: priceGroups listener failed → $e');
     });
   }
 
