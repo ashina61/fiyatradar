@@ -837,9 +837,17 @@ class ReleaseNotesScreen extends StatelessWidget {
           '"Fiyat ekle" akışı sadeleştirildi: kalın "Radar Ekosistemi" kartı '
               'yerine ince ilerleme şeridi geldi, kaynak türü chip\'leri 3. '
               'adımın içine taşındı, alttaki bilgi kutusu kaldırıldı.',
-          'Admin paneli: 8 sekme yatay kaydırma yerine GENEL / KATALOG / '
-              'FİYAT / SİSTEM gruplarına bölündü, her sekmeye ikon eklendi, '
-              'aktif başlık üstte canlı gösteriliyor.',
+          'Admin paneli baştan yazıldı: 9 sekme yerine PANEL / KATALOG / '
+              'FİYAT / MAĞAZA / SİSTEM olmak üzere 5 mantıksal modüle ayrıldı. '
+              'Mağaza sekmesi artık zincir, fiziksel ve online sayaçlarını, '
+              'bekleyen onayları ve son hareketleri inline gösteriyor; yeni '
+              'şube / zincir / online kısayolları doğrudan ilgili form '
+              'sheet\'ini açıyor.',
+          'Play Store yayını için release imza yapılandırması güncellendi: '
+              'android/key.properties dosyası üzerinden upload keystore '
+              'okunuyor, geliştirme makinelerinde dosya yoksa debug imzayla '
+              'geri düşüyor. ProGuard kurallarına Play Billing, Mobile '
+              'Scanner ve diğer plugin grupları eklendi.',
         ],
       ),
       (

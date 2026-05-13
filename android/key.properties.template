@@ -1,0 +1,14 @@
+# FiyatRadar Android release imzası
+# Bu dosyayı `key.properties` olarak kopyalayın (gitignored) ve değerleri doldurun.
+#
+# Yeni keystore oluşturmak için (bir defalık):
+#   keytool -genkey -v -keystore upload-keystore.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias fiyatradar
+#
+# Sonra bu .jks dosyasını android/ altında (veya başka güvenli yerde) saklayın
+# ve `storeFile` değerini doldurun. .jks dosyası asla repo'ya commit edilmez.
+
+storePassword=
+keyPassword=
+keyAlias=fiyatradar
+storeFile=../upload-keystore.jks

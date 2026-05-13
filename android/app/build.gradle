@@ -23,6 +23,20 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+// Play Store release imzası: android/key.properties dosyasından okunur.
+// Bu dosya .gitignore'da; geliştirici makinelerinde key.properties yoksa
+// derleme yine debug imzasıyla devam eder (CI ve geliştirme akışı kırılmaz),
+// ama Play Store yüklemesi için release keystore zorunludur.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withReader('UTF-8') { reader ->
+        keystoreProperties.load(reader)
+    }
+}
+def hasReleaseKeystore = keystoreProperties.getProperty('storeFile') != null &&
+        file(keystoreProperties.getProperty('storeFile')).exists()
+
 android {
     namespace "com.fiyatradar"
     compileSdk 35
@@ -52,9 +66,22 @@ android {
         multiDexEnabled true
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                keyAlias keystoreProperties.getProperty('keyAlias')
+                keyPassword keystoreProperties.getProperty('keyPassword')
+                storeFile file(keystoreProperties.getProperty('storeFile'))
+                storePassword keystoreProperties.getProperty('storePassword')
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            // key.properties varsa release keystore'u, yoksa debug imzayı
+            // kullan. Play Store yüklemesi için key.properties zorunlu.
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
