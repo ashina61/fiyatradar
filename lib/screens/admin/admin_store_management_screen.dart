@@ -10,7 +10,20 @@ import '../widgets/region_picker_sheet.dart';
 import 'admin_shared_widgets.dart';
 
 class AdminStoreManagementScreen extends StatefulWidget {
-  const AdminStoreManagementScreen({super.key});
+  const AdminStoreManagementScreen({
+    super.key,
+    this.initialTab = 0,
+    this.openCreateOnLaunch = false,
+  });
+
+  /// Deep-link entry: 0=Zincirler, 1=Fiziksel, 2=Online, 3=Bekleyen, 4=Eski.
+  /// Admin panelinden gelen "şube ekle" gibi kısayollar uygun sekmeyi açar.
+  final int initialTab;
+
+  /// Açılır açılmaz ilgili sekmenin "yeni kayıt" sheet'ini açar.
+  /// Mağaza yönetiminin admin panel kısayollarından gelen "Yeni şube"
+  /// gibi aksiyonlar için kullanılır.
+  final bool openCreateOnLaunch;
 
   @override
   State<AdminStoreManagementScreen> createState() =>
@@ -46,9 +59,17 @@ class _AdminStoreManagementScreenState
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialTab.clamp(0, _tabs.length - 1);
+    _tab = initial;
+    if (initial == 1) _placeChannel = 'physical';
+    if (initial == 2) _placeChannel = 'online';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _loadingPlaces) return;
       _loadPlaces(reset: true);
+      if (widget.openCreateOnLaunch && (initial == 0 || initial == 1 || initial == 2)) {
+        // Kısayol akışında açılışta yeni kayıt sheet'i otomatik açılır.
+        _onAddPressed();
+      }
     });
   }
 
