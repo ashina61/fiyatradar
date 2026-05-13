@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/product.dart';
@@ -457,12 +459,79 @@ class _BannerCarousel extends StatefulWidget {
   State<_BannerCarousel> createState() => _BannerCarouselState();
 }
 
-class _BannerCarouselState extends State<_BannerCarousel> {
-  final PageController _ctrl = PageController(viewportFraction: .92);
+class _BannerCarouselState extends State<_BannerCarousel>
+    with SingleTickerProviderStateMixin {
+  // Auto-rotate so featured editorial content cycles without forcing the
+  // user to swipe. 6s/page sits between "noticed" and "patient" for casual
+  // browsing. Drag input pauses the timer; we restart it after 4s of idle.
+  static const _autoInterval = Duration(seconds: 6);
+  static const _resumeIdle = Duration(seconds: 4);
+  static const _cardHeight = 168.0;
+
+  final PageController _ctrl = PageController(viewportFraction: .9);
+  late final AnimationController _progress = AnimationController(
+    vsync: this,
+    duration: _autoInterval,
+  );
+  Timer? _autoTimer;
+  Timer? _resumeTimer;
   int _page = 0;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.banners.length > 1) _startAuto();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BannerCarousel old) {
+    super.didUpdateWidget(old);
+    if (widget.banners.length != old.banners.length) {
+      if (_page >= widget.banners.length) _page = 0;
+      if (widget.banners.length > 1) {
+        _startAuto();
+      } else {
+        _stopAuto();
+      }
+    }
+  }
+
+  void _startAuto() {
+    _stopAuto();
+    if (!mounted || widget.banners.length <= 1) return;
+    _progress
+      ..reset()
+      ..forward();
+    _autoTimer = Timer.periodic(_autoInterval, (_) {
+      if (!mounted || !_ctrl.hasClients) return;
+      final next = (_page + 1) % widget.banners.length;
+      _ctrl.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  void _stopAuto() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+    _progress.stop();
+  }
+
+  void _pauseAndScheduleResume() {
+    _stopAuto();
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(_resumeIdle, () {
+      if (mounted) _startAuto();
+    });
+  }
+
+  @override
   void dispose() {
+    _autoTimer?.cancel();
+    _resumeTimer?.cancel();
+    _progress.dispose();
     _ctrl.dispose();
     super.dispose();
   }
@@ -471,40 +540,60 @@ class _BannerCarouselState extends State<_BannerCarousel> {
   Widget build(BuildContext context) {
     final banners = widget.banners;
     if (banners.isEmpty) return const SizedBox.shrink();
+    final multi = banners.length > 1;
     return Column(
       children: [
         SizedBox(
-          height: 132,
-          child: PageView.builder(
-            controller: _ctrl,
-            itemCount: banners.length,
-            onPageChanged: (i) => setState(() => _page = i),
-            itemBuilder: (_, i) {
-              final b = banners[i];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: _BannerCard(banner: b),
-              );
+          height: _cardHeight,
+          // ScrollStartNotification.dragDetails is non-null only for
+          // user-initiated drags, so programmatic animateToPage calls
+          // don't accidentally pause the auto-rotation timer.
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is ScrollStartNotification && n.dragDetails != null) {
+                _pauseAndScheduleResume();
+              }
+              return false;
             },
+            child: PageView.builder(
+              controller: _ctrl,
+              itemCount: banners.length,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: (i) {
+                setState(() => _page = i);
+                if (multi && _autoTimer != null) {
+                  _progress
+                    ..reset()
+                    ..forward();
+                }
+              },
+              itemBuilder: (_, i) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: _BannerCard(
+                    banner: banners[i],
+                    index: i,
+                    count: banners.length,
+                  ),
+                );
+              },
+            ),
           ),
         ),
-        if (banners.length > 1) ...[
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(banners.length, (i) {
-              final active = i == _page;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: active ? 18 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: active ? FR.gold : FR.hairline,
-                  borderRadius: FRRad.all(999),
-                ),
+        if (multi) ...[
+          const SizedBox(height: 12),
+          _BannerProgressBar(
+            count: banners.length,
+            active: _page,
+            progress: _progress,
+            onTap: (i) {
+              _pauseAndScheduleResume();
+              _ctrl.animateToPage(
+                i,
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeOutCubic,
               );
-            }),
+            },
           ),
         ],
       ],
@@ -512,9 +601,68 @@ class _BannerCarouselState extends State<_BannerCarousel> {
   }
 }
 
+class _BannerProgressBar extends StatelessWidget {
+  const _BannerProgressBar({
+    required this.count,
+    required this.active,
+    required this.progress,
+    required this.onTap,
+  });
+  final int count;
+  final int active;
+  final AnimationController progress;
+  final void Function(int) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final isActive = i == active;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: InkWell(
+            onTap: () => onTap(i),
+            borderRadius: FRRad.all(999),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              width: isActive ? 28 : 8,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isActive ? FR.gold.withOpacity(.22) : FR.hairline,
+                borderRadius: FRRad.all(999),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: isActive
+                  ? AnimatedBuilder(
+                      animation: progress,
+                      builder: (_, __) => Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: progress.value.clamp(0.0, 1.0),
+                          child: Container(color: FR.gold),
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
 class _BannerCard extends StatelessWidget {
-  const _BannerCard({required this.banner});
+  const _BannerCard({
+    required this.banner,
+    required this.index,
+    required this.count,
+  });
   final AppBanner banner;
+  final int index;
+  final int count;
 
   void _onTap(BuildContext context) {
     final state = AppStateScope.read(context);
@@ -530,112 +678,202 @@ class _BannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => _onTap(context),
-      borderRadius: FRRad.all(20),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: FR.surface,
-          borderRadius: FRRad.all(20),
-          border: Border.all(color: FR.hairline),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (banner.hasImage)
-              Image.network(
-                banner.imageUrl!,
-                fit: BoxFit.cover,
-                // Banner card is ~92% viewport width; 800px decoded width
-                // gives crisp results on retina without needlessly
-                // decoding 1200px frames into the GPU cache.
-                cacheWidth: 800,
-                filterQuality: FilterQuality.medium,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            if (banner.hasImage)
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      FR.bg.withOpacity(.55),
-                      FR.bg.withOpacity(.86),
+    final hasImage = banner.hasImage;
+    final subtitle = banner.subtitle.trim();
+    final actionLabel =
+        banner.actionLabel.trim().isEmpty ? 'Keşfet' : banner.actionLabel;
+
+    // Title sits on top of the image so it always reads as light text on
+    // a darkened bottom; on plain (image-less) cards it reverts to the
+    // standard ink hierarchy.
+    final Color titleColor =
+        hasImage ? const Color(0xFFFBF6EE) : FR.ink;
+    final Color subtitleColor = hasImage
+        ? const Color(0xFFFBF6EE).withOpacity(.78)
+        : FR.ink3;
+
+    return Semantics(
+      button: true,
+      label: count > 1
+          ? '${banner.title}. ${subtitle.isEmpty ? '' : '$subtitle. '}Banner ${index + 1} / $count'
+          : '${banner.title}. ${subtitle.isEmpty ? '' : subtitle}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _onTap(context),
+          borderRadius: FRRad.all(FRRad.xxl),
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: FR.surface,
+              borderRadius: FRRad.all(FRRad.xxl),
+              border: Border.all(color: FR.goldDeep.withOpacity(.22)),
+              boxShadow: frShadow(blur: 18, y: 8, opacity: .12),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (hasImage)
+                  Image.network(
+                    banner.imageUrl!,
+                    fit: BoxFit.cover,
+                    // Card sits at ~88% viewport width; 900px gives a
+                    // crisp render on retina without inflating the
+                    // GPU cache.
+                    cacheWidth: 900,
+                    filterQuality: FilterQuality.medium,
+                    loadingBuilder: (_, child, prog) {
+                      if (prog == null) return child;
+                      return Container(color: FR.surfaceHi);
+                    },
+                    errorBuilder: (_, __, ___) => _BannerImageFallback(),
+                  )
+                else
+                  const _BannerPlainBackdrop(),
+                if (hasImage)
+                  // Bottom-anchored gradient: keep imagery vivid up top,
+                  // drop to a dark espresso wash where the text lives so
+                  // the title stays legible regardless of subject matter.
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0.0, 0.42, 1.0],
+                          colors: [
+                            Colors.transparent,
+                            const Color(0xFF1A0F06).withOpacity(.38),
+                            const Color(0xFF120B07).withOpacity(.92),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (count > 1)
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: hasImage
+                                  ? const Color(0xFF120B07).withOpacity(.45)
+                                  : FR.surfaceHi,
+                              borderRadius: FRRad.all(999),
+                              border: Border.all(
+                                color: hasImage
+                                    ? Colors.white.withOpacity(.22)
+                                    : FR.hairline,
+                              ),
+                            ),
+                            child: Text(
+                              '${index + 1} / $count',
+                              style: frText(10, FontWeight.w800,
+                                  color: hasImage
+                                      ? const Color(0xFFFBF6EE)
+                                      : FR.ink3,
+                                  letter: .6),
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                      Text(
+                        banner.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: frDisplay(18, FontWeight.w700,
+                            color: titleColor, height: 1.18),
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: frText(12, FontWeight.w600,
+                              color: subtitleColor, height: 1.4),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(13, 7, 11, 7),
+                        decoration: BoxDecoration(
+                          color: FR.gold,
+                          borderRadius: FRRad.all(999),
+                          boxShadow: frGoldGlow(opacity: hasImage ? .3 : .22),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              actionLabel,
+                              style: frText(11.5, FontWeight.w800,
+                                  color: FR.onGold, letter: .2),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(Icons.arrow_forward_rounded,
+                                size: 13, color: FR.onGold),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          banner.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: frDisplay(15, FontWeight.w700, height: 1.2),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          banner.subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: frText(11.5, FontWeight.w600,
-                              color: FR.ink3, height: 1.4),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: FR.gold.withOpacity(.16),
-                            borderRadius: FRRad.all(999),
-                            border: Border.all(color: FR.gold.withOpacity(.4)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                banner.actionLabel,
-                                style: frText(10.5, FontWeight.w800,
-                                    color: FR.gold, letter: .4),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(Icons.arrow_forward_rounded,
-                                  size: 12, color: FR.gold),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!banner.hasImage) ...[
-                    const SizedBox(width: 10),
-                    Container(
-                      width: 64,
-                      height: 64,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: FR.gold.withOpacity(.12),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: FR.gold.withOpacity(.3)),
-                      ),
-                      child: Icon(Icons.campaign_rounded,
-                          color: FR.gold, size: 28),
-                    ),
-                  ],
-                ],
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _BannerPlainBackdrop extends StatelessWidget {
+  const _BannerPlainBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [FR.surfaceHi, FR.surfaceLo],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        Positioned(
+          right: -28,
+          top: -22,
+          child: Icon(Icons.campaign_rounded,
+              size: 168, color: FR.gold.withOpacity(.09)),
+        ),
+      ],
+    );
+  }
+}
+
+class _BannerImageFallback extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const _BannerPlainBackdrop(),
+        Center(
+          child: Icon(Icons.broken_image_outlined,
+              color: FR.ink3, size: 32),
+        ),
+      ],
     );
   }
 }
