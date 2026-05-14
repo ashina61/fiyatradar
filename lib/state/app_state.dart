@@ -993,13 +993,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Query<Map<String, dynamic>> _baseScopedPriceQuery({required int limit}) {
-    return _svc.priceEntries
-        .where('status', whereIn: _visiblePriceStatuses)
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
-  }
-
   Query<Map<String, dynamic>> _baseCommunityGroupQuery({required int limit}) {
     return _svc.priceGroups
         .orderBy('lastReportedAt', descending: true)

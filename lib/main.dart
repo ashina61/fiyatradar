@@ -16,7 +16,6 @@ import 'services/ads_service.dart';
 import 'services/messaging_service.dart';
 import 'services/premium_service.dart';
 import 'state/app_state.dart';
-import 'ui/components.dart';
 import 'ui/fr_theme.dart';
 import 'ui/tokens.dart';
 
