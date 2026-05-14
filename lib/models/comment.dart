@@ -17,12 +17,14 @@ class ProductComment {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  /// Optional denormalized author fields. They are NOT validated by the
-  /// rules (they're not in the `hasOnly` allowlist), so writes that include
-  /// them will be rejected. Kept here as nullable for future once the rules
-  /// expand.
+  /// Denormalized author profile, written at create time so listing a
+  /// product's comments doesn't require N user-doc fetches. Owner can also
+  /// refresh these fields on edit (e.g. after a new profile photo). Firestore
+  /// rules whitelist them in `hasSafeCommentCreatePayload`.
   final String? authorName;
   final String? authorAvatar;
+  final bool authorIsPro;
+  final int? authorTrustPercent;
 
   const ProductComment({
     required this.id,
@@ -35,6 +37,8 @@ class ProductComment {
     this.updatedAt,
     this.authorName,
     this.authorAvatar,
+    this.authorIsPro = false,
+    this.authorTrustPercent,
   });
 
   bool get isEdited => updatedAt != null && updatedAt!.isAfter(createdAt);
@@ -56,6 +60,14 @@ class ProductComment {
       likedBy: likedByRaw.map((e) => e.toString()).toList(growable: false),
       createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
       updatedAt: updated is Timestamp ? updated.toDate() : null,
+      authorName: (m['authorName'] as String?)?.trim().isNotEmpty == true
+          ? (m['authorName'] as String).trim()
+          : null,
+      authorAvatar: (m['authorAvatar'] as String?)?.trim().isNotEmpty == true
+          ? (m['authorAvatar'] as String).trim()
+          : null,
+      authorIsPro: (m['authorIsPro'] as bool?) == true,
+      authorTrustPercent: (m['authorTrustPercent'] as num?)?.toInt(),
     );
   }
 }

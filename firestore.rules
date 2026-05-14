@@ -56,6 +56,12 @@ service cloud.firestore {
         'displayName',
         'username',
         'usernameHandle',
+        // Kullanıcı adı son değiştirilme zamanı — 3 ay cooldown kontrolü
+        // için. Sadece kullanıcının kendi adını gerçekten değiştirdiği
+        // anda yazılmalı (`hasSafeUsernameChange` doğrular).
+        'usernameChangedAt',
+        // Yaş onayı (KVKK / Play Console data-safety 13+ taahhüdü).
+        'ageConfirmedAt',
         'phoneNumber',
         'cityCode',
         'cityName',
@@ -108,6 +114,32 @@ service cloud.firestore {
             request.resource.data.avatarUrl.size() <= 2048));
     }
 
+    // Kullanıcı adı değişiklik cooldown'u: handle gerçekten değişiyorsa
+    // (önceki ile farklıysa) `usernameChangedAt` yazılmış olmalı ve son
+    // değişiklik en az 90 gün önce olmalı. UI tarafı (AppState) da bunu
+    // önce kendi kontrol eder; bu kural client'i atlayan client'lara karşı
+    // backstop. Admin override hâlâ var.
+    function hasSafeUsernameCooldown() {
+      let next = request.resource.data;
+      let prev = resource.data;
+      let nextHandle = ('usernameHandle' in next) ? next.usernameHandle : '';
+      let prevHandle = ('usernameHandle' in prev) ? prev.usernameHandle : '';
+      let handleChanged = nextHandle != prevHandle;
+      let lastChange = ('usernameChangedAt' in prev) ? prev.usernameChangedAt : null;
+      return !handleChanged ||
+        (
+          ('usernameChangedAt' in next) &&
+          next.usernameChangedAt is timestamp &&
+          (
+            lastChange == null ||
+            !(lastChange is timestamp) ||
+            // 90 gün = 7,776,000,000,000 mikrosaniye. Firestore rules
+            // duration aritmetiği üzerinden ifade edersek:
+            request.time >= lastChange + duration.value(90, 'd')
+          )
+        );
+    }
+
     function hasSafeUserCreateDefaults() {
       return (!('isAdmin' in request.resource.data) || request.resource.data.isAdmin == false) &&
         (!('role' in request.resource.data) || request.resource.data.role == 'user') &&
@@ -134,7 +166,13 @@ service cloud.firestore {
         'likes',
         'likedBy',
         'createdAt',
-        'updatedAt'
+        'updatedAt',
+        // Denormalize edilmiş yazar bilgileri — yorum listelenirken her
+        // satır için kullanıcı dokümanını ayrı ayrı okumamak için.
+        'authorName',
+        'authorAvatar',
+        'authorIsPro',
+        'authorTrustPercent'
       ]) &&
       ('productId' in request.resource.data) &&
       ('userId' in request.resource.data) &&
@@ -143,13 +181,21 @@ service cloud.firestore {
       (request.resource.data.userId is string) &&
       (request.resource.data.text is string) &&
       (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
-      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+      (!('authorName' in request.resource.data) || request.resource.data.authorName is string) &&
+      (!('authorAvatar' in request.resource.data) || request.resource.data.authorAvatar is string) &&
+      (!('authorIsPro' in request.resource.data) || request.resource.data.authorIsPro is bool) &&
+      (!('authorTrustPercent' in request.resource.data) || request.resource.data.authorTrustPercent is int);
     }
 
     function hasOnlyCommentOwnerWritableKeys() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'text',
-        'updatedAt'
+        'updatedAt',
+        'authorName',
+        'authorAvatar',
+        'authorIsPro',
+        'authorTrustPercent'
       ]);
     }
 
@@ -230,6 +276,7 @@ service cloud.firestore {
           hasOnlyUserWritableKeys() &&
           hasNoImmutableUserChanges() &&
           hasSafeProfileImageMutation(uid) &&
+          hasSafeUsernameCooldown() &&
           hasSafeUserGamificationMutation()
         );
 
@@ -349,6 +396,7 @@ service cloud.firestore {
           'city',
           'district',
           'neighborhood',
+          'marketDays',
           'lat',
           'lng',
           'channel',
@@ -377,6 +425,22 @@ service cloud.firestore {
         (!('address' in request.resource.data) || request.resource.data.address is string) &&
         (!('websiteUrl' in request.resource.data) || request.resource.data.websiteUrl is string) &&
         (!('appDeepLink' in request.resource.data) || request.resource.data.appDeepLink is string) &&
+        // Mahalle pazarı için marketDays: lowercase İngilizce gün isimleri
+        // listesi. Bazaar dışındaki yerlerde boş ya da hiç olmamalı; bazaar
+        // olduğunda en az bir gün olmalı (UI tarafı da bunu zorluyor).
+        (!('marketDays' in request.resource.data) ||
+          (request.resource.data.marketDays is list &&
+            request.resource.data.marketDays.size() <= 7)) &&
+        (request.resource.data.type != 'bazaar' ||
+          ('marketDays' in request.resource.data &&
+            request.resource.data.marketDays is list &&
+            request.resource.data.marketDays.size() >= 1)) &&
+        // Mahalle pazarı için mahalle alanı zorunlu — Çekmeköy → Aydınlar
+        // Mah. → Perşembe gibi grupları doğru hizalayabilelim.
+        (request.resource.data.type != 'bazaar' ||
+          ('neighborhood' in request.resource.data &&
+            request.resource.data.neighborhood is string &&
+            request.resource.data.neighborhood.size() > 0)) &&
         (request.resource.data.type == 'online_market' || (request.resource.data.city.size() > 0 && request.resource.data.district.size() > 0)) &&
         request.resource.data.usageCount == 0;
       }
@@ -755,7 +819,14 @@ service cloud.firestore {
         (
           signedIn() &&
           resource.data.userId == request.auth.uid &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt']) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'text',
+            'updatedAt',
+            'authorName',
+            'authorAvatar',
+            'authorIsPro',
+            'authorTrustPercent'
+          ]) &&
           request.resource.data.text is string &&
           request.resource.data.text.size() > 0 &&
           request.resource.data.text.size() <= 500

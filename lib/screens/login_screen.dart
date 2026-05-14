@@ -34,6 +34,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _registerMode = false;
   bool _obscure = true;
   bool _submitting = false;
+  /// Tek bir kutuyla hem 18+ yaş beyanı, hem KVKK + sözleşme onayı alıyoruz
+  /// — `_ConsentRow` metni "18 yaşından büyüğüm; … kabul ediyorum (KVKK)"
+  /// şeklinde. Kayıtta `users/{uid}.ageConfirmedAt` ve `users/{uid}.consents`
+  /// ayrı alanlar olarak yazılır (Play Console data-safety + audit trail).
   bool _consentAccepted = false;
   String? _error;
 
@@ -89,6 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
               'privacyVersion': _kConsentVersion,
               'acceptedAt': FieldValue.serverTimestamp(),
             },
+            'ageConfirmedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         }
       } else {

@@ -721,6 +721,27 @@ class _AddPriceTabState extends State<AddPriceTab> {
     return list.take(resultLimit).toList();
   }
 
+  /// Pazar (bazaar) seçimi yapılırken, bugün kurulan pazarları başa al;
+  /// kullanıcı "şu an gittiğim pazarı" hızlı seçebilsin. Bazaar dışındaki
+  /// kaynaklarda listeyi olduğu gibi döndürür.
+  List<StorePlace> _orderBazaarsByToday(List<StorePlace> places) {
+    if (_sourceType != PriceSourceType.bazaar) return places;
+    final now = DateTime.now();
+    final bazaarToday = <StorePlace>[];
+    final bazaarOther = <StorePlace>[];
+    final nonBazaar = <StorePlace>[];
+    for (final p in places) {
+      if (!p.isBazaar) {
+        nonBazaar.add(p);
+      } else if (p.isOpenToday(now: now)) {
+        bazaarToday.add(p);
+      } else {
+        bazaarOther.add(p);
+      }
+    }
+    return [...bazaarToday, ...bazaarOther, ...nonBazaar];
+  }
+
   Future<void> _openSuggestPlaceSheet(AppState state) async {
     final place = await showModalBottomSheet<StorePlace?>(
       context: context,
@@ -955,47 +976,109 @@ class _AddPriceTabState extends State<AddPriceTab> {
                       if (places.isEmpty) {
                         return _placesEmpty(state);
                       }
+                      final ordered = _orderBazaarsByToday(places);
                       return Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: places.map((place) {
+                        children: ordered.map((place) {
                           final selected = _selectedPlace?.id == place.id;
                           final isPending = place.status == 'pending';
+                          final isBazaarChip = place.isBazaar;
+                          final openToday = isBazaarChip && place.isOpenToday();
+                          final neighborhood =
+                              (place.neighborhood ?? '').trim();
+                          final daysLabel = isBazaarChip
+                              ? place.marketDays
+                                  .map(bazaarDayShortTr)
+                                  .join('·')
+                              : '';
+                          final subline = isBazaarChip
+                              ? [
+                                  if (neighborhood.isNotEmpty) neighborhood,
+                                  if (daysLabel.isNotEmpty) daysLabel,
+                                ].join(' · ')
+                              : '';
                           return InkWell(
                             onTap: () => setState(() {
                               _selectedPlace = place;
                               _freeTextStoreName = null;
                               _freeTextChainId = null;
                             }),
-                            borderRadius: FRRad.all(999),
+                            borderRadius: FRRad.all(FRRad.m),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 14, 10),
+                              padding: const EdgeInsetsDirectional.fromSTEB(
+                                  14, 10, 14, 10),
                               decoration: BoxDecoration(
                                 color: selected ? FR.gold : FR.surface,
-                                borderRadius: FRRad.all(999),
+                                borderRadius: FRRad.all(
+                                    isBazaarChip ? FRRad.m : 999),
                                 border: Border.all(
-                                  color: selected ? FR.gold : FR.hairline,
+                                  color: openToday && !selected
+                                      ? FR.gold.withOpacity(.55)
+                                      : selected
+                                          ? FR.gold
+                                          : FR.hairline,
                                   width: selected ? 1.4 : 1.0,
                                 ),
-                                boxShadow: selected ? frGoldGlow(opacity: .18) : null,
+                                boxShadow: selected
+                                    ? frGoldGlow(opacity: .18)
+                                    : (openToday
+                                        ? frGoldGlow(opacity: .10)
+                                        : null),
                               ),
-                              child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (selected) ...[
-                                    Icon(Icons.check_rounded,
-                                        size: 14, color: FR.onGold),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  Text(place.displayName,
-                                      style: frText(12.5, FontWeight.w800,
-                                          color: selected ? FR.onGold : FR.ink)),
-                                  if (isPending) ...[
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.schedule_rounded,
-                                        size: 11,
-                                        color: selected ? FR.onGold : FR.warn),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (selected) ...[
+                                        Icon(Icons.check_rounded,
+                                            size: 14, color: FR.onGold),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      Text(place.displayName,
+                                          style: frText(12.5, FontWeight.w800,
+                                              color: selected
+                                                  ? FR.onGold
+                                                  : FR.ink)),
+                                      if (openToday && !selected) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: FR.gold.withOpacity(.18),
+                                            borderRadius: FRRad.all(999),
+                                          ),
+                                          child: Text(
+                                            'BUGÜN',
+                                            style: frOverline(
+                                                color: FR.goldDeep, size: 9.5),
+                                          ),
+                                        ),
+                                      ],
+                                      if (isPending) ...[
+                                        const SizedBox(width: 6),
+                                        Icon(Icons.schedule_rounded,
+                                            size: 11,
+                                            color: selected
+                                                ? FR.onGold
+                                                : FR.warn),
+                                      ],
+                                    ],
+                                  ),
+                                  if (subline.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      subline,
+                                      style: frText(11, FontWeight.w700,
+                                          color: selected
+                                              ? FR.onGold.withOpacity(.85)
+                                              : FR.ink3),
+                                    ),
                                   ],
                                 ],
                               ),
@@ -1282,6 +1365,15 @@ class _AddPriceTabState extends State<AddPriceTab> {
   Widget _selectedStoreSummary() {
     if (_selectedPlace != null) {
       final p = _selectedPlace!;
+      final isBazaarSelected = p.isBazaar;
+      final neighborhood = (p.neighborhood ?? '').trim();
+      final daysLabel = isBazaarSelected
+          ? p.marketDays.map(bazaarDayLabelTr).join(', ')
+          : '';
+      final detail = [
+        if (neighborhood.isNotEmpty) neighborhood,
+        if (daysLabel.isNotEmpty) daysLabel,
+      ].join(' · ');
       return Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -1290,11 +1382,28 @@ class _AddPriceTabState extends State<AddPriceTab> {
           border: Border.all(color: FR.hairline),
         ),
         child: Row(children: [
-          Icon(Icons.storefront_rounded, color: FR.gold, size: 16),
+          Icon(
+            isBazaarSelected
+                ? Icons.calendar_today_rounded
+                : Icons.storefront_rounded,
+            color: FR.gold,
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Expanded(
-              child: Text('${p.displayName} · seçildi',
-                  style: frText(12, FontWeight.w800, color: FR.ink2))),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${p.displayName} · seçildi',
+                    style: frText(12, FontWeight.w800, color: FR.ink2)),
+                if (detail.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(detail,
+                      style: frText(10.5, FontWeight.w700, color: FR.ink3)),
+                ],
+              ],
+            ),
+          ),
           InkWell(
             onTap: () => setState(() => _selectedPlace = null),
             child: Icon(Icons.close_rounded, color: FR.ink3, size: 16),
@@ -1566,6 +1675,9 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
   late String? _city;
   late String? _district;
   bool _saving = false;
+  final Set<String> _selectedDays = <String>{};
+
+  bool get _isBazaar => widget.sourceType == PriceSourceType.bazaar;
 
   @override
   void initState() {
@@ -1605,6 +1717,7 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
     final normalized = _normalize(name);
     final city = _city ?? '';
     final district = _district ?? '';
+    final neighborhood = _neighborhoodCtrl.text.trim();
     final type = _typeString();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ad zorunlu.')));
@@ -1613,6 +1726,18 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
     if (widget.sourceType != PriceSourceType.online && (city.isEmpty || district.isEmpty)) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Fiziksel/Pazar için il/ilçe zorunlu.')));
+      return;
+    }
+    if (_isBazaar && neighborhood.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mahalle pazarı için mahalle zorunlu.')),
+      );
+      return;
+    }
+    if (_isBazaar && _selectedDays.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pazarın kurulduğu en az bir gün seç.')),
+      );
       return;
     }
 
@@ -1662,7 +1787,8 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
         'normalizedName': normalized,
         'city': city,
         'district': district,
-        'neighborhood': _neighborhoodCtrl.text.trim().isEmpty ? null : _neighborhoodCtrl.text.trim(),
+        'neighborhood': neighborhood.isEmpty ? null : neighborhood,
+        if (_isBazaar) 'marketDays': _selectedDays.toList(),
         'lat': null,
         'lng': null,
         'status': 'pending',
@@ -1698,13 +1824,35 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
     final regionLabel = (_city != null && _district != null)
         ? '$_city / $_district'
         : 'İl ve ilçe seç';
+    final headline = _isBazaar
+        ? 'Mahalle pazarını öner'
+        : (widget.sourceType == PriceSourceType.online
+            ? 'Online marketi öner'
+            : 'Marketi öner');
+    final nameHint = _isBazaar
+        ? 'Pazarın adı (örn. Aydınlar Mah. Perşembe Pazarı)'
+        : 'Ad';
+    final neighborhoodHint = _isBazaar
+        ? 'Mahalle (zorunlu — örn. Aydınlar Mah.)'
+        : 'Mahalle (opsiyonel)';
     return Padding(
       padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 20 + MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Bu marketi/pazarı öner', style: frDisplay(20, FontWeight.w700)),
+          Text(headline, style: frDisplay(20, FontWeight.w700)),
+          if (_isBazaar) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Çekmeköy → Aydınlar Mah. → Perşembe gibi mahalle pazarlarını '
+              'bulabilmemiz için mahalle ve kurulduğu günleri seç.',
+              style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.45),
+            ),
+          ],
           const SizedBox(height: 10),
-          TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Ad')),
+          TextField(
+            controller: _nameCtrl,
+            decoration: InputDecoration(labelText: nameHint),
+          ),
           const SizedBox(height: 12),
           if (widget.sourceType != PriceSourceType.online) ...[
             InkWell(
@@ -1740,10 +1888,88 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
             ),
             const SizedBox(height: 8),
           ],
-          TextField(controller: _neighborhoodCtrl, decoration: const InputDecoration(labelText: 'Mahalle (opsiyonel)')),
-          const SizedBox(height: 12),
-          FRCta(label: _saving ? 'Kaydediliyor…' : 'Öneriyi gönder', icon: Icons.add_business_rounded, onTap: _saving ? null : _save),
+          TextField(
+            controller: _neighborhoodCtrl,
+            decoration: InputDecoration(labelText: neighborhoodHint),
+          ),
+          if (_isBazaar) ...[
+            const SizedBox(height: 14),
+            Text('PAZAR HANGİ GÜN(LER) KURULUYOR?',
+                style: frOverline(color: FR.ink3, size: 10)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final token in kBazaarDayTokens)
+                  _DayChip(
+                    label: bazaarDayLabelTr(token),
+                    selected: _selectedDays.contains(token),
+                    onTap: () => setState(() {
+                      if (!_selectedDays.add(token)) _selectedDays.remove(token);
+                    }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Çoğu pazar tek gün kurulur — birden fazla seçim de yapabilirsin.',
+              style: frText(11, FontWeight.w600, color: FR.ink3, height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 16),
+          FRCta(
+            label: _saving ? 'Kaydediliyor…' : 'Öneriyi gönder',
+            icon: Icons.add_business_rounded,
+            onTap: _saving ? null : _save,
+          ),
         ]),
+      ),
+    );
+  }
+}
+
+class _DayChip extends StatelessWidget {
+  const _DayChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 9, 14, 9),
+        decoration: BoxDecoration(
+          color: selected ? FR.gold : FR.surface,
+          borderRadius: FRRad.all(999),
+          border: Border.all(
+            color: selected ? FR.gold : FR.hairline,
+            width: selected ? 1.4 : 1.0,
+          ),
+          boxShadow: selected ? frGoldGlow(opacity: .14) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              Icon(Icons.check_rounded, size: 13, color: FR.onGold),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: frText(12.5, FontWeight.w800,
+                  color: selected ? FR.onGold : FR.ink),
+            ),
+          ],
+        ),
       ),
     );
   }

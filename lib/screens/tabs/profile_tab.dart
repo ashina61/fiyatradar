@@ -287,10 +287,20 @@ class _IdentityCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(state.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: frDisplay(22, FontWeight.w700)),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(state.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: frDisplay(22, FontWeight.w700)),
+                      ),
+                      if (state.premium.isActive) ...[
+                        const SizedBox(width: 8),
+                        const FRProBadge(compact: false),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 2),
                   Text(state.username,
                       style: frText(12, FontWeight.w700, color: FR.ink3)),

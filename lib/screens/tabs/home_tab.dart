@@ -721,7 +721,9 @@ class _BannerCard extends StatelessWidget {
                     // crisp render on retina without inflating the
                     // GPU cache.
                     cacheWidth: 900,
+                    cacheHeight: 540,
                     filterQuality: FilterQuality.medium,
+                    frameBuilder: frFadeFrameBuilder,
                     loadingBuilder: (_, child, prog) {
                       if (prog == null) return child;
                       return Container(color: FR.surfaceHi);
@@ -1104,7 +1106,9 @@ class _TrendCard extends StatelessWidget {
                             product.imageUrl!,
                             fit: BoxFit.cover,
                             cacheWidth: 480,
+                            cacheHeight: 480,
                             filterQuality: FilterQuality.medium,
+                            frameBuilder: frFadeFrameBuilder,
                             errorBuilder: (_, __, ___) =>
                                 _trendCardEmojiFallback(product.emoji),
                           )

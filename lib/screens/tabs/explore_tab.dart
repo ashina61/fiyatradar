@@ -344,7 +344,9 @@ class _ExploreCard extends StatelessWidget {
                             product.imageUrl!,
                             fit: BoxFit.cover,
                             cacheWidth: 420,
+                            cacheHeight: 420,
                             filterQuality: FilterQuality.medium,
+                            frameBuilder: frFadeFrameBuilder,
                             errorBuilder: (_, __, ___) =>
                                 _exploreCardEmojiFallback(product.emoji),
                           )
