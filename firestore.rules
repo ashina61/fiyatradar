@@ -55,6 +55,7 @@ service cloud.firestore {
         'avatarUrl',
         'displayName',
         'username',
+        'usernameHandle',
         'phoneNumber',
         'cityCode',
         'cityName',
@@ -258,6 +259,24 @@ service cloud.firestore {
         // Legacy compat: no runtime writes.
         allow create, update, delete: if false;
       }
+    }
+
+    // Benzersiz kullanıcı adı rezervasyonu. Doc id'si normalize edilmiş
+    // handle (lowercase a-z, 0-9, _; 3-20 char). Anyone authenticated can
+    // read so the client can perform availability checks; create yalnız
+    // doc yoksa + payload sahibi == caller; update yasak; delete sadece
+    // sahibi tarafından (kullanıcı handle değiştirdiğinde eski rezervasyon
+    // serbest kalsın).
+    match /usernames/{handle} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.uid is string &&
+        request.resource.data.uid == request.auth.uid &&
+        handle.size() >= 3 && handle.size() <= 20 &&
+        handle.matches('^[a-z0-9_]+$');
+      allow update: if false;
+      allow delete: if isAdmin() ||
+        (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // Legacy global notification docs used during migration.

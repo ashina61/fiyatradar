@@ -222,6 +222,11 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Şifre çok zayıf. En az 6 karakter kullan.';
       case 'too-many-requests':
         return 'Çok fazla deneme yapıldı. Lütfen biraz bekle.';
+      case 'username-taken':
+        return 'Bu kullanıcı adı zaten alınmış. Lütfen farklı bir tane seç.';
+      case 'invalid-username':
+        return e.message ??
+            'Kullanıcı adı 3-20 karakter, sadece harf/rakam/_ olabilir.';
       default:
         return e.message ?? 'Kimlik doğrulama hatası.';
     }

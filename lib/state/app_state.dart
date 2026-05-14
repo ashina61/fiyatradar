@@ -190,10 +190,6 @@ class AppState extends ChangeNotifier {
   /// gerekiyor (TODO: functions/index.js bu alanı henüz okumuyor — bir
   /// sonraki Cloud Functions deploy'unda eklenmeli).
   bool regionalDropPushEnabled = true;
-  bool twoFactorEnabled = false;
-  bool biometricEnabled = false;
-  String? twoFactorPin;
-  bool securitySessionUnlocked = false;
 
   // Trust bookkeeping (0..1 used to weight this user's votes)
   int trustVerifiedTotal = 0;
@@ -640,10 +636,7 @@ class AppState extends ChangeNotifier {
             'pushEnabled': pushNotificationsEnabled,
             'priceAlertsEnabled': priceAlertsEnabled,
             'weeklySummaryEnabled': weeklySummaryEnabled,
-          },
-          'security': {
-            'twoFactorEnabled': twoFactorEnabled,
-            'biometricEnabled': biometricEnabled,
+            'regionalDropPushEnabled': regionalDropPushEnabled,
           },
         },
         'createdAt': FieldValue.serverTimestamp(),
@@ -668,9 +661,6 @@ class AppState extends ChangeNotifier {
       final prevPriceAlerts = priceAlertsEnabled;
       final prevWeekly = weeklySummaryEnabled;
       final prevRegionalDrop = regionalDropPushEnabled;
-      final prevTwoFactor = twoFactorEnabled;
-      final prevBiometric = biometricEnabled;
-      final prevTwoFactorPin = twoFactorPin;
       final prevIsAdmin = _isAdmin;
       final prevIsBanned = _isBanned;
       final prevBanReason = banReason;
@@ -752,9 +742,6 @@ class AppState extends ChangeNotifier {
       final notificationsSettings = Map<String, dynamic>.from(
         (settings['notifications'] as Map?) ?? const <String, dynamic>{},
       );
-      final securitySettings = Map<String, dynamic>.from(
-        (settings['security'] as Map?) ?? const <String, dynamic>{},
-      );
       pushNotificationsEnabled =
           notificationsSettings['pushEnabled'] as bool? ?? true;
       priceAlertsEnabled =
@@ -763,11 +750,6 @@ class AppState extends ChangeNotifier {
           notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
       regionalDropPushEnabled =
           notificationsSettings['regionalDropPushEnabled'] as bool? ?? true;
-      twoFactorEnabled = securitySettings['twoFactorEnabled'] as bool? ?? false;
-      biometricEnabled = securitySettings['biometricEnabled'] as bool? ?? false;
-      twoFactorPin = (securitySettings['twoFactorPin'] as String?)?.trim().isNotEmpty == true
-          ? (securitySettings['twoFactorPin'] as String)
-          : null;
       _isAdmin = (m['isAdmin'] as bool?) == true ||
           (m['role'] as String?) == 'admin';
       _isBanned = (m['isBanned'] as bool?) == true;
@@ -815,9 +797,6 @@ class AppState extends ChangeNotifier {
           prevPriceAlerts != priceAlertsEnabled ||
           prevWeekly != weeklySummaryEnabled ||
           prevRegionalDrop != regionalDropPushEnabled ||
-          prevTwoFactor != twoFactorEnabled ||
-          prevBiometric != biometricEnabled ||
-          prevTwoFactorPin != twoFactorPin ||
           prevIsAdmin != _isAdmin ||
           prevIsBanned != _isBanned ||
           prevBanReason != banReason ||
@@ -2575,9 +2554,26 @@ class AppState extends ChangeNotifier {
     }
     final phoneRaw = phoneNumber?.trim();
     final hasPhone = phoneRaw != null && phoneRaw.isNotEmpty;
+    final desiredHandle = FirebaseService.normalizeUsername(username);
+    final previousHandle = FirebaseService.normalizeUsername(this.username);
+    if (desiredHandle.isNotEmpty &&
+        !FirebaseService.isValidUsernameHandle(desiredHandle)) {
+      throw StateError(
+        'Kullanıcı adı 3-20 karakter, sadece harf/rakam/_, başı/sonu _ olamaz.',
+      );
+    }
+    if (desiredHandle.isNotEmpty && desiredHandle != previousHandle) {
+      // Önce rezervasyon — başarısızsa kullanıcının profilini bozmayalım.
+      await _svc.reserveUsername(
+        uid: user!.uid,
+        desiredHandle: desiredHandle,
+        previousHandle: previousHandle.isEmpty ? null : previousHandle,
+      );
+    }
     await _svc.userDoc(user!.uid).set({
       'displayName': displayName.trim(),
-      'username': username.trim(),
+      'username': desiredHandle.isEmpty ? '' : '@$desiredHandle',
+      if (desiredHandle.isNotEmpty) 'usernameHandle': desiredHandle,
       'phoneNumber': hasPhone ? phoneRaw : FieldValue.delete(),
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
       if (profileImagePath != null) 'profileImagePath': profileImagePath,
@@ -2593,8 +2589,9 @@ class AppState extends ChangeNotifier {
       this.displayName = displayName.trim();
       changed = true;
     }
-    if (this.username != username.trim()) {
-      this.username = username.trim();
+    final nextUsername = desiredHandle.isEmpty ? '' : '@$desiredHandle';
+    if (this.username != nextUsername) {
+      this.username = nextUsername;
       changed = true;
     }
     final nextPhone = hasPhone ? phoneRaw : null;
@@ -2742,32 +2739,6 @@ class AppState extends ChangeNotifier {
     }, SetOptions(merge: true));
   }
 
-  Future<void> updateSecuritySettings({
-    bool? twoFactorEnabled,
-    bool? biometricEnabled,
-    String? twoFactorPin,
-    bool clearTwoFactorPin = false,
-  }) async {
-    if (user == null) return;
-    await _svc.userDoc(user!.uid).set({
-      'settings': {
-        'security': {
-          if (twoFactorEnabled != null) 'twoFactorEnabled': twoFactorEnabled,
-          if (biometricEnabled != null) 'biometricEnabled': biometricEnabled,
-          if (twoFactorPin != null) 'twoFactorPin': twoFactorPin.trim(),
-          if (clearTwoFactorPin) 'twoFactorPin': FieldValue.delete(),
-        },
-      },
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  void markSecuritySessionUnlocked(bool value) {
-    if (securitySessionUnlocked == value) return;
-    securitySessionUnlocked = value;
-    notifyListeners();
-  }
-
   Future<void> logout() async {
     // Drop the FCM token first so the just-signed-out account stops getting
     // push for this device. Best-effort — must not block logout.
@@ -2814,8 +2785,6 @@ class AppState extends ChangeNotifier {
     trustWrongTotal = 0;
     trustTotalVotes = 0;
     contributions = 0;
-    twoFactorPin = null;
-    securitySessionUnlocked = false;
     guestAcknowledged = false;
     _isAdmin = false;
     _isBanned = false;
@@ -2874,8 +2843,6 @@ class AppState extends ChangeNotifier {
     trustWrongTotal = 0;
     trustTotalVotes = 0;
     contributions = 0;
-    twoFactorPin = null;
-    securitySessionUnlocked = false;
     guestAcknowledged = preserveGuestAcknowledged
         ? wasGuestAcknowledged
         : false;

@@ -45,10 +45,6 @@
 # image_picker
 -keep class io.flutter.plugins.imagepicker.** { *; }
 
-# local_auth (biyometrik)
--keep class androidx.biometric.** { *; }
--keep class androidx.fragment.app.FragmentActivity { *; }
-
 # url_launcher
 -keep class io.flutter.plugins.urllauncher.** { *; }
 

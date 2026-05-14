@@ -18,29 +18,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
+  // Tanıtım slaytları gerçek uygulama davranışını anlatıyor — uydurma
+  // istatistik veya örnek bölge adı yok. Üçüncü slayttaki "+10 puan"
+  // PointsRules.addPrice ile birebir aynı sabit.
   static const _slides = <_Slide>[
     _Slide(
       icon: Icons.radar_rounded,
       overline: 'RADAR',
       title: 'Markette gördüğünü\nradarına al.',
       body:
-          'FiyatRadar topluluğuyla zincir ve yerel marketlerin gerçek fiyatlarını anbean takip et.',
-      stat: 'Kadıköy · son 24 saatte 3.4K yeni fiyat',
+          'Zincir ve yerel marketlerin fiyatlarını topluluk paylaşımıyla takip et. '
+          'Bölgendeki en güncel fiyatlar tek ekranda.',
+      stat: 'Topluluk paylaşımı · gerçek raf fiyatları',
     ),
     _Slide(
       icon: Icons.compare_arrows_rounded,
       overline: 'KARŞILAŞTIR',
-      title: 'Aynı ürün,\n5 farklı fiyat.',
+      title: 'Aynı ürün,\nfarklı marketler.',
       body:
-          'Sepetini oluştur, hangi marketin hangi kombinasyonda daha ucuz olduğunu anında gör.',
-      stat: 'Ortalama %14 tasarruf tespit edildi',
+          'Sepetini oluştur. Hangi marketin hangi kombinasyonda daha ucuz '
+          'olduğunu anında gör.',
+      stat: 'Market bazlı sepet karşılaştırma',
     ),
     _Slide(
       icon: Icons.notifications_active_rounded,
       overline: 'ALARM',
-      title: 'Fiyat düşünce\nhaber al.',
+      title: 'Fiyat değişince\nhaber al.',
       body:
-          'Hedef fiyatı belirle. Ürün o fiyata indiğinde FiyatRadar seni uyansın.',
+          'Takip ettiğin ürünlere hedef fiyat kur. Bölgendeki fiyat düşüş veya '
+          'yükselişlerini bildirim olarak al.',
       stat: 'Her onaylı fiyat katkısı +10 puan',
     ),
   ];
