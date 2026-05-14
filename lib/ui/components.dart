@@ -1142,7 +1142,7 @@ class FRProBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     if (compact) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
           borderRadius: FRRad.all(999),
@@ -1196,8 +1196,8 @@ class FRTrustPill extends StatelessWidget {
     final clamped = percent.clamp(0, 100);
     return Container(
       padding: dense
-          ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
-          : const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+          : const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: tone.withOpacity(.10),
         borderRadius: FRRad.all(999),

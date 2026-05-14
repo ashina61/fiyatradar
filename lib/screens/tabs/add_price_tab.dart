@@ -1047,7 +1047,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                                       if (openToday && !selected) ...[
                                         const SizedBox(width: 6),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(
+                                          padding: const EdgeInsets.symmetric( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: FR.gold.withOpacity(.18),

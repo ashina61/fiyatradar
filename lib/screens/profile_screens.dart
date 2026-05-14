@@ -419,7 +419,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     // göster.
     if (next == null || !next.isAfter(DateTime.now())) {
       return Padding(
-        padding: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.only(top: 6), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Text(
           'Kullanıcı adı 3 ayda bir değiştirilebilir.',
           style: frText(11, FontWeight.w600, color: FR.ink3, height: 1.4),
@@ -429,9 +429,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     final daysLeft = state.daysUntilUsernameChangeAllowed;
     final dateLabel = '${next.day}.${next.month}.${next.year}';
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 6), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: FR.surfaceLo,
           borderRadius: FRRad.all(FRRad.m),
