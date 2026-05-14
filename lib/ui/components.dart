@@ -2,6 +2,25 @@ import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
+/// Resimler için ortak yumuşak fade-in. `Image.network` ve `Image` widget'ları
+/// `frameBuilder` parametresine bunu vererek ağdan ilk kareye doğru rahat bir
+/// geçiş elde eder; aksi halde resim aniden "pop" eder ve geç yüklenmiş gibi
+/// hissedilir.
+Widget frFadeFrameBuilder(
+  BuildContext context,
+  Widget child,
+  int? frame,
+  bool wasSyncLoaded,
+) {
+  if (wasSyncLoaded) return child;
+  return AnimatedOpacity(
+    opacity: frame == null ? 0 : 1,
+    duration: const Duration(milliseconds: 180),
+    curve: Curves.easeOutCubic,
+    child: child,
+  );
+}
+
 // ─── Animated entry ──────────────────────────────────────────────────────────
 
 /// Fades + slides content into view on first build. Use [delay] to stagger
@@ -643,7 +662,9 @@ class FRProductThumb extends StatelessWidget {
               width: size,
               height: size,
               cacheWidth: cacheWidth ?? (size * 2).round(),
+              cacheHeight: cacheWidth ?? (size * 2).round(),
               filterQuality: FilterQuality.medium,
+              frameBuilder: frFadeFrameBuilder,
               errorBuilder: (_, __, ___) =>
                   Text(emoji, style: TextStyle(fontSize: size * 0.5)),
             )
@@ -1103,6 +1124,97 @@ class FRSkeletonList extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+// ─── Premium / trust badges ─────────────────────────────────────────────────
+
+/// Küçük altın "PRO" rozeti. FiyatRadar Pro aboneliği aktif olan kullanıcıları
+/// yorum, fiyat raporu, profil ve liderlik tablosunda işaretlemek için kullanılır.
+/// `compact=true` ile yalnız "PRO" yazısı, `compact=false` ile yıldız ikonlu
+/// daha belirgin bir kapsül döner.
+class FRProBadge extends StatelessWidget {
+  const FRProBadge({super.key, this.compact = true});
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+          borderRadius: FRRad.all(999),
+          boxShadow: frGoldGlow(opacity: .25),
+        ),
+        child: Text(
+          'PRO',
+          style: frOverline(color: FR.onGold, size: 9.5),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 9, 3),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+        borderRadius: FRRad.all(999),
+        boxShadow: frGoldGlow(opacity: .25),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.workspace_premium_rounded, size: 12, color: FR.onGold),
+          const SizedBox(width: 4),
+          Text(
+            'PRO',
+            style: frOverline(color: FR.onGold, size: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kullanıcının güvenirlik (trust) seviyesini gösteren küçük kapsül.
+/// `percent` 0..100 aralığında. <30 = kırmızı, 30-69 = nötr, 70+ = yeşil.
+/// Üst tarafta küçük bir kalkan ikonuyla "%X güven" formatında basar.
+class FRTrustPill extends StatelessWidget {
+  const FRTrustPill({super.key, required this.percent, this.dense = false});
+  final int percent;
+  final bool dense;
+
+  Color get _tone {
+    if (percent >= 70) return FR.good;
+    if (percent < 30) return FR.bad;
+    return FR.ink2;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _tone;
+    final clamped = percent.clamp(0, 100);
+    return Container(
+      padding: dense
+          ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+          : const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: tone.withOpacity(.10),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: tone.withOpacity(.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified_user_rounded,
+              size: dense ? 10 : 12, color: tone),
+          const SizedBox(width: 4),
+          Text(
+            '%$clamped güven',
+            style: frText(dense ? 10 : 10.5, FontWeight.w800, color: tone),
+          ),
+        ],
+      ),
     );
   }
 }

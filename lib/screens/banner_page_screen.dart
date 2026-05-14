@@ -45,7 +45,9 @@ class BannerPageScreen extends StatelessWidget {
                     banner.imageUrl!,
                     fit: BoxFit.cover,
                     cacheWidth: 1200,
+                    cacheHeight: 675,
                     filterQuality: FilterQuality.medium,
+                    frameBuilder: frFadeFrameBuilder,
                     errorBuilder: (_, __, ___) => Container(
                       color: FR.surfaceHi,
                       child: Icon(Icons.image_outlined, color: FR.ink3, size: 36),
@@ -126,7 +128,9 @@ class _BlockView extends StatelessWidget {
             block.value,
             fit: BoxFit.cover,
             cacheWidth: 1200,
+            cacheHeight: 1200,
             filterQuality: FilterQuality.medium,
+            frameBuilder: frFadeFrameBuilder,
             errorBuilder: (_, __, ___) => Container(
               height: 180,
               alignment: Alignment.center,

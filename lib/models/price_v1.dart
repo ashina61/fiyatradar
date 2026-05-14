@@ -54,6 +54,68 @@ String scopeForSourceType(PriceSourceType sourceType) {
   }
 }
 
+/// Canonical day-of-week tokens used for neighborhood bazaars. Stored as
+/// lowercase English strings so the schema is locale-independent; the UI
+/// converts to Turkish labels via [bazaarDayLabelTr].
+const List<String> kBazaarDayTokens = <String>[
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+];
+
+/// Maps a [DateTime.weekday] (1..7) to the canonical token used in the
+/// `marketDays` field on a `store_places` bazaar doc.
+String bazaarDayTokenForWeekday(int weekday) {
+  final idx = ((weekday - 1) % 7).clamp(0, 6);
+  return kBazaarDayTokens[idx];
+}
+
+String bazaarDayLabelTr(String token) {
+  switch (token) {
+    case 'monday':
+      return 'Pazartesi';
+    case 'tuesday':
+      return 'Salı';
+    case 'wednesday':
+      return 'Çarşamba';
+    case 'thursday':
+      return 'Perşembe';
+    case 'friday':
+      return 'Cuma';
+    case 'saturday':
+      return 'Cumartesi';
+    case 'sunday':
+      return 'Pazar';
+    default:
+      return token;
+  }
+}
+
+String bazaarDayShortTr(String token) {
+  switch (token) {
+    case 'monday':
+      return 'Pzt';
+    case 'tuesday':
+      return 'Sal';
+    case 'wednesday':
+      return 'Çar';
+    case 'thursday':
+      return 'Per';
+    case 'friday':
+      return 'Cum';
+    case 'saturday':
+      return 'Cmt';
+    case 'sunday':
+      return 'Paz';
+    default:
+      return token;
+  }
+}
+
 class StorePlace {
   final String id;
   final String? chainId;
@@ -69,6 +131,11 @@ class StorePlace {
   final String status;
   final bool isActive;
 
+  /// Mahalle pazarı için kurulduğu gün(ler). Sadece `type == bazaar` için
+  /// anlamlı; diğer türlerde boş bırakılır. Token formatı `kBazaarDayTokens`
+  /// içindeki lowercase İngilizce gün isimleri.
+  final List<String> marketDays;
+
   const StorePlace({
     required this.id,
     required this.type,
@@ -83,10 +150,17 @@ class StorePlace {
     this.neighborhood,
     this.lat,
     this.lng,
+    this.marketDays = const <String>[],
   });
 
   factory StorePlace.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final m = doc.data() ?? <String, dynamic>{};
+    final daysRaw = (m['marketDays'] as List?) ?? const [];
+    final days = daysRaw
+        .map((e) => e.toString().trim().toLowerCase())
+        .where(kBazaarDayTokens.contains)
+        .toSet()
+        .toList(growable: false);
     return StorePlace(
       id: doc.id,
       chainId: (m['chainId'] as String?)?.trim().isNotEmpty == true
@@ -100,11 +174,23 @@ class StorePlace {
       normalizedName: (m['normalizedName'] ?? '') as String,
       city: (m['city'] ?? m['cityName'] ?? '') as String,
       district: (m['district'] ?? m['districtName'] ?? '') as String,
-      neighborhood: m['neighborhood'] as String?,
+      neighborhood: (m['neighborhood'] as String?)?.trim().isNotEmpty == true
+          ? (m['neighborhood'] as String).trim()
+          : null,
       lat: (m['lat'] as num?)?.toDouble(),
       lng: (m['lng'] as num?)?.toDouble(),
       status: (m['status'] ?? 'pending') as String,
       isActive: (m['isActive'] as bool?) ?? true,
+      marketDays: days,
     );
+  }
+
+  bool get isBazaar => type == StorePlaceType.bazaar;
+
+  /// Bugünün pazar günü mü?  `DateTime.now().weekday` üzerinden ölçer.
+  bool isOpenToday({DateTime? now}) {
+    if (marketDays.isEmpty) return false;
+    final n = now ?? DateTime.now();
+    return marketDays.contains(bazaarDayTokenForWeekday(n.weekday));
   }
 }

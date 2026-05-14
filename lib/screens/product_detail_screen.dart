@@ -320,7 +320,9 @@ class _DetailHero extends StatelessWidget {
               product.imageUrl!,
               fit: BoxFit.cover,
               cacheWidth: 1200,
+              cacheHeight: 1200,
               filterQuality: FilterQuality.medium,
+              frameBuilder: frFadeFrameBuilder,
               errorBuilder: (_, __, ___) => Center(
                 child: Text(product.emoji,
                     style: const TextStyle(fontSize: 108)),
@@ -1154,11 +1156,29 @@ class _ContributionRowState extends State<_ContributionRow> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      entry.reportedBy,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: frText(11.5, FontWeight.w700, color: FR.ink3),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            entry.reportedBy,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: frText(11.5, FontWeight.w700,
+                                color: FR.ink3),
+                          ),
+                        ),
+                        if (entry.reporterIsPro) ...[
+                          const SizedBox(width: 6),
+                          const FRProBadge(),
+                        ],
+                        if (entry.reporterTrustPercent != null) ...[
+                          const SizedBox(width: 6),
+                          FRTrustPill(
+                            percent: entry.reporterTrustPercent!,
+                            dense: true,
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

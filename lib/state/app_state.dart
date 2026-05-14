@@ -171,6 +171,11 @@ class AppState extends ChangeNotifier {
   final List<CartItem> cart = [];
   String displayName = 'Kahve Avcısı';
   String username = '@fiyatradar_user';
+  /// Kullanıcı adının en son değiştirildiği zaman (Firestore'dan okunur).
+  /// `null` ise kullanıcı bir kez bile değiştirmemiş — ilk değişiklik
+  /// serbest. 90 gün cooldown'u `nextUsernameChangeAvailableAt` üstünden
+  /// UI'ya aktarılır.
+  DateTime? usernameChangedAt;
   String? phoneNumber;
   String? cityName;
   String? districtName;
@@ -238,6 +243,31 @@ class AppState extends ChangeNotifier {
   }
 
   int get trustScorePercent => (trustScore * 100).round();
+
+  /// Kullanıcı adı değişiklik kuralı: 90 gün cooldown. UI bu getter'ları
+  /// kullanarak "kalan gün" uyarısı gösterir ve butonu disable eder. Backend
+  /// firestore.rules tarafında da `hasSafeUsernameCooldown` ile zorlanıyor.
+  static const Duration kUsernameChangeCooldown = Duration(days: 90);
+
+  DateTime? get nextUsernameChangeAvailableAt {
+    final last = usernameChangedAt;
+    if (last == null) return null;
+    return last.add(kUsernameChangeCooldown);
+  }
+
+  bool get canChangeUsernameNow {
+    final next = nextUsernameChangeAvailableAt;
+    if (next == null) return true;
+    return !next.isAfter(DateTime.now());
+  }
+
+  int get daysUntilUsernameChangeAllowed {
+    final next = nextUsernameChangeAvailableAt;
+    if (next == null) return 0;
+    final diff = next.difference(DateTime.now());
+    if (diff.isNegative) return 0;
+    return diff.inHours >= 24 ? diff.inDays : 1;
+  }
 
   /// Weight applied to this user's verification vote (0.3 .. 1.5).
   double get voteWeight {
@@ -675,6 +705,12 @@ class AppState extends ChangeNotifier {
       username = (m['username'] as String?)?.trim().isNotEmpty == true
           ? (m['username'] as String)
           : '@fiyatradar_user';
+      final usernameChangedRaw = m['usernameChangedAt'];
+      usernameChangedAt = usernameChangedRaw is Timestamp
+          ? usernameChangedRaw.toDate()
+          : (usernameChangedRaw is String
+              ? DateTime.tryParse(usernameChangedRaw)
+              : null);
       phoneNumber = (m['phoneNumber'] as String?)?.trim().isNotEmpty == true
           ? (m['phoneNumber'] as String)
           : null;
@@ -1235,6 +1271,8 @@ class AppState extends ChangeNotifier {
     final resolvedPlaceId = (placeId ?? '').trim();
     final now = DateTime.now();
     final entryId = '${productId}_${now.millisecondsSinceEpoch}_${_rand4()}';
+    final reporterIsPro = premium.isActive;
+    final reporterTrustPercent = trustScorePercent;
     final legacyEntry = PriceEntry(
       id: entryId,
       store: store,
@@ -1248,6 +1286,8 @@ class AppState extends ChangeNotifier {
       district: districtTrim,
       status: PriceStatus.pending,
       statusUpdatedAt: now,
+      reporterIsPro: reporterIsPro,
+      reporterTrustPercent: reporterTrustPercent,
     );
     final legacyEntryPayload = <String, dynamic>{
       'productId': productId,
@@ -1862,6 +1902,12 @@ class AppState extends ChangeNotifier {
     if (clean.length < 2) throw StateError('Yorum çok kısa.');
     if (clean.length > 1000) throw StateError('Yorum çok uzun.');
     final ref = _svc.comments.doc();
+    // Yorumların listelenmesinde her satır için kullanıcı dokümanını ayrıca
+    // çekmemek için yazar profilini doğrudan yorum doc'una yazıyoruz. Firestore
+    // rules `hasSafeCommentCreatePayload` bu alanları kabul ediyor.
+    final authorName =
+        displayName.trim().isNotEmpty ? displayName.trim() : 'Topluluk üyesi';
+    final authorAvatar = (profileImageUrl ?? '').trim();
     await ref.set({
       'productId': productId,
       'userId': uid,
@@ -1870,6 +1916,10 @@ class AppState extends ChangeNotifier {
       'likedBy': <String>[],
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'authorName': authorName,
+      if (authorAvatar.isNotEmpty) 'authorAvatar': authorAvatar,
+      'authorIsPro': premium.isActive,
+      'authorTrustPercent': trustScorePercent,
     });
     return ref.id;
   }
@@ -2562,7 +2612,24 @@ class AppState extends ChangeNotifier {
         'Kullanıcı adı 3-20 karakter, sadece harf/rakam/_, başı/sonu _ olamaz.',
       );
     }
-    if (desiredHandle.isNotEmpty && desiredHandle != previousHandle) {
+    final handleChanging =
+        desiredHandle.isNotEmpty && desiredHandle != previousHandle;
+    if (handleChanging) {
+      // 3 ay cooldown — backend (firestore.rules / hasSafeUsernameCooldown)
+      // de aynısını backstop olarak zorluyor, ama UI'nın açık bir hata
+      // mesajı verebilmesi için önce burada bakıyoruz.
+      if (!canChangeUsernameNow) {
+        final next = nextUsernameChangeAvailableAt;
+        final left = daysUntilUsernameChangeAllowed;
+        final nextLabel = next != null
+            ? '${next.day}.${next.month}.${next.year}'
+            : '';
+        throw StateError(
+          'Kullanıcı adı 3 ayda bir değiştirilebilir. '
+          '${left > 0 ? "$left gün sonra" : "Yakında"} tekrar dene'
+          '${nextLabel.isNotEmpty ? " ($nextLabel)" : ""}.',
+        );
+      }
       // Önce rezervasyon — başarısızsa kullanıcının profilini bozmayalım.
       await _svc.reserveUsername(
         uid: user!.uid,
@@ -2574,6 +2641,7 @@ class AppState extends ChangeNotifier {
       'displayName': displayName.trim(),
       'username': desiredHandle.isEmpty ? '' : '@$desiredHandle',
       if (desiredHandle.isNotEmpty) 'usernameHandle': desiredHandle,
+      if (handleChanging) 'usernameChangedAt': FieldValue.serverTimestamp(),
       'phoneNumber': hasPhone ? phoneRaw : FieldValue.delete(),
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
       if (profileImagePath != null) 'profileImagePath': profileImagePath,

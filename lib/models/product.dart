@@ -62,6 +62,12 @@ class PriceEntry {
   final DateTime? statusUpdatedAt;
   final Map<String, String> voters; // uid -> 'up' | 'down'
 
+  /// Denormalized snapshot of the reporter's profile at submit time. Used by
+  /// product detail to surface "%X güven · PRO" pills next to a contributor
+  /// without an extra user-doc fetch per entry.
+  final bool reporterIsPro;
+  final int? reporterTrustPercent;
+
   const PriceEntry({
     required this.id,
     required this.store,
@@ -81,6 +87,8 @@ class PriceEntry {
     this.status = PriceStatus.pending,
     this.statusUpdatedAt,
     this.voters = const {},
+    this.reporterIsPro = false,
+    this.reporterTrustPercent,
   });
 
   int get verificationScore => upvotes - downvotes;
@@ -130,6 +138,9 @@ class PriceEntry {
         if (statusUpdatedAt != null)
           'statusUpdatedAt': Timestamp.fromDate(statusUpdatedAt!),
         'voters': voters,
+        if (reporterIsPro) 'reporterIsPro': true,
+        if (reporterTrustPercent != null)
+          'reporterTrustPercent': reporterTrustPercent,
       };
 
   factory PriceEntry.fromMap(Map<String, dynamic> m) {
@@ -166,6 +177,8 @@ class PriceEntry {
       status: _statusFromString(m['status'] as String?),
       statusUpdatedAt: su is Timestamp ? su.toDate() : null,
       voters: voters,
+      reporterIsPro: (m['reporterIsPro'] as bool?) == true,
+      reporterTrustPercent: (m['reporterTrustPercent'] as num?)?.toInt(),
     );
   }
 
@@ -198,6 +211,8 @@ class PriceEntry {
         status: status ?? this.status,
         statusUpdatedAt: statusUpdatedAt ?? this.statusUpdatedAt,
         voters: voters ?? this.voters,
+        reporterIsPro: reporterIsPro,
+        reporterTrustPercent: reporterTrustPercent,
       );
 }
 

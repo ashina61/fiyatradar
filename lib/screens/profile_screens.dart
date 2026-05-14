@@ -397,6 +397,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
           _field('Ad Soyad', _nameCtrl, Icons.person_outline_rounded),
           const SizedBox(height: 12),
           _field('Kullanıcı adı', _userCtrl, Icons.alternate_email_rounded),
+          _usernameCooldownHint(state),
           const SizedBox(height: 12),
           _field('Telefon (opsiyonel)', _phoneCtrl, Icons.phone_iphone_rounded,
               keyboard: TextInputType.phone),
@@ -407,6 +408,49 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
             onTap: _saving ? null : () => _save(state),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _usernameCooldownHint(AppState state) {
+    final next = state.nextUsernameChangeAvailableAt;
+    // İlk değişiklik / cooldown bitmişse uyarı yerine kısa bir bilgi notu;
+    // cooldown sürüyorsa kullanıcının kaç gün sonra tekrar deneyebileceğini
+    // göster.
+    if (next == null || !next.isAfter(DateTime.now())) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          'Kullanıcı adı 3 ayda bir değiştirilebilir.',
+          style: frText(11, FontWeight.w600, color: FR.ink3, height: 1.4),
+        ),
+      );
+    }
+    final daysLeft = state.daysUntilUsernameChangeAllowed;
+    final dateLabel = '${next.day}.${next.month}.${next.year}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: FR.surfaceLo,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.warn.withOpacity(.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.lock_clock_rounded, size: 14, color: FR.warn),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Kullanıcı adı 3 ayda bir değişebiliyor. '
+                'Tekrar değiştirebileceğin tarih: $dateLabel '
+                '(${daysLeft > 0 ? "$daysLeft gün kaldı" : "yakında"}).',
+                style: frText(11, FontWeight.w700, color: FR.ink2, height: 1.4),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

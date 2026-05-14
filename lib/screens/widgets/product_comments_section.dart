@@ -4,6 +4,7 @@ import '../../models/comment.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
+import 'profile_avatar.dart';
 
 /// Lists comments for a product with an inline composer at the bottom.
 /// Uses `state.watchProductComments(productId)` so updates are live.
@@ -355,26 +356,56 @@ class _CommentTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: FR.gold.withOpacity(.15),
-                  borderRadius: FRRad.all(10),
-                  border: Border.all(color: FR.goldDeep.withOpacity(.45)),
-                ),
-                alignment: Alignment.center,
-                child:
-                    Icon(Icons.person_rounded, size: 16, color: FR.gold),
+              ProfileAvatarImage(
+                imageUrl: comment.authorAvatar,
+                displayName: (comment.authorName ?? '').trim().isEmpty
+                    ? 'Topluluk üyesi'
+                    : comment.authorName!.trim(),
+                size: 32,
+                radius: 10,
+                cacheWidth: 96,
+                initialStyle:
+                    frText(13, FontWeight.w800, color: FR.gold),
+                fallbackColor: FR.gold.withOpacity(.15),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  isOwn ? 'Sen' : 'Topluluk üyesi',
-                  style: frText(12, FontWeight.w800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            isOwn
+                                ? 'Sen'
+                                : (comment.authorName?.trim().isNotEmpty == true
+                                    ? comment.authorName!.trim()
+                                    : 'Topluluk üyesi'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: frText(12.5, FontWeight.w800),
+                          ),
+                        ),
+                        if (comment.authorIsPro) ...[
+                          const SizedBox(width: 6),
+                          const FRProBadge(),
+                        ],
+                      ],
+                    ),
+                    if (comment.authorTrustPercent != null) ...[
+                      const SizedBox(height: 4),
+                      FRTrustPill(
+                        percent: comment.authorTrustPercent!,
+                        dense: true,
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 _ago(comment.createdAt) +
                     (comment.isEdited ? ' · düzenlendi' : ''),
