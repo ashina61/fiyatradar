@@ -260,6 +260,92 @@ class FirebaseService {
   CollectionReference<Map<String, dynamic>> get comments =>
       db.collection('comments');
 
+  /// Benzersiz kullanıcı adı rezervasyon collection'ı. Doc id'si normalize
+  /// edilmiş takma ad (lowercase, @ ve boşluk yok), payload `{ uid }`.
+  /// Rules: aynı uid'li olan kullanıcı kendi rezervasyonunu silebilir;
+  /// yeni rezervasyon yalnız doc yoksa ve `request.resource.data.uid ==
+  /// request.auth.uid` ise oluşturulabilir.
+  CollectionReference<Map<String, dynamic>> get usernames =>
+      db.collection('usernames');
+
+  /// `@user_handle` veya `user_handle` formatını rezervasyon doc id'sine
+  /// dönüştürür. Trim + lowercase + `@` ön ekinin temizlenmesi.
+  static String normalizeUsername(String raw) {
+    final trimmed = raw.trim().toLowerCase();
+    if (trimmed.isEmpty) return '';
+    return trimmed.startsWith('@') ? trimmed.substring(1) : trimmed;
+  }
+
+  /// Sadece harf/rakam/altçizgi + 3-20 karakter, başı/sonu altçizgi değil.
+  static bool isValidUsernameHandle(String raw) {
+    final handle = normalizeUsername(raw);
+    if (handle.length < 3 || handle.length > 20) return false;
+    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(handle)) return false;
+    if (handle.startsWith('_') || handle.endsWith('_')) return false;
+    return true;
+  }
+
+  /// Username uygun ve müsaitse rezerve eder. Müsait değilse [StateError]
+  /// fırlatır. Kullanıcı önceki bir handle tutuyorsa [previousHandle]
+  /// verilirse rezervasyon transaction sonunda eski doc silinir.
+  Future<void> reserveUsername({
+    required String uid,
+    required String desiredHandle,
+    String? previousHandle,
+  }) async {
+    final normalized = normalizeUsername(desiredHandle);
+    if (!isValidUsernameHandle(normalized)) {
+      throw StateError(
+        'Kullanıcı adı 3-20 karakter, sadece harf/rakam/_, başı/sonu _ olamaz.',
+      );
+    }
+    final prevNormalized = normalizeUsername(previousHandle ?? '');
+    if (prevNormalized == normalized) return;
+    final newRef = usernames.doc(normalized);
+    final prevRef =
+        prevNormalized.isEmpty ? null : usernames.doc(prevNormalized);
+    await db.runTransaction((tx) async {
+      final newSnap = await tx.get(newRef);
+      if (newSnap.exists) {
+        final existingUid = (newSnap.data()?['uid'] as String?) ?? '';
+        if (existingUid != uid) {
+          throw StateError('Bu kullanıcı adı zaten alınmış.');
+        }
+        // Aynı kullanıcı tekrar reserve ediyorsa no-op.
+        return;
+      }
+      tx.set(newRef, {
+        'uid': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      if (prevRef != null) {
+        final prevSnap = await tx.get(prevRef);
+        if (prevSnap.exists &&
+            (prevSnap.data()?['uid'] as String?) == uid) {
+          tx.delete(prevRef);
+        }
+      }
+    });
+  }
+
+  /// Hesap silme akışında veya logout sonrası temizlik için.
+  Future<void> releaseUsername({
+    required String uid,
+    required String handle,
+  }) async {
+    final normalized = normalizeUsername(handle);
+    if (normalized.isEmpty) return;
+    final ref = usernames.doc(normalized);
+    try {
+      final snap = await ref.get();
+      if (!snap.exists) return;
+      if ((snap.data()?['uid'] as String?) != uid) return;
+      await ref.delete();
+    } catch (_) {
+      // Best-effort: silinemezse rules zaten korur.
+    }
+  }
+
   /// Community-sourced product additions awaiting admin approval.
   CollectionReference<Map<String, dynamic>> get productRequests =>
       db.collection('product_requests');
@@ -293,6 +379,15 @@ class FirebaseService {
     String? displayName,
     String? username,
   }) async {
+    final cleanUsername = (username ?? '').trim();
+    final normalizedHandle = normalizeUsername(cleanUsername);
+    if (normalizedHandle.isNotEmpty &&
+        !isValidUsernameHandle(normalizedHandle)) {
+      throw FirebaseAuthException(
+        code: 'invalid-username',
+        message: 'Kullanıcı adı 3-20 karakter, sadece harf/rakam/_ olabilir.',
+      );
+    }
     final cred = await auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -302,14 +397,26 @@ class FirebaseService {
       await cred.user?.updateDisplayName(trimmedName);
     }
     final uid = cred.user?.uid;
+    if (uid != null && uid.isNotEmpty && normalizedHandle.isNotEmpty) {
+      try {
+        await reserveUsername(uid: uid, desiredHandle: normalizedHandle);
+      } on StateError catch (e) {
+        // Rezervasyon başarısızsa az önce yarattığımız auth account'ı geri
+        // alalım, aksi halde kullanıcı orphan oluyor.
+        try {
+          await cred.user?.delete();
+        } catch (_) {}
+        throw FirebaseAuthException(
+          code: 'username-taken',
+          message: e.message,
+        );
+      }
+    }
     if (uid != null && uid.isNotEmpty) {
-      final cleanUsername = (username ?? '').trim();
       await userDoc(uid).set({
         if (trimmedName.isNotEmpty) 'displayName': trimmedName,
-        if (cleanUsername.isNotEmpty)
-          'username': cleanUsername.startsWith('@')
-              ? cleanUsername
-              : '@$cleanUsername',
+        if (normalizedHandle.isNotEmpty) 'username': '@$normalizedHandle',
+        if (normalizedHandle.isNotEmpty) 'usernameHandle': normalizedHandle,
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
@@ -334,16 +441,59 @@ class FirebaseService {
     if (uid != null && uid.isNotEmpty) {
       final displayName = cred.user?.displayName?.trim() ?? '';
       final email = cred.user?.email?.trim() ?? '';
-      final usernameSeed = email.contains('@')
-          ? email.split('@').first
-          : (displayName.isNotEmpty ? displayName : 'fiyatradar_user');
-      await userDoc(uid).set({
-        if (displayName.isNotEmpty) 'displayName': displayName,
-        'username': '@${usernameSeed.replaceAll(RegExp(r'\s+'), '_').toLowerCase()}',
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      // Sadece YENİ kullanıcılarda username seed et — mevcut hesabın elle
+      // değiştirdiği username'i ezmeyelim.
+      final existing = await userDoc(uid).get();
+      final hasUsername =
+          (existing.data()?['username'] as String?)?.trim().isNotEmpty == true;
+      if (!hasUsername) {
+        final base = (email.contains('@')
+                ? email.split('@').first
+                : (displayName.isNotEmpty ? displayName : 'fiyatradar_user'))
+            .replaceAll(RegExp(r'\s+'), '_')
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+        final reservedHandle = await _findAvailableUsernameHandle(
+          uid: uid,
+          base: base.isEmpty ? 'fiyatradar_user' : base,
+        );
+        await userDoc(uid).set({
+          if (displayName.isNotEmpty) 'displayName': displayName,
+          'username': '@$reservedHandle',
+          'usernameHandle': reservedHandle,
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else if (displayName.isNotEmpty) {
+        await userDoc(uid).set({
+          'displayName': displayName,
+        }, SetOptions(merge: true));
+      }
     }
     return cred;
+  }
+
+  /// Google ile ilk girişte boş bir handle için çakışmasız bir varyant bul ve
+  /// rezerve et. `base`, `base_2`, `base_3` ... şeklinde dener.
+  Future<String> _findAvailableUsernameHandle({
+    required String uid,
+    required String base,
+  }) async {
+    var candidate = base;
+    if (!isValidUsernameHandle(candidate)) candidate = 'fiyatradar_user';
+    for (var i = 0; i < 50; i++) {
+      final tryHandle = i == 0 ? candidate : '${candidate}_${i + 1}';
+      try {
+        await reserveUsername(uid: uid, desiredHandle: tryHandle);
+        return tryHandle;
+      } on StateError {
+        continue;
+      }
+    }
+    // Son çare: uid suffix ile garanti unique handle.
+    final fallback = '${candidate.substring(0, candidate.length.clamp(0, 12))}'
+        '_${uid.substring(0, uid.length.clamp(0, 6))}';
+    await reserveUsername(uid: uid, desiredHandle: fallback);
+    return fallback;
   }
 
   Future<void> sendPasswordReset(String email) {

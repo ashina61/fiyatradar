@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/price_reporting.dart';
@@ -319,6 +318,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     if (e is TimeoutException) {
       return 'Profil fotoğrafı yüklenemedi: işlem zaman aşımına uğradı. Birazdan tekrar dene.';
     }
+    if (e is StateError) {
+      return e.message;
+    }
     return 'Profil güncellenemedi: $e';
   }
 
@@ -533,18 +535,18 @@ class NotificationPrefsScreen extends StatelessWidget {
           _ToggleRow(
             icon: Icons.price_change_rounded,
             title: 'Fiyat alarmları',
-            subtitle: 'Takip ettiğin ürün hedef fiyatta olduğunda',
+            subtitle:
+                'Takip ettiğin ürünün fiyatı düştüğünde veya yükseldiğinde haber al',
             value: state.priceAlertsEnabled,
             onChanged: (v) =>
                 state.updateNotificationSettings(priceAlertsEnabled: v),
           ),
           const SizedBox(height: 10),
-          const SizedBox(height: 10),
           _ToggleRow(
             icon: Icons.radar_rounded,
-            title: 'Bölgemde fiyat düştü',
+            title: 'Bölgesel fiyat hareketleri',
             subtitle:
-                'Bölgendeki bir markette ortalama düştüğünde push gelsin',
+                'Bölgendeki bir markette fiyat düştüğünde / yükseldiğinde push gelsin',
             value: state.regionalDropPushEnabled,
             onChanged: (v) => state.updateNotificationSettings(
                 regionalDropPushEnabled: v),
@@ -557,188 +559,6 @@ class NotificationPrefsScreen extends StatelessWidget {
             value: state.weeklySummaryEnabled,
             onChanged: (v) =>
                 state.updateNotificationSettings(weeklySummaryEnabled: v),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Security ───────────────────────────────────────────────────────────────
-
-class SecurityPrefsScreen extends StatefulWidget {
-  const SecurityPrefsScreen({super.key});
-
-  @override
-  State<SecurityPrefsScreen> createState() => _SecurityPrefsScreenState();
-}
-
-class _SecurityPrefsScreenState extends State<SecurityPrefsScreen> {
-  final LocalAuthentication _localAuth = LocalAuthentication();
-  bool _securityBusy = false;
-
-  Future<void> _toggleBiometric(AppState state, bool enabled) async {
-    if (_securityBusy) return;
-    setState(() => _securityBusy = true);
-    if (!enabled) {
-      await state.updateSecuritySettings(biometricEnabled: false);
-      if (mounted) setState(() => _securityBusy = false);
-      return;
-    }
-    try {
-      final isSupported = await _localAuth.isDeviceSupported();
-      if (!isSupported) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu cihaz biyometriyi desteklemiyor.')),
-        );
-        return;
-      }
-      final canCheck = await _localAuth.canCheckBiometrics;
-      final available = await _localAuth.getAvailableBiometrics();
-      final hasBiometric = canCheck && available.isNotEmpty;
-      final ok = await _localAuth.authenticate(
-        localizedReason: 'Biyometrik güvenliği açmak için doğrula',
-        options: AuthenticationOptions(
-          biometricOnly: hasBiometric,
-          stickyAuth: false,
-        ),
-      );
-      if (!ok) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biyometrik doğrulama iptal edildi.')),
-        );
-        return;
-      }
-      state.markSecuritySessionUnlocked(true);
-      await state.updateSecuritySettings(biometricEnabled: true);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Biyometrik doğrulama başarısız: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _securityBusy = false);
-    }
-  }
-
-  Future<void> _toggleTwoFactor(AppState state, bool enabled) async {
-    if (_securityBusy) return;
-    setState(() => _securityBusy = true);
-    try {
-      if (!enabled) {
-        await state.updateSecuritySettings(
-          twoFactorEnabled: false,
-          clearTwoFactorPin: true,
-        );
-        return;
-      }
-      final pin = await _askTwoFactorPin();
-      if (pin == null) return;
-      state.markSecuritySessionUnlocked(true);
-      await state.updateSecuritySettings(
-        twoFactorEnabled: true,
-        twoFactorPin: pin,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('İki aşamalı kimlik etkinleştirildi.')),
-      );
-    } finally {
-      if (mounted) setState(() => _securityBusy = false);
-    }
-  }
-
-  Future<String?> _askTwoFactorPin() async {
-    final pin = TextEditingController();
-    final pinAgain = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: FR.surface,
-        title: Text('2FA kodu oluştur', style: frDisplay(20, FontWeight.w700)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: pin,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              obscureText: true,
-              decoration: const InputDecoration(
-                hintText: '4-6 haneli kod',
-                counterText: '',
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: pinAgain,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              obscureText: true,
-              decoration: const InputDecoration(
-                hintText: 'Kodu tekrar gir',
-                counterText: '',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('İptal', style: frText(12, FontWeight.w800, color: FR.ink3)),
-          ),
-          TextButton(
-            onPressed: () {
-              final a = pin.text.trim();
-              final b = pinAgain.text.trim();
-              if (a.length < 4 || a.length > 6 || a != b) {
-                Navigator.pop(ctx, '');
-                return;
-              }
-              Navigator.pop(ctx, a);
-            },
-            child: Text('Kaydet', style: frText(12, FontWeight.w800, color: FR.gold)),
-          ),
-        ],
-      ),
-    );
-    pin.dispose();
-    pinAgain.dispose();
-    if (result == '') {
-      if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kod eşleşmiyor veya geçersiz.')),
-      );
-      return null;
-    }
-    return result;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
-    return _ProfileSubScaffold(
-      overline: 'HESAP GÜVENLİĞİ',
-      title: 'Güvenlik',
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
-        children: [
-          _ToggleRow(
-            icon: Icons.lock_reset_rounded,
-            title: 'İki aşamalı kimlik (2FA)',
-            subtitle: 'Girişte doğrulama kodu iste',
-            value: state.twoFactorEnabled,
-            onChanged: _securityBusy ? null : (v) => _toggleTwoFactor(state, v),
-          ),
-          const SizedBox(height: 10),
-          _ToggleRow(
-            icon: Icons.fingerprint_rounded,
-            title: 'Biyometri',
-            subtitle: 'Parmak izi / Face ID ile hızlı giriş',
-            value: state.biometricEnabled,
-            onChanged: _securityBusy ? null : (v) => _toggleBiometric(state, v),
           ),
         ],
       ),
@@ -807,6 +627,22 @@ class AboutScreen extends StatelessWidget {
             onTap: () =>
                 _openExternalLink(context, 'https://fiyatradar.netlify.app/gizlilik'),
           ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.delete_outline_rounded,
+            title: 'Hesap ve veri silme talebi',
+            subtitle: 'fiyatradar.netlify.app/veri-silme',
+            onTap: () => _openExternalLink(
+                context, 'https://fiyatradar.netlify.app/veri-silme'),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.gavel_outlined,
+            title: 'Abonelik ve geri ödeme koşulları',
+            subtitle: 'Play Store abonelik kuralları',
+            onTap: () => _openExternalLink(
+                context, 'https://support.google.com/googleplay/answer/7018481'),
+          ),
         ],
       ),
     );
@@ -822,6 +658,34 @@ class ReleaseNotesScreen extends StatelessWidget {
     // user-facing language so the changelog reads like a customer release
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
+      (
+        version: 'v1.0.1',
+        date: '14 Mayıs 2026',
+        items: [
+          'Güvenlik sekmesi kaldırıldı: 2FA + biyometrik kilit, küçük bir '
+              'topluluk fiyat uygulaması için aşırı sürtüşmeye yol açıyordu. '
+              'Hesabı koruma sorumluluğu yine Firebase Auth + Google Sign-In '
+              'üzerinde; e-posta doğrulama ve hesap silme akışları yerinde.',
+          'Kullanıcı adları artık benzersiz: yeni hesap açarken veya profil '
+              'düzenlerken aynı takma adı başkası kullanıyorsa kayıt '
+              'reddediliyor. Firestore tarafında `usernames/{handle}` '
+              'rezervasyon collection\'ı eklendi, rules ile kilitlendi.',
+          'Tutorial slaytları gerçekçileşti: uydurma istatistikler (Kadıköy · '
+              '3.4K vb.) yerine uygulamanın gerçek davranışını anlatan '
+              'mesajlar geldi. Üçüncü slayt artık hem düşüş hem yükseliş '
+              'bildirimini açıkça belirtiyor.',
+          'Bölgesel fiyat hareketi tercihi (`regionalDropPushEnabled`) artık '
+              'Cloud Functions tarafında da okunuyor — kapalıysa push '
+              'gönderilmiyor, sadece in-app bildirim doc\'u yazılıyor. '
+              'Toggle subtitle\'ı "düşüş / yükseliş" olarak güncellendi.',
+          '"Hakkında" ekranına KVKK gereği veri silme talebi link\'i ve Play '
+              'Store abonelik / geri ödeme koşulları link\'i eklendi.',
+          'AndroidManifest.xml temizliği: biyometrik (USE_BIOMETRIC, '
+              'USE_FINGERPRINT) izinleri kaldırıldı, Play Billing izni '
+              '(com.android.vending.BILLING) eklendi. local_auth bağımlılığı '
+              'pubspec\'ten düştü.',
+        ],
+      ),
       (
         version: 'v1.0.0',
         date: '8 Mayıs 2026',
@@ -1418,14 +1282,6 @@ class SettingsHubScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _HubRow(
-            icon: Icons.shield_outlined,
-            title: 'Güvenlik',
-            subtitle: '2FA, biyometri',
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SecurityPrefsScreen())),
-          ),
-          const SizedBox(height: 10),
-          _HubRow(
             icon: Icons.account_circle_outlined,
             title: 'Hesap',
             subtitle: 'E-posta doğrulama, hesap silme',
@@ -1545,11 +1401,16 @@ class _AccountScreenState extends State<AccountScreen> {
     });
     final state = AppStateScope.read(context);
     final uid = user.uid;
+    final handle = state.username;
     try {
       // Best-effort: drop FCM token + the user doc before deleting auth so
       // we don't leave a tombstone with the user's profile data behind.
       try {
         await MessagingService.instance.clearTokenForCurrentUser();
+      } catch (_) {}
+      try {
+        await FirebaseService.instance
+            .releaseUsername(uid: uid, handle: handle);
       } catch (_) {}
       try {
         await FirebaseService.instance.userDoc(uid).delete();

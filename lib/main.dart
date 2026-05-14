@@ -7,7 +7,6 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/login_screen.dart';
@@ -187,9 +186,6 @@ class _AuthGate extends StatelessWidget {
     if (state.isBanned) {
       return _BannedScreen(reason: state.banReason);
     }
-    if (_securityGateRequired(state) && !state.securitySessionUnlocked) {
-      return _SecurityGateScreen(state: state);
-    }
     return const MainScreen();
   }
 
@@ -197,16 +193,7 @@ class _AuthGate extends StatelessWidget {
     if (user == null) return 'login';
     if (user.isAnonymous && !state.guestAcknowledged) return 'login';
     if (state.isBanned) return 'banned:${user.uid}';
-    if (_securityGateRequired(state) && !state.securitySessionUnlocked) {
-      return 'security:${user.uid}';
-    }
     return 'main:${user.uid}';
-  }
-
-  bool _securityGateRequired(AppState state) {
-    final hasPin = (state.twoFactorPin ?? '').trim().length >= 4;
-    final pinGate = state.twoFactorEnabled && hasPin;
-    return state.biometricEnabled || pinGate;
   }
 }
 
@@ -262,144 +249,6 @@ class _ErrorScreen extends StatelessWidget {
                 style: frText(12, FontWeight.w500, color: FR.ink3),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SecurityGateScreen extends StatefulWidget {
-  const _SecurityGateScreen({required this.state});
-  final AppState state;
-
-  @override
-  State<_SecurityGateScreen> createState() => _SecurityGateScreenState();
-}
-
-class _SecurityGateScreenState extends State<_SecurityGateScreen> {
-  final LocalAuthentication _localAuth = LocalAuthentication();
-  final TextEditingController _pinCtrl = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _pinCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _verifyBiometric() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final isSupported = await _localAuth.isDeviceSupported();
-      if (!isSupported) {
-        setState(() => _error = 'Bu cihazda biyometri kullanılamıyor.');
-        return;
-      }
-      final ok = await _localAuth.authenticate(
-        localizedReason: 'FiyatRadar güvenlik doğrulaması',
-        options: const AuthenticationOptions(
-          biometricOnly: false,
-          stickyAuth: true,
-        ),
-      );
-      if (ok) {
-        widget.state.markSecuritySessionUnlocked(true);
-      } else {
-        setState(() => _error = 'Doğrulama iptal edildi.');
-      }
-    } catch (e) {
-      setState(() => _error = 'Biyometrik doğrulama yapılamadı: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  void _verifyPin() {
-    final pin = _pinCtrl.text.trim();
-    final expected = widget.state.twoFactorPin?.trim() ?? '';
-    if (pin.length < 4) {
-      setState(() => _error = 'Lütfen güvenlik kodunu gir.');
-      return;
-    }
-    if (expected.isEmpty) {
-      setState(() => _error = '2FA kodu bulunamadı. Profilden yeniden kur.');
-      return;
-    }
-    if (pin != expected) {
-      setState(() => _error = 'Kod hatalı.');
-      return;
-    }
-    widget.state.markSecuritySessionUnlocked(true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final useBiometric = widget.state.biometricEnabled;
-    final usePin = widget.state.twoFactorEnabled;
-    return Scaffold(
-      backgroundColor: FR.bg,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: FR.surface,
-                borderRadius: FRRad.all(FRRad.xl),
-                border: Border.all(color: FR.hairline),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Güvenlik doğrulaması', style: frDisplay(24, FontWeight.w700)),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Hesaba devam etmek için kimliğini doğrula.',
-                    style: frText(12.5, FontWeight.w600, color: FR.ink3),
-                  ),
-                  if (useBiometric) ...[
-                    const SizedBox(height: 16),
-                    FRCta(
-                      label: _busy ? 'Doğrulanıyor…' : 'Biyometri ile doğrula',
-                      icon: Icons.fingerprint_rounded,
-                      onTap: _busy ? null : _verifyBiometric,
-                    ),
-                  ],
-                  if (usePin) ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _pinCtrl,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      maxLength: 6,
-                      decoration: const InputDecoration(
-                        hintText: '2FA kodu',
-                        counterText: '',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    FRCta(
-                      label: 'Kodu doğrula',
-                      filled: false,
-                      onTap: _verifyPin,
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 10),
-                    Text(_error!, style: frText(12, FontWeight.w700, color: FR.bad)),
-                  ],
-                ],
-              ),
-            ),
           ),
         ),
       ),

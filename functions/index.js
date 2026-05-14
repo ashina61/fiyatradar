@@ -267,6 +267,7 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     let fcmToken = '';
     let pushEnabled = true;
     let priceAlertsEnabled = true;
+    let regionalDropPushEnabled = true;
     try {
       const userSnap = await db.collection('users').doc(userId).get();
       const u = userSnap.data() || {};
@@ -276,6 +277,7 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       const settings = (u.settings || {}).notifications || {};
       pushEnabled = settings.pushEnabled !== false;
       priceAlertsEnabled = settings.priceAlertsEnabled !== false;
+      regionalDropPushEnabled = settings.regionalDropPushEnabled !== false;
     } catch (e) {
       logger.warn('priceGroup: user fetch failed', { userId, error: e.message });
       return;
@@ -312,7 +314,14 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     inAppSent++;
 
     // Push'u sadece opt-in kullanıcılara gönder; in-app doc yine yazıldı.
-    if (fcmToken && pushEnabled && priceAlertsEnabled) {
+    // regionalDropPushEnabled: kullanıcı bölgesel hareket bildirimlerini
+    // kapatmışsa push'u skip et (in-app doc yazılmaya devam eder).
+    if (
+      fcmToken &&
+      pushEnabled &&
+      priceAlertsEnabled &&
+      regionalDropPushEnabled
+    ) {
       tokens.push(fcmToken);
       if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
       tokenToRefs.get(fcmToken).push(db.collection('users').doc(userId));

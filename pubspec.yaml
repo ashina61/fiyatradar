@@ -4,7 +4,7 @@ publish_to: 'none'
 # Beta-1 sürümü: ilk Play Store internal track yüklemesi için.
 # Gelecek release'ler için patch artışı versionCode'u +1, versionName'i
 # hedeflenen kullanıcıya göre bump edin (örn. 1.0.1+2).
-version: 1.0.0+2
+version: 1.0.1+3
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -40,7 +40,6 @@ dependencies:
   mobile_scanner: ^5.2.3
   geolocator: ^11.0.0
   geocoding: ^2.1.1
-  local_auth: ^2.3.0
   shared_preferences: ^2.2.2
   url_launcher: ^6.3.1
 

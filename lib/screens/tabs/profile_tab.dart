@@ -116,16 +116,6 @@ class ProfileTab extends StatelessWidget {
                 ),
               ),
               _ListItem(
-                icon: Icons.shield_outlined,
-                title: 'Güvenlik',
-                subtitle: state.twoFactorEnabled ? '2FA açık' : '2FA kapalı',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SecurityPrefsScreen()),
-                ),
-              ),
-              _ListItem(
                 icon: Icons.notifications_none_rounded,
                 title: 'Bildirim tercihleri',
                 subtitle: state.pushNotificationsEnabled ? 'Açık' : 'Kapalı',
