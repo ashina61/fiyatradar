@@ -1290,6 +1290,15 @@ class _StoreNetworkTab extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        FRCta(
+          label: 'Mahalle pazarı ekle',
+          icon: Icons.local_grocery_store_rounded,
+          filled: false,
+          height: 44,
+          onTap: () => _openManagement(context,
+              initialTab: 3, openCreate: true),
+        ),
         const SizedBox(height: 14),
         FRCta(
           label: 'Tüm mağaza yönetimini aç',
@@ -1345,6 +1354,7 @@ class _StoreNetworkOverview extends StatelessWidget {
 
             int physical = 0;
             int online = 0;
+            int bazaar = 0;
             int pending = 0;
             for (final d in places) {
               final m = d.data();
@@ -1354,7 +1364,9 @@ class _StoreNetworkOverview extends StatelessWidget {
               if (status == 'pending') pending++;
               final type = (m['type'] ?? '').toString();
               final source = (m['sourceType'] ?? m['channel'] ?? '').toString();
-              if (source == 'online' || type == 'online_market') {
+              if (type == 'bazaar') {
+                bazaar++;
+              } else if (source == 'online' || type == 'online_market') {
                 online++;
               } else {
                 physical++;
@@ -1426,6 +1438,19 @@ class _StoreNetworkOverview extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _NetworkStat(
+                          label: 'PAZAR',
+                          value: loading ? '—' : '$bazaar',
+                          icon: Icons.local_grocery_store_rounded,
+                          accent: FRPalette.dark.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _NetworkStat(
                           label: 'BEKLEYEN',
                           value: loading ? '—' : '$pending',
                           icon: Icons.schedule_rounded,
@@ -1434,6 +1459,8 @@ class _StoreNetworkOverview extends StatelessWidget {
                               : FRPalette.dark.ink,
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      const Expanded(child: SizedBox.shrink()),
                     ],
                   ),
                 ],
@@ -1525,7 +1552,7 @@ class _PendingPlacesInlineSection extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) =>
-                          const AdminStoreManagementScreen(initialTab: 3),
+                          const AdminStoreManagementScreen(initialTab: 4),
                     ),
                   ),
                   child: Text(

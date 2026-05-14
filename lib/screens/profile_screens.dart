@@ -1366,6 +1366,18 @@ class SettingsHubScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _HubRow(
+            icon: Icons.language_rounded,
+            title: 'Dil / Language',
+            subtitle: AppStateScope.of(context).localeCode == 'en'
+                ? 'English'
+                : 'Türkçe',
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const LanguageSettingsScreen())),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
             icon: Icons.history_rounded,
             title: 'Güncelleme geçmişi',
             subtitle: 'Yeni özellik ve düzeltmeler',
@@ -1400,6 +1412,124 @@ class SettingsHubScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Language picker ────────────────────────────────────────────────────────
+
+/// Dil seçim ekranı. Türkçe / İngilizce arasında geçiş — değişiklik
+/// SharedPreferences'a yazılır ve `AppState.setLocale` üzerinden
+/// MaterialApp anında rebuild olur.
+class LanguageSettingsScreen extends StatelessWidget {
+  const LanguageSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final current = state.localeCode;
+    final isEn = current == 'en';
+    return _ProfileSubScaffold(
+      overline: 'GENEL',
+      title: isEn ? 'Language' : 'Dil',
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: frSurface(radius: FRRad.l),
+            child: Text(
+              isEn
+                  ? 'Choose the app interface language.'
+                  : 'Uygulama arayüz dilini seç.',
+              style: frText(12.5, FontWeight.w600, color: FR.ink3, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _LanguageRow(
+            label: 'Türkçe',
+            sub: 'Turkish',
+            selected: current == 'tr',
+            onTap: () => state.setLocale('tr'),
+          ),
+          const SizedBox(height: 10),
+          _LanguageRow(
+            label: 'English',
+            sub: 'İngilizce',
+            selected: current == 'en',
+            onTap: () => state.setLocale('en'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LanguageRow extends StatelessWidget {
+  const _LanguageRow({
+    required this.label,
+    required this.sub,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final String sub;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: FR.surface,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(
+            color: selected ? FR.goldDeep : FR.hairline,
+            width: selected ? 1.3 : 1,
+          ),
+          boxShadow: selected ? frGoldGlow(opacity: .15) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected ? FR.gold : FR.ink3,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: frText(14, FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(sub,
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
+            ),
+            if (selected)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: FR.gold.withOpacity(.16),
+                  borderRadius: FRRad.all(999),
+                  border: Border.all(color: FR.gold.withOpacity(.35)),
+                ),
+                child: Text('AKTİF',
+                    style:
+                        frText(10, FontWeight.w800, color: FR.gold, letter: 1)),
+              ),
+          ],
+        ),
       ),
     );
   }

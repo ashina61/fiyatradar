@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'l10n/app_strings.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -87,7 +88,10 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
     return AppStateScope(
       state: _state,
       child: AnimatedBuilder(
-        animation: FRThemeController.instance,
+        // Hem tema değişikliği hem dil değişikliği MaterialApp'i
+        // rebuild etmeli — Listenable.merge'le iki source'u tek
+        // AnimatedBuilder altında birleştiriyoruz.
+        animation: Listenable.merge([FRThemeController.instance, _state]),
         builder: (context, _) {
           return MaterialApp(
             title: 'FiyatRadar',
@@ -97,17 +101,19 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
             themeMode: FRThemeController.instance.isDark
                 ? ThemeMode.dark
                 : ThemeMode.light,
-            // App is Turkish-only today. Material/Cupertino/Widgets delegates
-            // are still required so Material widgets (e.g. TextField, time
-            // picker, toolbar tooltips) render localized strings instead of
-            // falling back to English.
-            locale: const Locale('tr'),
-            supportedLocales: const [Locale('tr'), Locale('en')],
+            locale: _state.locale,
+            supportedLocales: AppStrings.supportedLocales,
             localizationsDelegates: const [
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
+            builder: (context, child) {
+              return AppStringsScope(
+                strings: AppStrings(_state.locale),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             home: _AuthGate(
               state: _state,
               initFuture: _initFuture,

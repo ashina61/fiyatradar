@@ -189,6 +189,13 @@ class AppState extends ChangeNotifier {
   bool pushNotificationsEnabled = true;
   bool priceAlertsEnabled = true;
   bool weeklySummaryEnabled = true;
+
+  /// Aktif arayüz dili ('tr' veya 'en'). SharedPreferences'da
+  /// `app_locale` anahtarıyla saklanır. AppState.init içinde yüklenir;
+  /// kullanıcı profil ekranından `setLocale` çağırarak değiştirebilir.
+  String _localeCode = 'tr';
+  String get localeCode => _localeCode;
+  Locale get locale => Locale(_localeCode);
   /// `regional_price_drop` push'larına abonelik. Cloud Function
   /// `onPriceGroupUpdate` notification doc'unu yine yazar (in-app sinyali
   /// kaybolmaması için), ama push gönderirken bu bayrağı kontrol etmesi
@@ -496,6 +503,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> init() async {
+    // Locale önyüklemesi — auth akışından bağımsız, çünkü onboarding ve
+    // login ekranları da çevrilebilir olmalı.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = (prefs.getString('app_locale') ?? '').trim().toLowerCase();
+      if (saved == 'en' || saved == 'tr') {
+        _localeCode = saved;
+      }
+    } catch (_) {
+      // Persisted locale opsiyonel; eksik olursa varsayılan TR kullanılır.
+    }
     _authSub ??= _svc.auth.authStateChanges().listen((next) {
       if (user?.uid == next?.uid &&
           user?.isAnonymous == next?.isAnonymous) {
@@ -2775,6 +2793,21 @@ class AppState extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+  }
+
+  /// Arayüz dilini değiştirir ve SharedPreferences'a yazar.
+  /// `code` 'tr' veya 'en' olmalı; diğer değerler 'tr' olarak normalize edilir.
+  Future<void> setLocale(String code) async {
+    final next = code.trim().toLowerCase() == 'en' ? 'en' : 'tr';
+    if (next == _localeCode) return;
+    _localeCode = next;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('app_locale', next);
+    } catch (_) {
+      // Best-effort persist; in-memory dil yine değişti.
+    }
   }
 
   Future<void> updateNotificationSettings({

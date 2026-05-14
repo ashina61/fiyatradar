@@ -245,11 +245,22 @@ class _HomeHeader extends StatelessWidget {
               Text('${_greeting().toUpperCase()} · RADAR',
                   style: frOverline(color: FR.ink3, size: 9.5)),
               const SizedBox(height: 4),
-              Text(
-                firstName.isEmpty ? 'Anasayfa' : firstName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: frDisplay(28, FontWeight.w700, height: 1.05),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      firstName.isEmpty ? 'Anasayfa' : firstName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frDisplay(28, FontWeight.w700, height: 1.05),
+                    ),
+                  ),
+                  if (state.premium.isActive) ...[
+                    const SizedBox(width: 8),
+                    const FRProBadge(compact: false),
+                  ],
+                ],
               ),
             ],
           ),
