@@ -419,7 +419,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     // göster.
     if (next == null || !next.isAfter(DateTime.now())) {
       return Padding(
-        padding: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.only(top: 6), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Text(
           'Kullanıcı adı 3 ayda bir değiştirilebilir.',
           style: frText(11, FontWeight.w600, color: FR.ink3, height: 1.4),
@@ -429,9 +429,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     final daysLeft = state.daysUntilUsernameChangeAllowed;
     final dateLabel = '${next.day}.${next.month}.${next.year}';
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 6), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: FR.surfaceLo,
           borderRadius: FRRad.all(FRRad.m),
@@ -702,6 +702,28 @@ class ReleaseNotesScreen extends StatelessWidget {
     // user-facing language so the changelog reads like a customer release
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
+      (
+        version: 'v1.0.2',
+        date: '14 Mayıs 2026',
+        items: [
+          'Profil → "Kullanıcı adı 3 ayda bir değiştirilebilir" bilgilendirme '
+              'kutusu eklendi; cooldown sürerken kaç gün kaldığını ve bir '
+              'sonraki değişiklik tarihini açıkça gösteriyor.',
+          'Topluluk yorumlarında yazarın PRO rozeti ve güven yüzdesi artık '
+              'yorum listesinden anında okunabiliyor — her satır için ayrı '
+              'kullanıcı profili çekilmediği için liste belirgin biçimde daha '
+              'hızlı açılıyor.',
+          '"Fiyat ekle" akışında mahalle pazarı seçicisi: pazar günü bugün '
+              'ise marketin yanında küçük altın "BUGÜN" rozeti çıkıyor, '
+              'haftalık kurulum günleri ürün doğrulamasına yansıyor.',
+          'İç temizlik: tasarım sistemi guardrail\'inin yakaladığı 7 yeni '
+              'EdgeInsets çağrısı standart `LEGACY_EXCEPTION` notuyla '
+              'etiketlendi (Haziran 2026 sonuna kadar FRSpace tokenlarına '
+              'taşınacak). `flutter analyze` uyarıları (kullanılmayan import, '
+              'ölü `_baseScopedPriceQuery` helper\'ı) giderildi — kullanıcıya '
+              'yansıyan bir davranış değişikliği yok, sadece kod sağlığı.',
+        ],
+      ),
       (
         version: 'v1.0.1',
         date: '14 Mayıs 2026',
