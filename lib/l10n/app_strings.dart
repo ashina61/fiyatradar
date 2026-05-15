@@ -272,6 +272,130 @@ class AppStrings {
     'home.greeting.goodEvening': {'tr': 'İyi akşamlar', 'en': 'Good evening'},
     'home.greeting.goodNight': {'tr': 'İyi geceler', 'en': 'Good night'},
     'home.title.fallback': {'tr': 'Anasayfa', 'en': 'Home'},
+
+    // Nav / dock labels
+    'nav.home': {'tr': 'Anasayfa', 'en': 'Home'},
+    'nav.explore': {'tr': 'Keşfet', 'en': 'Explore'},
+    'nav.basket': {'tr': 'Sepet', 'en': 'Basket'},
+    'nav.profile': {'tr': 'Profil', 'en': 'Profile'},
+
+    // Add price tab
+    'addPrice.overline': {
+      'tr': 'TOPLULUĞA KATKI',
+      'en': 'COMMUNITY CONTRIBUTION',
+    },
+    'addPrice.title': {'tr': 'Fiyat', 'en': 'Add'},
+    'addPrice.titleTail': {'tr': ' ekle', 'en': ' price'},
+    'addPrice.guest.title': {
+      'tr': 'Fiyat eklemek için hesap aç',
+      'en': 'Create an account to add prices',
+    },
+    'addPrice.guest.body': {
+      'tr': 'Misafir hesaplar fiyat ekleyemez ve doğrulayamaz. '
+          'Ücretsiz hesap açınca her katkı için puan kazanır, fiyat alarmı '
+          'kurabilirsin.',
+      'en': 'Guest accounts cannot add or verify prices. '
+          'Create a free account to earn points for every contribution and '
+          'set price alerts.',
+    },
+    'addPrice.guest.cta': {'tr': 'Ücretsiz üye ol', 'en': 'Sign up free'},
+
+    // Basket tab
+    'basket.overline': {'tr': 'TOPLUCA SORGULA', 'en': 'COMPARE TOGETHER'},
+    'basket.title': {'tr': 'Sepet', 'en': 'Basket'},
+    'basket.description': {
+      'tr': 'Bölgende bildirilen fiyatlara göre tahmini sepet planını karşılaştır.',
+      'en': 'Compare your estimated basket using prices reported in your area.',
+    },
+    'basket.tab.mine': {'tr': 'Sepetim', 'en': 'My basket'},
+    'basket.tab.compare': {'tr': 'Karşılaştır', 'en': 'Compare'},
+    'basket.guest.pill': {
+      'tr': 'Misafir hesap · %remaining% / %limit% karşılaştırma kaldı. Üye ol, sınırsız hesapla.',
+      'en': 'Guest account · %remaining% / %limit% comparisons left. Sign up for unlimited.',
+    },
+    'basket.guest.limitTitle': {
+      'tr': 'Misafir limiti doldu',
+      'en': 'Guest limit reached',
+    },
+    'basket.guest.limitBody': {
+      'tr': 'Misafir hesaplar 3 sepet karşılaştırması yapabilir. Ücretsiz üye olunca sınırsız hesap, fiyat alarmı ve katkı puanı kazanma açılır.',
+      'en': 'Guests can run 3 basket comparisons. Sign up free for unlimited comparisons, price alerts, and contribution points.',
+    },
+    'basket.guest.signupCta': {'tr': 'Ücretsiz üye ol', 'en': 'Sign up free'},
+    'basket.guest.proCta': {'tr': 'Pro\'ya geç', 'en': 'Upgrade to Pro'},
+
+    // Profile tab
+    'profile.overline': {'tr': 'HESABIN', 'en': 'YOUR ACCOUNT'},
+    'profile.title': {'tr': 'Profil', 'en': 'Profile'},
+    'profile.guest.label': {'tr': 'Misafir', 'en': 'Guest'},
+    'profile.signUp': {'tr': 'Üye ol', 'en': 'Sign up'},
+    'profile.signIn': {'tr': 'Giriş yap', 'en': 'Sign in'},
+    'profile.signOut': {'tr': 'Çıkış yap', 'en': 'Sign out'},
+    'profile.settings': {'tr': 'Ayarlar', 'en': 'Settings'},
+    'profile.language': {'tr': 'Dil', 'en': 'Language'},
+    'profile.notifications': {'tr': 'Bildirimler', 'en': 'Notifications'},
+    'profile.region': {'tr': 'Bölge', 'en': 'Region'},
+    'profile.watchlist': {'tr': 'Takip listem', 'en': 'My watchlist'},
+
+    // Explore tab
+    'explore.overline': {'tr': 'KEŞFET', 'en': 'EXPLORE'},
+    'explore.title': {'tr': 'Katalog', 'en': 'Catalog'},
+    'explore.search.hint': {
+      'tr': 'Ürün, marka veya kategori ara',
+      'en': 'Search product, brand or category',
+    },
+    'explore.empty': {
+      'tr': 'Sonuç bulunamadı.',
+      'en': 'No results found.',
+    },
+    'explore.filter.all': {'tr': 'Tümü', 'en': 'All'},
+
+    // Vote / verify on price entry
+    'vote.up': {'tr': 'Doğru', 'en': 'Correct'},
+    'vote.down': {'tr': 'Yanlış', 'en': 'Wrong'},
+    'vote.blocked.signIn': {
+      'tr': 'Oy vermek için giriş yap.',
+      'en': 'Sign in to vote.',
+    },
+    'vote.blocked.guest': {
+      'tr': 'Doğrulama için ücretsiz hesap aç.',
+      'en': 'Create a free account to verify.',
+    },
+    'vote.blocked.own': {
+      'tr': 'Kendi girdiğin fiyata oy veremezsin.',
+      'en': "You can't vote on a price you reported.",
+    },
+    'vote.blocked.already': {
+      'tr': 'Bu fiyata zaten oy verdin.',
+      'en': 'You already voted on this price.',
+    },
+
+    // Auth / login
+    'auth.welcome': {'tr': 'Hoş geldin', 'en': 'Welcome'},
+    'auth.email': {'tr': 'E-posta', 'en': 'Email'},
+    'auth.password': {'tr': 'Şifre', 'en': 'Password'},
+    'auth.signUp': {'tr': 'Üye ol', 'en': 'Sign up'},
+    'auth.signIn': {'tr': 'Giriş yap', 'en': 'Sign in'},
+    'auth.signInGoogle': {'tr': 'Google ile devam et', 'en': 'Continue with Google'},
+    'auth.continueAsGuest': {
+      'tr': 'Misafir olarak devam et',
+      'en': 'Continue as guest',
+    },
+    'auth.guestDisclaimer': {
+      'tr': 'Misafir olarak fiyatları görebilir, sepet karşılaştırabilirsin. '
+          'Fiyat eklemek veya puan kazanmak için hesap aç.',
+      'en': 'As a guest you can browse prices and compare baskets. '
+          'Sign up to add prices and earn points.',
+    },
+
+    // Add to cart / Watchlist / Alerts (product detail)
+    'product.addToCart': {'tr': 'Sepete ekle', 'en': 'Add to basket'},
+    'product.priceAlert': {'tr': 'Fiyat alarmı', 'en': 'Price alert'},
+    'product.report': {'tr': 'Raporla', 'en': 'Report'},
+    'product.firstPriceCta': {
+      'tr': 'İlk fiyatı sen ekleyebilirsin',
+      'en': 'You can add the first price',
+    },
   };
 }
 

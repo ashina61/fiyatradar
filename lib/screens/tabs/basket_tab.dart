@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/price_reporting.dart';
 import '../../models/product.dart';
 import '../../services/ads_service.dart';
@@ -33,23 +34,24 @@ class _BasketTabState extends State<BasketTab> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final s = AppStrings.of(context);
     final cart = state.cart;
 
     return SafeArea(
       bottom: false,
       child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
             child: FRPageHeader(
-              overline: 'TOPLUCA SORGULA',
-              title: 'Sepet',
+              overline: s.t('basket.overline'),
+              title: s.t('basket.title'),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             child: Text(
-              'Bölgende bildirilen fiyatlara göre tahmini sepet planını karşılaştır.',
+              s.t('basket.description'),
               style: frText(13, FontWeight.w500, color: FR.ink3, height: 1.5),
             ),
           ),
@@ -69,7 +71,7 @@ class _BasketTabState extends State<BasketTab> {
               // Both tabs reflect the same physical cart, so the count must
               // match. Use the unique-product count (cart.length) on both
               // sides — that's what each tab actually renders.
-              labels: const ['Sepetim', 'Karşılaştır'],
+              labels: [s.t('basket.tab.mine'), s.t('basket.tab.compare')],
               counts: [cart.length, cart.length],
               index: _tab,
               onChange: _setTab,
@@ -796,6 +798,7 @@ class _GuestQuotaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final low = remaining <= 1;
     final color = low ? FR.warn : FR.gold;
     return InkWell(
@@ -816,7 +819,10 @@ class _GuestQuotaPill extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Misafir hesap · $remaining / $limit karşılaştırma kaldı. Üye ol, sınırsız hesapla.',
+                s.f('basket.guest.pill', {
+                  'remaining': remaining,
+                  'limit': limit,
+                }),
                 style: frText(11.5, FontWeight.w800, color: color),
               ),
             ),
@@ -834,6 +840,7 @@ class _GuestQuotaPill extends StatelessWidget {
 class _GuestLimitReached extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 24, 20, frBottomScrollPadding(context)),
       child: Center(
@@ -856,11 +863,11 @@ class _GuestLimitReached extends StatelessWidget {
                   color: FR.onGold, size: 40),
             ),
             const SizedBox(height: 16),
-            Text('Misafir limiti doldu',
+            Text(s.t('basket.guest.limitTitle'),
                 style: frDisplay(22, FontWeight.w700)),
             const SizedBox(height: 6),
             Text(
-              'Misafir hesaplar 3 sepet karşılaştırması yapabilir. Ücretsiz üye olunca sınırsız hesap, fiyat alarmı ve katkı puanı kazanma açılır.',
+              s.t('basket.guest.limitBody'),
               textAlign: TextAlign.center,
               style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
             ),
@@ -868,7 +875,7 @@ class _GuestLimitReached extends StatelessWidget {
             SizedBox(
               width: 260,
               child: FRCta(
-                label: 'Ücretsiz üye ol',
+                label: s.t('basket.guest.signupCta'),
                 icon: Icons.person_add_alt_1_rounded,
                 onTap: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 4)),
@@ -879,7 +886,7 @@ class _GuestLimitReached extends StatelessWidget {
             SizedBox(
               width: 260,
               child: FRCta(
-                label: 'Pro\'ya geç',
+                label: s.t('basket.guest.proCta'),
                 icon: Icons.workspace_premium_rounded,
                 filled: false,
                 onTap: () => Navigator.push(

@@ -41,6 +41,45 @@ Widget adminRowList(List<Widget> rows) {
   );
 }
 
+/// Admin "kalıcı silme" onay diyaloğu. Geri-alınamaz aksiyonları (ürün/
+/// mağaza/zincir doğrudan silme) sarmak için. `confirmLabel` default
+/// "Sil"; çağıran isterse override edebilir.
+///
+/// Dönüş `true` ise kullanıcı onayladı; bu noktada arayan tarafın asıl
+/// `delete` çağrısını yapması beklenir. SnackBar / hata gösterimi de
+/// çağıranın sorumluluğu.
+Future<bool> showAdminConfirmDeleteDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = 'Sil',
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: FR.surface,
+      title: Text(title, style: frDisplay(20, FontWeight.w700)),
+      content: Text(
+        message,
+        style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('İptal',
+              style: frText(12.5, FontWeight.w800, color: FR.ink3)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(confirmLabel,
+              style: frText(12.5, FontWeight.w800, color: FR.bad)),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
 Future<void> showAdminTextEditSheet(
   BuildContext context, {
   required String title,

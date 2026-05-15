@@ -13,6 +13,8 @@ import '../../services/firebase_service.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
+import '../../l10n/app_strings.dart';
+import '../main_screen.dart';
 import '../widgets/region_picker_sheet.dart';
 
 class AddPriceTab extends StatefulWidget {
@@ -770,13 +772,25 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final priceVal = _parseTrPrice(_priceCtrl.text);
     final priceValid = priceVal != null && priceVal > 0;
 
+    // Misafir hesaplar fiyat ekleyemez veya doğrulayamaz. Form yerine
+    // hesap-yükseltme ekranı göster — kullanıcı "Üye ol" deyince Profil
+    // sekmesi açılır ve oradan kayıt akışı tetiklenir.
+    if (state.isGuestUser) {
+      return const _GuestAddPriceBlock();
+    }
+
+    final s = AppStrings.of(context);
     return SafeArea(
       bottom: false,
       child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
-            child: FRPageHeader(overline: 'TOPLULUĞA KATKI', title: 'Fiyat', italicTail: ' ekle'),
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 14, FRSpace.xl, 0),
+            child: FRPageHeader(
+              overline: s.t('addPrice.overline'),
+              title: s.t('addPrice.title'),
+              italicTail: s.t('addPrice.titleTail'),
+            ),
           ),
           Expanded(
             child: ListView(
@@ -2282,6 +2296,74 @@ class _ProofPhotoPicker extends StatelessWidget {
           onTap: uploading ? null : onPickGallery,
         ),
       ],
+    );
+  }
+}
+
+/// Misafir kullanıcıya gösterilen fiyat-ekle bloğu. Anonymous hesaplar
+/// topluluk verisini farm'lamasın diye fiyat ekleme/doğrulama yok; bu
+/// ekran "ücretsiz hesap aç" CTA'sını öne çıkarır.
+class _GuestAddPriceBlock extends StatelessWidget {
+  const _GuestAddPriceBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FRPageHeader(
+              overline: s.t('addPrice.overline'),
+              title: s.t('addPrice.title'),
+              italicTail: s.t('addPrice.titleTail'),
+            ),
+            const SizedBox(height: 18),
+            Center(
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [FR.goldHi, FR.goldDeep],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: FRRad.all(28),
+                  boxShadow: frGoldGlow(opacity: .28),
+                ),
+                child: Icon(Icons.lock_outline_rounded,
+                    color: FR.onGold, size: 40),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              s.t('addPrice.guest.title'),
+              textAlign: TextAlign.center,
+              style: frDisplay(22, FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              s.t('addPrice.guest.body'),
+              textAlign: TextAlign.center,
+              style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
+            ),
+            const SizedBox(height: 18),
+            FRCta(
+              label: s.t('addPrice.guest.cta'),
+              icon: Icons.person_add_alt_1_rounded,
+              onTap: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => const MainScreen(initialIndex: 4),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
