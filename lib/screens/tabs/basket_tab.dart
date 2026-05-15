@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/price_reporting.dart';
 import '../../models/product.dart';
+import '../../services/ads_service.dart';
 import '../../services/basket_pricing_service.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
@@ -52,6 +53,16 @@ class _BasketTabState extends State<BasketTab> {
               style: frText(13, FontWeight.w500, color: FR.ink3, height: 1.5),
             ),
           ),
+          if (state.isGuestUser) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _GuestQuotaPill(
+                remaining: state.guestBasketComputeRemaining,
+                limit: AppState.guestBasketComputeLimit,
+              ),
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
             child: _Segmented(
@@ -465,14 +476,45 @@ class _ComparePanelState extends State<_ComparePanel> {
   void _maybeRefresh() {
     final sig = _signatureFor(widget.state);
     if (sig == _cartSignature && _future != null) return;
+    // Misafir kullanıcı kotası dolduysa hesap yapma — UI overlay
+    // gösterip kullanıcıyı üye olmaya yönlendiriyor.
+    if (widget.state.guestBasketExhausted) {
+      _cartSignature = sig;
+      _future = null;
+      return;
+    }
     _cartSignature = sig;
-    _future = widget.state.calculateRegionalBasketPricing();
+    final future = widget.state.calculateRegionalBasketPricing();
+    _future = future;
+    // Hesap başarılı bittiyse: misafir sayacı bir artır, Pro değilse
+    // interstitial reklam dene (cooldown'lu).
+    future.then((_) {
+      if (widget.state.isGuestUser) {
+        widget.state.recordGuestBasketCompute();
+      }
+      if (!widget.state.premium.isActive) {
+        AdsService.instance.maybeShowInterstitial();
+      }
+    });
   }
 
   void _recalc() {
+    if (widget.state.guestBasketExhausted) {
+      setState(() {});
+      return;
+    }
     setState(() {
       _cartSignature = _signatureFor(widget.state);
-      _future = widget.state.calculateRegionalBasketPricing();
+      final future = widget.state.calculateRegionalBasketPricing();
+      _future = future;
+      future.then((_) {
+        if (widget.state.isGuestUser) {
+          widget.state.recordGuestBasketCompute();
+        }
+        if (!widget.state.premium.isActive) {
+          AdsService.instance.maybeShowInterstitial();
+        }
+      });
     });
   }
 
@@ -512,6 +554,13 @@ class _ComparePanelState extends State<_ComparePanel> {
         (state.districtName ?? '').trim().isNotEmpty;
     if (!hasRegion) {
       return _CompareNoRegion(onPick: () => _pickRegion(state));
+    }
+
+    // Misafir kullanıcı sepet hesap kotasını tüketti — paywall benzeri
+    // ekrana yönlendir, hesap yapma. Üye olduktan sonra sayaç sıfırlanmaz
+    // (cihaz başına); ama gerçek hesap kullanıcıda limit zaten yok.
+    if (state.guestBasketExhausted) {
+      return _GuestLimitReached();
     }
 
     return FutureBuilder<BasketPricingResult>(
@@ -593,9 +642,19 @@ class _ComparePanelState extends State<_ComparePanel> {
                   isWinner: i == 0,
                 ),
               ),
+            // Sepet AI önerisi — Pro özelliği. Pro değilse upsell kartı
+            // gösteriyoruz ki kullanıcı sebebini görsün; aksi halde
+            // kullanıcı "AI önerim niye yok?" diye düşünür.
             if (smart != null) ...[
               const SizedBox(height: 6),
-              _CompareInsightBanner(message: smart.message),
+              if (state.premium.isActive)
+                _CompareInsightBanner(message: smart.message)
+              else
+                _ProUpsellBanner(
+                  title: 'Akıllı sepet önerisi',
+                  body:
+                      'Pro üyeler için sepetin nasıl bölünmesi gerektiğine dair akıllı öneri. Yükselt ve hangi marketleri gezeceğini saniyede gör.',
+                ),
             ],
           ],
         );
@@ -719,6 +778,114 @@ class _CompareNoRegion extends StatelessWidget {
                 label: 'İl / ilçe seç',
                 icon: Icons.map_outlined,
                 onTap: onPick,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Misafir kullanıcılara üst panelde kalan sepet karşılaştırma kotasını
+/// gösteren küçük altın çubuk. Kalan azaldıkça uyarı tonuna geçer.
+class _GuestQuotaPill extends StatelessWidget {
+  const _GuestQuotaPill({required this.remaining, required this.limit});
+  final int remaining;
+  final int limit;
+
+  @override
+  Widget build(BuildContext context) {
+    final low = remaining <= 1;
+    final color = low ? FR.warn : FR.gold;
+    return InkWell(
+      onTap: () => Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 4)),
+      ),
+      borderRadius: FRRad.all(FRRad.m),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: color.withOpacity(.10),
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: color.withOpacity(.35)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.person_outline_rounded, size: 15, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Misafir hesap · $remaining / $limit karşılaştırma kaldı. Üye ol, sınırsız hesapla.',
+                style: frText(11.5, FontWeight.w800, color: color),
+              ),
+            ),
+            Icon(Icons.arrow_forward_rounded, size: 14, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Misafir kullanıcı sepet karşılaştırma kotasını tükettiğinde gösterilen
+/// "üye ol ya da Pro al" ekranı. Anonymous kullanıcı için soft-paywall
+/// gibi davranıyor; hesabı olan kullanıcılar bu ekrana hiç düşmez.
+class _GuestLimitReached extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 24, 20, frBottomScrollPadding(context)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [FR.goldHi, FR.goldDeep],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: FRRad.all(28),
+                boxShadow: frGoldGlow(opacity: .28),
+              ),
+              child: Icon(Icons.lock_outline_rounded,
+                  color: FR.onGold, size: 40),
+            ),
+            const SizedBox(height: 16),
+            Text('Misafir limiti doldu',
+                style: frDisplay(22, FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              'Misafir hesaplar 3 sepet karşılaştırması yapabilir. Ücretsiz üye olunca sınırsız hesap, fiyat alarmı ve katkı puanı kazanma açılır.',
+              textAlign: TextAlign.center,
+              style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: 260,
+              child: FRCta(
+                label: 'Ücretsiz üye ol',
+                icon: Icons.person_add_alt_1_rounded,
+                onTap: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 4)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 260,
+              child: FRCta(
+                label: 'Pro\'ya geç',
+                icon: Icons.workspace_premium_rounded,
+                filled: false,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
+                ),
               ),
             ),
           ],
@@ -1104,6 +1271,64 @@ class _CompareMixedCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Pro'ya yükseltme CTA'sı — sepet AI gibi Pro feature'larında non-Pro
+/// kullanıcılara gösterilir. Tap → Paywall.
+class _ProUpsellBanner extends StatelessWidget {
+  const _ProUpsellBanner({required this.title, required this.body});
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [FR.goldHi.withOpacity(.18), FR.goldDeep.withOpacity(.08)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.workspace_premium_rounded, size: 20, color: FR.gold),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(title,
+                          style: frText(13, FontWeight.w800, color: FR.ink)),
+                      const SizedBox(width: 6),
+                      const FRProBadge(compact: true),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(body,
+                      style: frText(12, FontWeight.w700,
+                          color: FR.ink2, height: 1.45)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_rounded, size: 16, color: FR.gold),
+          ],
+        ),
       ),
     );
   }

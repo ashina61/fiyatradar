@@ -14,6 +14,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
+import 'paywall_screen.dart';
 import 'product_detail_screen.dart';
 import 'widgets/profile_avatar.dart';
 
@@ -596,13 +597,27 @@ class NotificationPrefsScreen extends StatelessWidget {
                 regionalDropPushEnabled: v),
           ),
           const SizedBox(height: 10),
+          // Haftalık özet — Pro özelliği. Non-Pro kullanıcılar için
+          // toggle kapalı görünüyor ve tıklayınca paywall'a yönlendiriyor.
+          // Cloud Function tarafında ek olarak `isPremium` kontrolü var
+          // (bk. functions/index.js weeklySummary).
           _ToggleRow(
             icon: Icons.summarize_rounded,
-            title: 'Haftalık özet',
-            subtitle: 'Pazartesi sabahı fiyat özeti',
-            value: state.weeklySummaryEnabled,
-            onChanged: (v) =>
-                state.updateNotificationSettings(weeklySummaryEnabled: v),
+            title: state.premium.isActive
+                ? 'Haftalık özet'
+                : 'Haftalık özet (Pro)',
+            subtitle: state.premium.isActive
+                ? 'Pazartesi sabahı fiyat özeti'
+                : 'Pro üyelik gerekir — bölgenin haftalık raporu',
+            value: state.premium.isActive && state.weeklySummaryEnabled,
+            onChanged: state.premium.isActive
+                ? (v) => state.updateNotificationSettings(
+                    weeklySummaryEnabled: v)
+                : (_) => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const PaywallScreen()),
+                    ),
           ),
         ],
       ),

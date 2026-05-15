@@ -196,6 +196,21 @@ class AppState extends ChangeNotifier {
   String _localeCode = 'tr';
   String get localeCode => _localeCode;
   Locale get locale => Locale(_localeCode);
+
+  // ─── Misafir kullanıcı kotaları ────────────────────────────────────────
+  // Misafir (anonim) hesaplar "tat al, üye ol" akışı için sınırlı sayıda
+  // ağır işlem yapabilir. Şu an: sepet karşılaştırma hesabı 3 kez. Limit
+  // dolduğunda UI üye olmaya yönlendirir. Sayaç cihaz başına persisted
+  // (SharedPreferences) — uygulamanın yeniden kurulumunda sıfırlanır.
+  static const int guestBasketComputeLimit = 3;
+  int _guestBasketComputeCount = 0;
+  int get guestBasketComputeCount => _guestBasketComputeCount;
+  bool get isGuestUser => user?.isAnonymous == true;
+  bool get guestBasketExhausted =>
+      isGuestUser && _guestBasketComputeCount >= guestBasketComputeLimit;
+  int get guestBasketComputeRemaining =>
+      (guestBasketComputeLimit - _guestBasketComputeCount)
+          .clamp(0, guestBasketComputeLimit);
   /// `regional_price_drop` push'larına abonelik. Cloud Function
   /// `onPriceGroupUpdate` notification doc'unu yine yazar (in-app sinyali
   /// kaybolmaması için), ama push gönderirken bu bayrağı kontrol etmesi
@@ -503,16 +518,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> init() async {
-    // Locale önyüklemesi — auth akışından bağımsız, çünkü onboarding ve
-    // login ekranları da çevrilebilir olmalı.
+    // Locale + misafir kotası önyüklemesi — auth akışından bağımsız,
+    // çünkü onboarding/login ekranları da bu değerlere bakıyor.
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = (prefs.getString('app_locale') ?? '').trim().toLowerCase();
       if (saved == 'en' || saved == 'tr') {
         _localeCode = saved;
       }
+      _guestBasketComputeCount =
+          prefs.getInt('guest_basket_compute_count') ?? 0;
     } catch (_) {
-      // Persisted locale opsiyonel; eksik olursa varsayılan TR kullanılır.
+      // Persisted prefs opsiyonel; eksik olursa varsayılan değerler kullanılır.
     }
     _authSub ??= _svc.auth.authStateChanges().listen((next) {
       if (user?.uid == next?.uid &&
@@ -2793,6 +2810,24 @@ class AppState extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+  }
+
+  /// Misafir kullanıcı sepet hesap kotasını bir artırır ve persist eder.
+  /// Sadece anonim hesaplarda anlamlı; Pro/normal kullanıcılarda no-op.
+  /// Limit sayısına ulaşıldığında UI [guestBasketExhausted] üstünden
+  /// hesabı kapatır ve kullanıcıyı üye olmaya yönlendirir.
+  Future<void> recordGuestBasketCompute() async {
+    if (!isGuestUser) return;
+    if (_guestBasketComputeCount >= guestBasketComputeLimit) return;
+    _guestBasketComputeCount++;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+          'guest_basket_compute_count', _guestBasketComputeCount);
+    } catch (_) {
+      // Best-effort persist.
+    }
   }
 
   /// Arayüz dilini değiştirir ve SharedPreferences'a yazar.

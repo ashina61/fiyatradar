@@ -500,6 +500,17 @@ exports.weeklySummary = onSchedule(
       const settings = (m.settings || {}).notifications || {};
       const weeklyEnabled = settings.weeklySummaryEnabled !== false;
       const pushEnabled = settings.pushEnabled !== false;
+      // Haftalık özet bir Pro özelliği. Cloud Function tarafında
+      // `users/{uid}.isPremium === true` ve süresi geçmemiş olanlara
+      // gönderiyoruz. Client de Pro değilse paywall'a yönlendiriyor.
+      const isPremium = m.isPremium === true;
+      const premiumUntilRaw = m.premiumUntil;
+      const premiumUntil = premiumUntilRaw && premiumUntilRaw.toDate
+        ? premiumUntilRaw.toDate()
+        : (premiumUntilRaw ? new Date(premiumUntilRaw) : null);
+      const premiumActive =
+        isPremium && (!premiumUntil || premiumUntil > new Date());
+      if (!premiumActive) continue;
       const cityName = (m.cityName || m.city || '').toString();
       const districtName = (m.district || m.neighborhood || '').toString();
       if (!cityName || !districtName) continue;

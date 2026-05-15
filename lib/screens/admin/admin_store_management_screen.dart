@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../l10n/app_strings.dart';
 import '../../models/turkey_locations.dart';
 import '../../services/firebase_service.dart';
 import '../../state/app_state.dart';
@@ -35,22 +34,16 @@ class AdminStoreManagementScreen extends StatefulWidget {
 class _AdminStoreManagementScreenState
     extends State<AdminStoreManagementScreen> {
   static const _pageSize = 50;
-  /// Sekme etiketleri — `AppStrings` üzerinden dile göre dönüyor.
-  /// Tek dilden diğerine geçişte rebuild oluyor.
-  List<String> _localizedTabs(BuildContext context) {
-    final s = AppStrings.of(context);
-    return [
-      s.t('store.tab.chains'),
-      s.t('store.tab.physical'),
-      s.t('store.tab.online'),
-      s.t('store.tab.bazaars'),
-      s.t('store.tab.pending'),
-      s.t('store.tab.legacy'),
-    ];
-  }
-
-  /// Tab sayısı — clamp / iterator için.
-  static const int _tabCount = 6;
+  /// Admin paneli sadece Türkçe — kullanıcı dil değiştirse bile
+  /// admin etiketleri hep TR. Bunun için literal liste yeterli.
+  static const _tabs = [
+    'Zincirler',
+    'Fiziksel Mağazalar',
+    'Online Mağazalar',
+    'Mahalle Pazarları',
+    'Onay Bekleyen',
+    'Eski Kayıtlar',
+  ];
 
   // Tab indeksleri. Yeni Pazarlar sekmesi 3. sıraya eklendi; bu yüzden
   // Bekleyen=4, Eski=5'e kaydı. admin_screen.dart deep linkleri de
@@ -81,7 +74,7 @@ class _AdminStoreManagementScreenState
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialTab.clamp(0, _tabCount - 1);
+    final initial = widget.initialTab.clamp(0, _tabs.length - 1);
     _tab = initial;
     if (initial == _tabPhysical) _placeChannel = 'physical';
     if (initial == _tabOnline) _placeChannel = 'online';
@@ -658,54 +651,46 @@ class _AdminStoreManagementScreenState
                 ],
               ),
             ),
-            Builder(builder: (innerCtx) {
-              final s = AppStrings.of(innerCtx);
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: FRPageHeader(
-                  overline: s.t('store.overline'),
-                  title: s.t('store.title'),
-                  italicTail: s.t('store.titleTail'),
-                ),
-              );
-            }),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: FRPageHeader(
+                overline: 'ADMIN · MAĞAZA AĞI',
+                title: 'Mağaza',
+                italicTail: ' yönetimi',
+              ),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 42,
-              child: Builder(
-                builder: (innerCtx) {
-                  final tabs = _localizedTabs(innerCtx);
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: tabs.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) => FRFilterChip(
-                      tabs[i],
-                      active: _tab == i,
-                      onTap: () {
-                        final placeTab = i == _tabPhysical ||
-                            i == _tabOnline ||
-                            i == _tabBazaar;
-                        setState(() {
-                          _tab = i;
-                          if (i == _tabPhysical) _placeChannel = 'physical';
-                          if (i == _tabOnline) _placeChannel = 'online';
-                          if (i == _tabBazaar) _placeChannel = 'bazaar';
-                          if (placeTab) {
-                            _placesLastDoc = null;
-                            _placeDocs.clear();
-                          }
-                        });
-                        if (placeTab) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) _loadPlaces(reset: true);
-                          });
-                        }
-                      },
-                    ),
-                  );
-                },
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                scrollDirection: Axis.horizontal,
+                itemCount: _tabs.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => FRFilterChip(
+                  _tabs[i],
+                  active: _tab == i,
+                  onTap: () {
+                    final placeTab = i == _tabPhysical ||
+                        i == _tabOnline ||
+                        i == _tabBazaar;
+                    setState(() {
+                      _tab = i;
+                      if (i == _tabPhysical) _placeChannel = 'physical';
+                      if (i == _tabOnline) _placeChannel = 'online';
+                      if (i == _tabBazaar) _placeChannel = 'bazaar';
+                      if (placeTab) {
+                        _placesLastDoc = null;
+                        _placeDocs.clear();
+                      }
+                    });
+                    if (placeTab) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _loadPlaces(reset: true);
+                      });
+                    }
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -739,7 +724,7 @@ class _AdminStoreManagementScreenState
           .orderBy('updatedAt', descending: true)
           .limit(60)
           .snapshots(),
-      builder: (ctx, snap) {
+      builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const AdminLoading();
         }
@@ -747,7 +732,7 @@ class _AdminStoreManagementScreenState
         if (docs.isEmpty) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            child: adminEmpty(AppStrings.of(ctx).t('store.empty.chains')),
+            child: adminEmpty('Henüz zincir kaydı yok.'),
           );
         }
         return ListView(
@@ -798,13 +783,10 @@ class _AdminStoreManagementScreenState
         ),
         const SizedBox(height: 12),
         if (filtered.isEmpty && !_loadingPlaces)
-          Builder(builder: (ctx) {
-            final s = AppStrings.of(ctx);
-            return adminEmpty(switch (channel) {
-              'online' => s.t('store.empty.online'),
-              'bazaar' => s.t('store.empty.bazaars'),
-              _ => s.t('store.empty.physical'),
-            });
+          adminEmpty(switch (channel) {
+            'online' => 'Henüz online mağaza/kaynak eklenmemiş.',
+            'bazaar' => 'Henüz mahalle pazarı eklenmemiş.',
+            _ => 'Henüz fiziksel mağaza/şube eklenmemiş.',
           })
         else
           adminRowList([
@@ -822,19 +804,14 @@ class _AdminStoreManagementScreenState
           ]),
         const SizedBox(height: 16),
         if (_hasMorePlaces)
-          Builder(builder: (ctx) {
-            final s = AppStrings.of(ctx);
-            return Center(
-              child: FRCta(
-                label: _loadingPlaces
-                    ? s.t('common.loading')
-                    : s.t('common.loadMore'),
-                icon: Icons.expand_more_rounded,
-                filled: false,
-                onTap: _loadingPlaces ? null : () => _loadPlaces(),
-              ),
-            );
-          })
+          Center(
+            child: FRCta(
+              label: _loadingPlaces ? 'Yükleniyor…' : 'Daha fazla yükle',
+              icon: Icons.expand_more_rounded,
+              filled: false,
+              onTap: _loadingPlaces ? null : () => _loadPlaces(),
+            ),
+          )
         else if (_loadingPlaces)
           const AdminLoading(),
       ],
