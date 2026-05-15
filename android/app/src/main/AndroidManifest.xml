@@ -75,5 +75,15 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/notification_color"/>
+
+        <!-- AdMob application id.
+             ŞU AN TEST APP ID — production'a geçerken gerçek hesap id'siyle
+             değiştir. Test app id Google'ın resmi sandbox değeri ve sadece
+             test reklamı yüklüyor (gerçek gelir/impression saymaz). Resmi
+             dokümana referans: https://developers.google.com/admob/android/test-ads
+        -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
     </application>
 </manifest>

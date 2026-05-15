@@ -170,17 +170,30 @@ class HomeTab extends StatelessWidget {
             // spawns its own AnimationController + delayed timer, and
             // stacking them on every list rebuild was visibly hitching the
             // home tab on cold scrolls.
-            ...feedItems.map(
-              (p) => _FeedRow(
-                product: p,
-                latest: state.homeScopedEntryForProduct(p.id),
+            //
+            // Pro değilse her 4 ürün başına bir banner reklam yerleştir;
+            // Pro kullanıcıda hiç reklam render edilmez (FRInlineBannerAd
+            // isPremium=true ile SizedBox.shrink döner).
+            for (var i = 0; i < feedItems.length; i++) ...[
+              _FeedRow(
+                product: feedItems[i],
+                latest: state.homeScopedEntryForProduct(feedItems[i].id),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: p)),
+                      builder: (_) => ProductDetailScreen(
+                          product: feedItems[i])),
                 ),
               ),
-            ),
+              if (!state.premium.isActive &&
+                  i > 0 &&
+                  (i + 1) % 4 == 0 &&
+                  i != feedItems.length - 1) ...[
+                const SizedBox(height: 12),
+                FRInlineBannerAd(isPremium: state.premium.isActive),
+                const SizedBox(height: 12),
+              ],
+            ],
         ],
       ),
     );
@@ -245,11 +258,22 @@ class _HomeHeader extends StatelessWidget {
               Text('${_greeting().toUpperCase()} · RADAR',
                   style: frOverline(color: FR.ink3, size: 9.5)),
               const SizedBox(height: 4),
-              Text(
-                firstName.isEmpty ? 'Anasayfa' : firstName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: frDisplay(28, FontWeight.w700, height: 1.05),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      firstName.isEmpty ? 'Anasayfa' : firstName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frDisplay(28, FontWeight.w700, height: 1.05),
+                    ),
+                  ),
+                  if (state.premium.isActive) ...[
+                    const SizedBox(width: 8),
+                    const FRProBadge(compact: false),
+                  ],
+                ],
               ),
             ],
           ),

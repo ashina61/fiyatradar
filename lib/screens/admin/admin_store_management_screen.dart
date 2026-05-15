@@ -16,8 +16,9 @@ class AdminStoreManagementScreen extends StatefulWidget {
     this.openCreateOnLaunch = false,
   });
 
-  /// Deep-link entry: 0=Zincirler, 1=Fiziksel, 2=Online, 3=Bekleyen, 4=Eski.
-  /// Admin panelinden gelen "şube ekle" gibi kısayollar uygun sekmeyi açar.
+  /// Deep-link entry: 0=Zincirler, 1=Fiziksel, 2=Online, 3=Pazarlar,
+  /// 4=Bekleyen, 5=Eski. Admin panelinden gelen "şube ekle" gibi kısayollar
+  /// uygun sekmeyi açar.
   final int initialTab;
 
   /// Açılır açılmaz ilgili sekmenin "yeni kayıt" sheet'ini açar.
@@ -33,19 +34,33 @@ class AdminStoreManagementScreen extends StatefulWidget {
 class _AdminStoreManagementScreenState
     extends State<AdminStoreManagementScreen> {
   static const _pageSize = 50;
+  /// Admin paneli sadece Türkçe — kullanıcı dil değiştirse bile
+  /// admin etiketleri hep TR. Bunun için literal liste yeterli.
   static const _tabs = [
     'Zincirler',
     'Fiziksel Mağazalar',
     'Online Mağazalar',
+    'Mahalle Pazarları',
     'Onay Bekleyen',
     'Eski Kayıtlar',
   ];
+
+  // Tab indeksleri. Yeni Pazarlar sekmesi 3. sıraya eklendi; bu yüzden
+  // Bekleyen=4, Eski=5'e kaydı. admin_screen.dart deep linkleri de
+  // bu sıraya göre güncellendi.
+  static const int _tabChains = 0;
+  static const int _tabPhysical = 1;
+  static const int _tabOnline = 2;
+  static const int _tabBazaar = 3;
+  static const int _tabPending = 4;
+  static const int _tabLegacy = 5;
 
   int _tab = 0;
   final _cityCtrl = TextEditingController();
   final _districtCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   String _type = 'all';
+  // 'physical' | 'online' | 'bazaar' — hangi liste açıksa o.
   String _placeChannel = 'physical';
   String _status = 'all';
   QueryDocumentSnapshot<Map<String, dynamic>>? _placesLastDoc;
@@ -61,12 +76,17 @@ class _AdminStoreManagementScreenState
     super.initState();
     final initial = widget.initialTab.clamp(0, _tabs.length - 1);
     _tab = initial;
-    if (initial == 1) _placeChannel = 'physical';
-    if (initial == 2) _placeChannel = 'online';
+    if (initial == _tabPhysical) _placeChannel = 'physical';
+    if (initial == _tabOnline) _placeChannel = 'online';
+    if (initial == _tabBazaar) _placeChannel = 'bazaar';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _loadingPlaces) return;
       _loadPlaces(reset: true);
-      if (widget.openCreateOnLaunch && (initial == 0 || initial == 1 || initial == 2)) {
+      final openable = initial == _tabChains ||
+          initial == _tabPhysical ||
+          initial == _tabOnline ||
+          initial == _tabBazaar;
+      if (widget.openCreateOnLaunch && openable) {
         // Kısayol akışında açılışta yeni kayıt sheet'i otomatik açılır.
         _onAddPressed();
       }
@@ -159,7 +179,15 @@ class _AdminStoreManagementScreenState
       if (_status != 'all' && (m['status'] ?? '').toString() != _status) return false;
       final channel = _placeChannelFor(m);
       if (channel != _placeChannel) return false;
-      if (_type != 'all' && (m['type'] ?? '').toString() != _type) return false;
+      // Fiziksel sekmesinde pazar kayıtları gözükmesin — onlar artık
+      // kendi sekmesine taşındı.
+      if (_placeChannel == 'physical' &&
+          (m['type'] ?? '').toString() == 'bazaar') {
+        return false;
+      }
+      if (_placeChannel != 'bazaar' &&
+          _type != 'all' &&
+          (m['type'] ?? '').toString() != _type) return false;
       if (search.isNotEmpty) {
         final normalized = (m['normalizedName'] ?? '').toString().toLowerCase();
         final display = (m['displayName'] ?? '').toString().toLowerCase();
@@ -421,6 +449,120 @@ class _AdminStoreManagementScreenState
     );
   }
 
+  Future<void> _createBazaarFromSheet() async {
+    final uid = AppStateScope.read(context).user?.uid;
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await _showBazaarFormSheet(
+      context: context,
+      title: 'Mahalle pazarı ekle',
+      initialCity: _cityCtrl.text.trim(),
+      initialDistrict: _districtCtrl.text.trim(),
+    );
+    if (!mounted || result == null) return;
+    final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final city = result.city.trim();
+    final district = result.district.trim();
+    if (name.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Pazar adı gerekli.')),
+      );
+      return;
+    }
+    if (city.isEmpty || district.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('İl ve ilçe seçmen gerekli.')),
+      );
+      return;
+    }
+    await FirebaseService.instance.storePlaces.add({
+      'name': name,
+      'displayName': name,
+      'normalizedName': _normalizeName(name),
+      'type': 'bazaar',
+      'sourceType': 'physical',
+      'channel': 'physical',
+      'city': city,
+      'cityId': city,
+      'cityName': city,
+      'district': district,
+      'districtId': district,
+      'districtName': district,
+      if (result.neighborhood.trim().isNotEmpty)
+        'neighborhood': result.neighborhood.trim(),
+      if (result.bazaarDay.isNotEmpty) 'bazaarDay': result.bazaarDay,
+      'status': result.status,
+      'isActive': true,
+      'usageCount': 0,
+      'createdByUid': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (!mounted) return;
+    setState(() {
+      _cityCtrl.text = city;
+      _districtCtrl.text = district;
+    });
+    _resetAndLoadPlaces();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Mahalle pazarı eklendi.')),
+    );
+  }
+
+  Future<void> _editBazaarFromSheet(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final data = doc.data();
+    final result = await _showBazaarFormSheet(
+      context: context,
+      title: 'Mahalle pazarı düzenle',
+      initial: data,
+    );
+    if (!mounted || result == null) return;
+    final name = result.name.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final city = result.city.trim();
+    final district = result.district.trim();
+    if (name.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Pazar adı gerekli.')),
+      );
+      return;
+    }
+    if (city.isEmpty || district.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('İl ve ilçe seçmen gerekli.')),
+      );
+      return;
+    }
+    await doc.reference.update({
+      'name': name,
+      'displayName': name,
+      'normalizedName': _normalizeName(name),
+      'type': 'bazaar',
+      'sourceType': 'physical',
+      'channel': 'physical',
+      'city': city,
+      'cityId': city,
+      'cityName': city,
+      'district': district,
+      'districtId': district,
+      'districtName': district,
+      'neighborhood': result.neighborhood.trim(),
+      'bazaarDay': result.bazaarDay,
+      'status': result.status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (!mounted) return;
+    setState(() {
+      _cityCtrl.text = city;
+      _districtCtrl.text = district;
+    });
+    _resetAndLoadPlaces();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Mahalle pazarı güncellendi.')),
+    );
+  }
+
   Future<void> _runLegacyMigrationBatch() async {
     if (_legacyBusy) return;
     setState(() => _legacyBusy = true);
@@ -466,19 +608,27 @@ class _AdminStoreManagementScreenState
   }
 
   void _onAddPressed() {
-    if (_tab == 0) {
-      _createChainFromSheet();
-    } else if (_tab == 1) {
-      _createPlaceFromSheet(channel: 'physical');
-    } else if (_tab == 2) {
-      _createPlaceFromSheet(channel: 'online');
-    } else if (_tab == 4) {
-      _runLegacyMigrationBatch();
+    switch (_tab) {
+      case _tabChains:
+        _createChainFromSheet();
+        break;
+      case _tabPhysical:
+        _createPlaceFromSheet(channel: 'physical');
+        break;
+      case _tabOnline:
+        _createPlaceFromSheet(channel: 'online');
+        break;
+      case _tabBazaar:
+        _createBazaarFromSheet();
+        break;
+      case _tabLegacy:
+        _runLegacyMigrationBatch();
+        break;
     }
   }
 
   IconData get _addIcon =>
-      _tab == 4 ? Icons.sync_rounded : Icons.add_rounded;
+      _tab == _tabLegacy ? Icons.sync_rounded : Icons.add_rounded;
 
   @override
   Widget build(BuildContext context) {
@@ -521,16 +671,20 @@ class _AdminStoreManagementScreenState
                   _tabs[i],
                   active: _tab == i,
                   onTap: () {
+                    final placeTab = i == _tabPhysical ||
+                        i == _tabOnline ||
+                        i == _tabBazaar;
                     setState(() {
                       _tab = i;
-                      if (i == 1) _placeChannel = 'physical';
-                      if (i == 2) _placeChannel = 'online';
-                      if (i == 1 || i == 2) {
+                      if (i == _tabPhysical) _placeChannel = 'physical';
+                      if (i == _tabOnline) _placeChannel = 'online';
+                      if (i == _tabBazaar) _placeChannel = 'bazaar';
+                      if (placeTab) {
                         _placesLastDoc = null;
                         _placeDocs.clear();
                       }
                     });
-                    if (i == 1 || i == 2) {
+                    if (placeTab) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) _loadPlaces(reset: true);
                       });
@@ -549,13 +703,15 @@ class _AdminStoreManagementScreenState
 
   Widget _buildTab() {
     switch (_tab) {
-      case 0:
+      case _tabChains:
         return _buildChainsTab();
-      case 1:
+      case _tabPhysical:
         return _buildPlacesTab(channel: 'physical');
-      case 2:
+      case _tabOnline:
         return _buildPlacesTab(channel: 'online');
-      case 3:
+      case _tabBazaar:
+        return _buildPlacesTab(channel: 'bazaar');
+      case _tabPending:
         return _buildPendingTab();
       default:
         return _buildLegacyTab();
@@ -601,6 +757,7 @@ class _AdminStoreManagementScreenState
 
   Widget _buildPlacesTab({required String channel}) {
     final filtered = _filteredPlaceDocs;
+    final isBazaar = channel == 'bazaar';
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       children: [
@@ -610,6 +767,7 @@ class _AdminStoreManagementScreenState
           searchCtrl: _searchCtrl,
           type: _type,
           status: _status,
+          showTypeFilter: !isBazaar,
           onSearchChanged: (_) => _resetAndLoadPlaces(),
           onTypeChanged: (v) => setState(() => _type = v),
           onStatusChanged: (v) => setState(() => _status = v),
@@ -619,21 +777,25 @@ class _AdminStoreManagementScreenState
         _PlacesSummary(
           city: _cityCtrl.text.trim(),
           district: _districtCtrl.text.trim(),
-          type: _type,
+          type: isBazaar ? 'bazaar' : _type,
           status: _status,
           loadedCount: filtered.length,
         ),
         const SizedBox(height: 12),
         if (filtered.isEmpty && !_loadingPlaces)
-          adminEmpty(channel == 'online'
-              ? 'Henüz online mağaza/kaynak eklenmemiş.'
-              : 'Henüz fiziksel mağaza/şube eklenmemiş.')
+          adminEmpty(switch (channel) {
+            'online' => 'Henüz online mağaza/kaynak eklenmemiş.',
+            'bazaar' => 'Henüz mahalle pazarı eklenmemiş.',
+            _ => 'Henüz fiziksel mağaza/şube eklenmemiş.',
+          })
         else
           adminRowList([
             for (final d in filtered)
               _PlaceRow(
                 data: d.data(),
-                onEdit: () => _editPlaceFromSheet(d),
+                onEdit: () => isBazaar
+                    ? _editBazaarFromSheet(d)
+                    : _editPlaceFromSheet(d),
                 onToggleActive: () => d.reference.update({
                   'isActive': !((d.data()['isActive'] as bool?) ?? true),
                   'updatedAt': FieldValue.serverTimestamp(),
@@ -808,7 +970,7 @@ class _ChainRow extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   [
-                    active ? 'Aktif zincir' : 'Pasifte',
+                    active ? 'Aktif zincir' : 'Pasif',
                     if (((data['isPhysicalEnabled'] as bool?) ??
                         ((data['supportedChannels'] is Map)
                             ? ((data['supportedChannels'] as Map)['physical'] as bool? ?? true)
@@ -860,6 +1022,8 @@ class _PlaceRow extends StatelessWidget {
     final active = (data['isActive'] as bool?) ?? true;
     final status = (data['status'] ?? 'pending').toString();
     final type = (data['type'] ?? 'local_market').toString();
+    final bazaarDay = (data['bazaarDay'] ?? '').toString();
+    final dayLabel = type == 'bazaar' ? _bazaarDayLabel(bazaarDay) : '';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -887,8 +1051,11 @@ class _PlaceRow extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${_typeLabel(type)} · '
-            '${_placeRegionLabel(data)}',
+            [
+              _typeLabel(type),
+              _placeRegionLabel(data),
+              if (dayLabel.isNotEmpty) dayLabel,
+            ].join(' · '),
             style: frText(11.5, FontWeight.w700, color: FR.ink3),
           ),
           const SizedBox(height: 12),
@@ -1242,10 +1409,12 @@ class _PlacesSummary extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            '${city.isEmpty ? "Tüm şehirler" : city}'
-            ' · '
-            '${district.isEmpty ? "Tüm ilçeler" : district}'
-            ' · ${_typeLabel(type)} · ${_statusLabel(status)}',
+            [
+              city.isEmpty ? 'Tüm şehirler' : city,
+              district.isEmpty ? 'Tüm ilçeler' : district,
+              _typeLabel(type),
+              _statusLabel(status),
+            ].join(' · '),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: frText(11, FontWeight.w700, color: FR.ink3),
@@ -1280,12 +1449,14 @@ class _PlacesFilterCard extends StatelessWidget {
     required this.onTypeChanged,
     required this.onStatusChanged,
     required this.onApply,
+    this.showTypeFilter = true,
   });
   final TextEditingController cityCtrl;
   final TextEditingController districtCtrl;
   final TextEditingController searchCtrl;
   final String type;
   final String status;
+  final bool showTypeFilter;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onTypeChanged;
   final ValueChanged<String> onStatusChanged;
@@ -1328,29 +1499,30 @@ class _PlacesFilterCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: _FilterDropdown(
-                  value: type,
-                  items: const [
-                    ('all', 'Tüm türler'),
-                    ('chain_market', 'Zincir'),
-                    ('local_market', 'Yerel'),
-                    ('online_market', 'Online'),
-                    ('bazaar', 'Pazar'),
-                  ],
-                  onChanged: onTypeChanged,
+              if (showTypeFilter) ...[
+                Expanded(
+                  child: _FilterDropdown(
+                    value: type,
+                    items: const [
+                      ('all', 'Tüm türler'),
+                      ('chain_market', 'Zincir'),
+                      ('local_market', 'Yerel'),
+                      ('online_market', 'Online'),
+                    ],
+                    onChanged: onTypeChanged,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: _FilterDropdown(
                   value: status,
                   items: const [
                     ('all', 'Tüm statüler'),
-                    ('verified', 'Verified'),
-                    ('trusted', 'Trusted'),
-                    ('pending', 'Pending'),
-                    ('rejected', 'Rejected'),
+                    ('verified', 'Doğrulandı'),
+                    ('trusted', 'Güvenilir'),
+                    ('pending', 'Bekliyor'),
+                    ('rejected', 'Reddedildi'),
                   ],
                   onChanged: onStatusChanged,
                 ),
@@ -1572,6 +1744,7 @@ class _SourceChoice extends StatelessWidget {
 String _placeChannelFor(Map<String, dynamic> data) {
   final sourceType = (data['sourceType'] ?? data['channel'] ?? '').toString();
   final type = (data['type'] ?? '').toString();
+  if (type == 'bazaar') return 'bazaar';
   if (sourceType == 'online' || type == 'online_market') return 'online';
   return 'physical';
 }
@@ -1585,6 +1758,17 @@ String _typeLabel(String t) => switch (t) {
       _ => t,
     };
 
+String _bazaarDayLabel(String day) => switch (day.toLowerCase()) {
+      'monday' => 'Pazartesi',
+      'tuesday' => 'Salı',
+      'wednesday' => 'Çarşamba',
+      'thursday' => 'Perşembe',
+      'friday' => 'Cuma',
+      'saturday' => 'Cumartesi',
+      'sunday' => 'Pazar',
+      _ => '',
+    };
+
 String _placeRegionLabel(Map<String, dynamic> data) {
   final type = (data['type'] ?? '').toString();
   final sourceType = (data['sourceType'] ?? '').toString();
@@ -1592,16 +1776,18 @@ String _placeRegionLabel(Map<String, dynamic> data) {
   final city = (data['cityName'] ?? data['city'] ?? '').toString().trim();
   final district =
       (data['districtName'] ?? data['district'] ?? '').toString().trim();
+  final neighborhood = (data['neighborhood'] ?? '').toString().trim();
   if (city.isEmpty && district.isEmpty) return 'Bölge bekliyor';
-  if (district.isEmpty) return city;
-  return '$city / $district';
+  final base = district.isEmpty ? city : '$city / $district';
+  if (type == 'bazaar' && neighborhood.isNotEmpty) return '$base · $neighborhood';
+  return base;
 }
 
 String _statusLabel(String s) => switch (s) {
-      'verified' => 'Verified',
-      'trusted' => 'Trusted',
-      'pending' => 'Pending',
-      'rejected' => 'Rejected',
+      'verified' => 'Doğrulandı',
+      'trusted' => 'Güvenilir',
+      'pending' => 'Bekliyor',
+      'rejected' => 'Reddedildi',
       'all' => 'Tüm statüler',
       _ => s,
     };
@@ -2281,7 +2467,6 @@ class _PlaceFormSheetContentState extends State<_PlaceFormSheetContent> {
                       : const [
                           ('chain_market', 'Zincir'),
                           ('local_market', 'Yerel'),
-                          ('bazaar', 'Pazar'),
                         ],
                   onChanged: (v) => setState(() => _type = v),
                 ),
@@ -2291,10 +2476,10 @@ class _PlaceFormSheetContentState extends State<_PlaceFormSheetContent> {
                 child: _FilterDropdown(
                   value: _status,
                   items: const [
-                    ('pending', 'Pending'),
-                    ('verified', 'Verified'),
-                    ('trusted', 'Trusted'),
-                    ('rejected', 'Rejected'),
+                    ('pending', 'Bekliyor'),
+                    ('verified', 'Doğrulandı'),
+                    ('trusted', 'Güvenilir'),
+                    ('rejected', 'Reddedildi'),
                   ],
                   onChanged: (v) => setState(() => _status = v),
                 ),
@@ -2315,6 +2500,260 @@ class _PlaceFormSheetContentState extends State<_PlaceFormSheetContent> {
               Expanded(
                 child: FRCta(
                   label: widget.initial == null ? 'Kaydet' : 'Güncelle',
+                  icon: Icons.check_rounded,
+                  onTap: _canSave ? _submit : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BazaarFormResult {
+  const _BazaarFormResult({
+    required this.name,
+    required this.city,
+    required this.district,
+    required this.neighborhood,
+    required this.bazaarDay,
+    required this.status,
+  });
+  final String name;
+  final String city;
+  final String district;
+  final String neighborhood;
+  final String bazaarDay;
+  final String status;
+}
+
+Future<_BazaarFormResult?> _showBazaarFormSheet({
+  required BuildContext context,
+  required String title,
+  String initialCity = '',
+  String initialDistrict = '',
+  Map<String, dynamic>? initial,
+}) {
+  return showModalBottomSheet<_BazaarFormResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _BazaarFormSheetContent(
+      title: title,
+      initialCity: initialCity,
+      initialDistrict: initialDistrict,
+      initial: initial,
+    ),
+  );
+}
+
+class _BazaarFormSheetContent extends StatefulWidget {
+  const _BazaarFormSheetContent({
+    required this.title,
+    required this.initialCity,
+    required this.initialDistrict,
+    this.initial,
+  });
+
+  final String title;
+  final String initialCity;
+  final String initialDistrict;
+  final Map<String, dynamic>? initial;
+
+  @override
+  State<_BazaarFormSheetContent> createState() =>
+      _BazaarFormSheetContentState();
+}
+
+class _BazaarFormSheetContentState extends State<_BazaarFormSheetContent> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _neighborhoodCtrl;
+  String? _city;
+  String? _district;
+  String _bazaarDay = '';
+  String _status = 'verified';
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    final initialCity =
+        (initial?['cityName'] ?? initial?['city'] ?? widget.initialCity)
+            .toString();
+    final initialDistrict =
+        (initial?['districtName'] ?? initial?['district'] ?? widget.initialDistrict)
+            .toString();
+    _city = TurkeyLocations.canonicalCity(initialCity);
+    _district = _city == null
+        ? null
+        : TurkeyLocations.canonicalDistrict(_city, initialDistrict);
+    _bazaarDay = (initial?['bazaarDay'] ?? '').toString();
+    _status = (initial?['status'] ?? 'verified').toString();
+    _nameCtrl = TextEditingController(
+      text: (initial?['name'] ?? initial?['displayName'] ?? '').toString(),
+    );
+    _neighborhoodCtrl = TextEditingController(
+      text: (initial?['neighborhood'] ?? '').toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _neighborhoodCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickRegion() async {
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: _city,
+      initialDistrict: _district,
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _city = result.city;
+      _district = result.district;
+    });
+  }
+
+  bool get _canSave {
+    return _nameCtrl.text.trim().length >= 2 &&
+        (_city ?? '').trim().isNotEmpty &&
+        (_district ?? '').trim().isNotEmpty;
+  }
+
+  void _submit() {
+    Navigator.pop(
+      context,
+      _BazaarFormResult(
+        name: _nameCtrl.text,
+        city: _city ?? '',
+        district: _district ?? '',
+        neighborhood: _neighborhoodCtrl.text,
+        bazaarDay: _bazaarDay,
+        status: _status,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdminBottomSheetShell(
+      title: widget.title,
+      subtitle:
+          'Pazar adı, il/ilçe, mahalle ve kurulduğu günü gir. Zincir gerekmez.',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameCtrl,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              hintText: 'Pazar adı (örn. Salı Pazarı)',
+            ),
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            borderRadius: FRRad.all(FRRad.m),
+            onTap: _pickRegion,
+            child: Container(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                FRSpace.m,
+                FRSpace.l - 2,
+                FRSpace.m,
+                FRSpace.l - 2,
+              ),
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
+                borderRadius: FRRad.all(FRRad.m),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.place_outlined, color: FR.gold, size: 16),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      (_city != null && _district != null)
+                          ? '$_city / $_district'
+                          : 'İl ve ilçe seç',
+                      style: frText(
+                        13,
+                        FontWeight.w800,
+                        color: _city == null ? FR.ink3 : FR.ink,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_right_rounded,
+                    size: 18,
+                    color: FR.ink2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _neighborhoodCtrl,
+            decoration: const InputDecoration(
+              hintText: 'Mahalle (opsiyonel)',
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _FilterDropdown(
+                  value: _bazaarDay.isEmpty ? '__none__' : _bazaarDay,
+                  items: const [
+                    ('__none__', 'Pazar günü seç'),
+                    ('monday', 'Pazartesi'),
+                    ('tuesday', 'Salı'),
+                    ('wednesday', 'Çarşamba'),
+                    ('thursday', 'Perşembe'),
+                    ('friday', 'Cuma'),
+                    ('saturday', 'Cumartesi'),
+                    ('sunday', 'Pazar'),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _bazaarDay = v == '__none__' ? '' : v;
+                  }),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FilterDropdown(
+                  value: _status,
+                  items: const [
+                    ('pending', 'Bekliyor'),
+                    ('verified', 'Doğrulandı'),
+                    ('trusted', 'Güvenilir'),
+                    ('rejected', 'Reddedildi'),
+                  ],
+                  onChanged: (v) => setState(() => _status = v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: FRCta(
+                  label: 'İptal',
+                  filled: false,
+                  onTap: () => Navigator.pop(context),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FRCta(
+                  label: widget.initial == null ? 'Pazarı ekle' : 'Güncelle',
                   icon: Icons.check_rounded,
                   onTap: _canSave ? _submit : null,
                 ),
@@ -2438,8 +2877,8 @@ class _RegionAssignSheetContentState extends State<_RegionAssignSheetContent> {
           _FilterDropdown(
             value: _type,
             items: const [
-              ('local_market', 'Local'),
-              ('chain_market', 'Chain'),
+              ('local_market', 'Yerel'),
+              ('chain_market', 'Zincir'),
               ('bazaar', 'Pazar'),
             ],
             onChanged: (v) => setState(() => _type = v),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../services/ads_service.dart';
 import 'tokens.dart';
 
 /// Resimler için ortak yumuşak fade-in. `Image.network` ve `Image` widget'ları
@@ -1047,13 +1049,11 @@ class _FRSkeletonState extends State<FRSkeleton>
   }
 }
 
-/// Pro kullanıcı için no-op, ücretsiz kullanıcı için reklam slotu.
+/// Pro kullanıcı için no-op, ücretsiz kullanıcı için gerçek AdMob banner.
 ///
-/// Şu an `AdsService` no-op (google_mobile_ads paketi henüz eklenmedi);
-/// ücretsiz kullanıcı yer-gösterici "Pro al, reklamsız" CTA görür. SDK
-/// eklendiğinde bu widget gerçek banner ad döner. Pro kullanıcı asla
-/// reklam görmez — `isPremium` flag'i caller'dan gelir (AppState import'u
-/// circular dependency yaratmaması için).
+/// Banner yüklenirken (veya hata aldığında) "Pro al, reklamsız" CTA
+/// fallback gösterilir — kullanıcı asla boş yer görmez. Pro kullanıcı
+/// `isPremium=true` ile hiçbir şey render etmez.
 class FRAdSlot extends StatelessWidget {
   const FRAdSlot({
     super.key,
@@ -1066,12 +1066,27 @@ class FRAdSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isPremium) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: FRInlineBannerAd(
+        isPremium: false,
+        fallback: _AdUpsellFallback(onUpgradeTap: onUpgradeTap),
+      ),
+    );
+  }
+}
+
+class _AdUpsellFallback extends StatelessWidget {
+  const _AdUpsellFallback({this.onUpgradeTap});
+  final VoidCallback? onUpgradeTap;
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
       onTap: onUpgradeTap,
       borderRadius: FRRad.all(FRRad.m),
       child: Container(
         height: 64,
-        margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -1092,6 +1107,100 @@ class FRAdSlot extends StatelessWidget {
             Icon(Icons.arrow_forward_rounded, color: FR.gold, size: 16),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Inline banner reklam — feed listeleri arasına yerleştirilir.
+/// Pro değilse gerçek bir AdMob banner yükler; yüklenene kadar (veya
+/// load fail olursa) `fallback` render edilir. Pro ise no-op.
+///
+/// Kullanım:
+///   ```dart
+///   FRInlineBannerAd(isPremium: state.premium.isActive)
+///   ```
+/// `fallback` opsiyonel — verilmezse skeleton bir kapsül gösterir.
+class FRInlineBannerAd extends StatefulWidget {
+  const FRInlineBannerAd({
+    super.key,
+    required this.isPremium,
+    this.fallback,
+  });
+  final bool isPremium;
+  final Widget? fallback;
+
+  @override
+  State<FRInlineBannerAd> createState() => _FRInlineBannerAdState();
+}
+
+class _FRInlineBannerAdState extends State<FRInlineBannerAd> {
+  BannerAd? _bannerAd;
+  bool _loaded = false;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isPremium) {
+      _load();
+    }
+  }
+
+  void _load() {
+    final ad = BannerAd(
+      adUnitId: AdsService.instance.bannerAdUnitId,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          if (!mounted) return;
+          setState(() => _loaded = true);
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          if (!mounted) return;
+          setState(() {
+            _failed = true;
+            _bannerAd = null;
+          });
+        },
+      ),
+    );
+    _bannerAd = ad;
+    ad.load();
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isPremium) return const SizedBox.shrink();
+    if (_loaded && _bannerAd != null) {
+      return SizedBox(
+        width: _bannerAd!.size.width.toDouble(),
+        height: _bannerAd!.size.height.toDouble(),
+        child: AdWidget(ad: _bannerAd!),
+      );
+    }
+    // Yükleniyor veya başarısız oldu → fallback. Boş yer bırakmıyoruz
+    // ki kullanıcı titreşim hissetmesin.
+    if (widget.fallback != null) return widget.fallback!;
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: FR.surfaceLo,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.hairline),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        _failed ? 'Reklam yüklenemedi' : 'Reklam yükleniyor…',
+        style: frText(11, FontWeight.w700, color: FR.ink3),
       ),
     );
   }

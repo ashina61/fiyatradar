@@ -48,6 +48,15 @@ dependencies:
   # üzerinden purchase doğrular ve user.isPremium / premiumUntil yazar.
   in_app_purchase: ^3.2.0
 
+  # AdMob banner + interstitial. AdsService bu paketi sarıyor; Pro
+  # kullanıcılar (state.premium.isActive) hiç reklam görmez. Production
+  # geçişinde:
+  #   • android/app/src/main/AndroidManifest.xml içindeki test app id'sini
+  #     gerçek AdMob app id'si ile değiştir.
+  #   • ios/Runner/Info.plist GADApplicationIdentifier'ı güncelle.
+  #   • AdsService içindeki kAdUnitIds map'ini production unit'lere bağla.
+  google_mobile_ads: ^5.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
