@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'tabs/add_price_tab.dart';
@@ -86,6 +87,7 @@ class _Dock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return SafeArea(
       top: false,
       child: Padding(
@@ -106,26 +108,26 @@ class _Dock extends StatelessWidget {
             children: [
               FRDockItem(
                 icon: Icons.home_rounded,
-                label: 'Anasayfa',
+                label: s.t('nav.home'),
                 active: index == 0,
                 onTap: () => onChange(0),
               ),
               FRDockItem(
                 icon: Icons.radar_rounded,
-                label: 'Keşfet',
+                label: s.t('nav.explore'),
                 active: index == 1,
                 onTap: () => onChange(1),
               ),
               FRDockFab(active: index == 2, onTap: () => onChange(2)),
               FRDockItem(
                 icon: Icons.shopping_basket_rounded,
-                label: 'Sepet',
+                label: s.t('nav.basket'),
                 active: index == 3,
                 onTap: () => onChange(3),
               ),
               FRDockItem(
                 icon: Icons.person_rounded,
-                label: 'Profil',
+                label: s.t('nav.profile'),
                 active: index == 4,
                 onTap: () => onChange(4),
               ),

@@ -563,6 +563,96 @@ class _AdminStoreManagementScreenState
     );
   }
 
+  /// Bir zinciri kalıcı olarak siler. Eğer zincire bağlı `store_places`
+  /// kayıtları varsa, admin'i açıkça uyarır ve sayısını gösterir; onay
+  /// verirse şubeler orphan kalır (chainId artık geçersiz). Veri kaybı
+  /// ciddi olduğundan default davranış sadece zincir doc'unu silmek;
+  /// admin gerekirse şubeleri tek tek elle silebilir.
+  Future<void> _confirmDeleteChain(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final data = doc.data();
+    final chainId = doc.id;
+    final chainName = (data['name'] ?? '—').toString();
+
+    // Bağlı şube sayısını hızlıca tara (count yerine docs.length — küçük
+    // veri seti için yeterli; gerçek count() pahalı index gerektirir).
+    int boundCount = 0;
+    try {
+      final bound = await FirebaseService.instance.storePlaces
+          .where('chainId', isEqualTo: chainId)
+          .limit(50)
+          .get();
+      boundCount = bound.docs.length;
+    } catch (_) {
+      // Index yoksa veya sayım başarısız olursa uyarıyı yine gösterir.
+      boundCount = -1;
+    }
+
+    final body = boundCount == 0
+        ? '$chainName zinciri kalıcı olarak silinecek.\n\nBu işlem geri alınamaz.'
+        : boundCount < 0
+            ? '$chainName zinciri kalıcı olarak silinecek.\n\nBağlı şube kontrolü yapılamadı — yine de devam etmek istiyor musun?'
+            : '$chainName zincirine bağlı $boundCount şube var. '
+                'Zinciri silersen bu şubeler orphan kalır (üzerlerinde "Sil" '
+                'aksiyonunu kullanman gerekir). Devam etmek istiyor musun?';
+
+    final ok = await showAdminConfirmDeleteDialog(
+      context,
+      title: 'Zinciri sil',
+      message: body,
+    );
+    if (!ok) return;
+    try {
+      await doc.reference.delete();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('$chainName silindi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Silinemedi: $e')),
+      );
+    }
+  }
+
+  /// Bir mağaza / şube / online noktayı / mahalle pazarını kalıcı olarak
+  /// siler. priceReports koleksiyonundaki `placeId` referansları
+  /// dokunulmaz — geçmiş raporlar bozulmaz, sadece artık silinen şubeye
+  /// gönderi yapılamaz.
+  Future<void> _confirmDeletePlace(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final data = doc.data();
+    final name = (data['name'] ?? data['displayName'] ?? '—').toString();
+    final ok = await showAdminConfirmDeleteDialog(
+      context,
+      title: 'Mağazayı sil',
+      message:
+          '$name kalıcı olarak silinecek. Geçmiş fiyat raporları korunur, '
+          'ama bu noktaya yeni rapor gönderilemez.\n\nBu işlem geri alınamaz.',
+    );
+    if (!ok) return;
+    try {
+      await doc.reference.delete();
+      if (!mounted) return;
+      setState(() {
+        _placeDocs.removeWhere((d) => d.id == doc.id);
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text('$name silindi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Silinemedi: $e')),
+      );
+    }
+  }
+
   Future<void> _runLegacyMigrationBatch() async {
     if (_legacyBusy) return;
     setState(() => _legacyBusy = true);
@@ -747,6 +837,7 @@ class _AdminStoreManagementScreenState
                     'isActive': v,
                     'updatedAt': FieldValue.serverTimestamp(),
                   }),
+                  onDelete: () => _confirmDeleteChain(d),
                 ),
             ]),
           ],
@@ -800,6 +891,7 @@ class _AdminStoreManagementScreenState
                   'isActive': !((d.data()['isActive'] as bool?) ?? true),
                   'updatedAt': FieldValue.serverTimestamp(),
                 }),
+                onDelete: () => _confirmDeletePlace(d),
               ),
           ]),
         const SizedBox(height: 16),
@@ -930,10 +1022,12 @@ class _ChainRow extends StatelessWidget {
     required this.data,
     required this.onEdit,
     required this.onToggleActive,
+    required this.onDelete,
   });
   final Map<String, dynamic> data;
   final VoidCallback onEdit;
   final ValueChanged<bool> onToggleActive;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -993,6 +1087,11 @@ class _ChainRow extends StatelessWidget {
             onPressed: onEdit,
             icon: Icon(Icons.edit_rounded, color: FR.ink2, size: 19),
           ),
+          IconButton(
+            tooltip: 'Zinciri sil',
+            onPressed: onDelete,
+            icon: Icon(Icons.delete_outline_rounded, color: FR.bad, size: 19),
+          ),
           Switch(
             value: active,
             onChanged: onToggleActive,
@@ -1012,10 +1111,12 @@ class _PlaceRow extends StatelessWidget {
     required this.data,
     required this.onEdit,
     required this.onToggleActive,
+    required this.onDelete,
   });
   final Map<String, dynamic> data;
   final VoidCallback onEdit;
   final VoidCallback onToggleActive;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1128,6 +1229,32 @@ class _PlaceRow extends StatelessWidget {
                       Text(
                         active ? 'Pasifle' : 'Aktif et',
                         style: frText(11.5, FontWeight.w800, color: FR.ink),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: onDelete,
+                borderRadius: FRRad.all(999),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: FR.bad.withOpacity(.10),
+                    borderRadius: FRRad.all(999),
+                    border: Border.all(color: FR.bad.withOpacity(.35)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.delete_outline_rounded,
+                          size: 16, color: FR.bad),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Sil',
+                        style: frText(11.5, FontWeight.w800, color: FR.bad),
                       ),
                     ],
                   ),

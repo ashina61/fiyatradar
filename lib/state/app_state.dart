@@ -1268,6 +1268,12 @@ class AppState extends ChangeNotifier {
     if (p == null) throw StateError('Ürün bulunamadı.');
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Fiyat eklemek için giriş yapmalısın.');
+    // Misafir hesaplar fiyat ekleyemez. Anonim auth ile topluluk verisini
+    // farm'lamayı engellemek için soft-gate UI + bu hard-gate kombinasyonu
+    // çalışır; Firestore rules ayrıca isAdmin/signedIn kontrolü yapıyor.
+    if (isGuestUser) {
+      throw StateError('Fiyat eklemek için ücretsiz hesap aç.');
+    }
     final isOnlineSource = sourceType == PriceSourceType.online;
     // Online entries are nationwide — they bypass the Türkiye city/district
     // whitelist and use the canonical "Türkiye / Online" pair so the same
@@ -1588,6 +1594,9 @@ class AppState extends ChangeNotifier {
   }) {
     final uid = user?.uid ?? '';
     if (uid.isEmpty) return 'Doğrulama için giriş yapmalısın.';
+    // Misafir kullanıcılar fiyat doğrulayamaz — topluluk güven puanını
+    // anonim hesaplarla farm'lamayı engelliyoruz.
+    if (isGuestUser) return 'Fiyat doğrulamak için ücretsiz hesap aç.';
     final activeCity = (cityName ?? '').trim();
     final activeDistrict = (districtName ?? '').trim();
     if (activeCity.isEmpty || activeDistrict.isEmpty) {
@@ -1926,6 +1935,11 @@ class AppState extends ChangeNotifier {
   }) async {
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Yorum için giriş yapmalısın.');
+    // Misafir hesaplar yorum yazamaz — UI'da zaten gizli ama defansif
+    // olarak burada da bloklarız.
+    if (isGuestUser) {
+      throw StateError('Yorum yazmak için ücretsiz hesap aç.');
+    }
     final clean = text.trim();
     if (clean.length < 2) throw StateError('Yorum çok kısa.');
     if (clean.length > 1000) throw StateError('Yorum çok uzun.');
@@ -2170,6 +2184,11 @@ class AppState extends ChangeNotifier {
   String? canVoteOn(Product product, PriceEntry entry) {
     final uid = user?.uid;
     if (uid == null || uid.isEmpty) return 'Oy vermek için giriş yap.';
+    // Misafir (anonymous) kullanıcı katalogu görebilir ama topluluk
+    // doğrulama akışına katkı yapamaz — hesap açması gerekir.
+    if (isGuestUser) {
+      return 'Doğrulama için ücretsiz hesap aç.';
+    }
     if (entry.isOwnedBy(uid)) {
       return 'Kendi girdiğin fiyata oy veremezsin.';
     }
@@ -2748,6 +2767,11 @@ class AppState extends ChangeNotifier {
   }) async {
     final uid = user?.uid;
     if (uid == null || uid.isEmpty) return;
+    // Misafir kullanıcılar fiyat raporlayamaz — kötü-niyetli anonim
+    // raporlarla moderasyon kuyruğunu doldurmayı engelliyoruz.
+    if (isGuestUser) {
+      throw StateError('Fiyat raporlamak için ücretsiz hesap aç.');
+    }
     final ref = _svc.db.collection('priceReports').doc('${uid}_${entry.id}');
     await _svc.db.runTransaction((tx) async {
       final snap = await tx.get(ref);

@@ -592,6 +592,31 @@ class _ProductAdminRow extends StatelessWidget {
   const _ProductAdminRow({required this.product});
   final Product product;
 
+  Future<void> _confirmDelete(BuildContext context) async {
+    final state = AppStateScope.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showAdminConfirmDeleteDialog(
+      context,
+      title: 'Ürünü sil',
+      message:
+          '${product.name} kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+    );
+    if (!ok) return;
+    try {
+      if ((product.imagePath ?? '').isNotEmpty) {
+        await FirebaseService.instance.deleteStorageFile(product.imagePath!);
+      }
+      await state.adminDeleteProduct(product.id);
+      messenger.showSnackBar(
+        SnackBar(content: Text('${product.name} silindi.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Silinemedi: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -646,6 +671,16 @@ class _ProductAdminRow extends StatelessWidget {
               ),
             ),
             Icon(Icons.edit_outlined, color: FR.ink3, size: 17),
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: 'Ürünü sil',
+              onPressed: () => _confirmDelete(context),
+              splashRadius: 18,
+              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+              padding: EdgeInsets.zero,
+              icon: Icon(Icons.delete_outline_rounded,
+                  color: FR.bad, size: 19),
+            ),
           ],
         ),
       ),
