@@ -674,25 +674,25 @@ class AboutScreen extends StatelessWidget {
           _HubRow(
             icon: Icons.description_outlined,
             title: 'Kullanıcı sözleşmesi',
-            subtitle: 'fiyatradar.netlify.app/sozlesme',
-            onTap: () =>
-                _openExternalLink(context, 'https://fiyatradar.netlify.app/sozlesme'),
+            subtitle: 'fiyatradar.netlify.app/kullanici-sozlesmesi',
+            onTap: () => _openExternalLink(
+                context, 'https://fiyatradar.netlify.app/kullanici-sozlesmesi'),
           ),
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.privacy_tip_outlined,
             title: 'Gizlilik sözleşmesi',
-            subtitle: 'fiyatradar.netlify.app/gizlilik',
-            onTap: () =>
-                _openExternalLink(context, 'https://fiyatradar.netlify.app/gizlilik'),
+            subtitle: 'fiyatradar.netlify.app/gizlilik-politikasi',
+            onTap: () => _openExternalLink(
+                context, 'https://fiyatradar.netlify.app/gizlilik-politikasi'),
           ),
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.delete_outline_rounded,
             title: 'Hesap ve veri silme talebi',
-            subtitle: 'fiyatradar.netlify.app/veri-silme',
+            subtitle: 'fiyatradar.netlify.app/hesap-silme',
             onTap: () => _openExternalLink(
-                context, 'https://fiyatradar.netlify.app/veri-silme'),
+                context, 'https://fiyatradar.netlify.app/hesap-silme'),
           ),
           const SizedBox(height: 10),
           _HubRow(
