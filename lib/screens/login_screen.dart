@@ -13,8 +13,8 @@ import 'main_screen.dart';
 /// text changes; the user's stored consent record gets the active version
 /// so we can ask them again on the next breaking change.
 const String _kConsentVersion = '2026.05';
-const String _kSozlesmeUrl = 'https://fiyatradar.netlify.app/sozlesme';
-const String _kGizlilikUrl = 'https://fiyatradar.netlify.app/gizlilik';
+const String _kSozlesmeUrl = 'https://fiyatradar.netlify.app/kullanici-sozlesmesi';
+const String _kGizlilikUrl = 'https://fiyatradar.netlify.app/gizlilik-politikasi';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
