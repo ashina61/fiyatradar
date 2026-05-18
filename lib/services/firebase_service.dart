@@ -417,8 +417,20 @@ class FirebaseService {
         if (trimmedName.isNotEmpty) 'displayName': trimmedName,
         if (normalizedHandle.isNotEmpty) 'username': '@$normalizedHandle',
         if (normalizedHandle.isNotEmpty) 'usernameHandle': normalizedHandle,
+        // Yeni e-posta/şifre hesabı doğrulanmamış halde başlar — Cloud
+        // Function / başka istemciden geç senkronizasyon gelene kadar bu
+        // alan false kalır.
+        'emailVerified': false,
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+    }
+    // Kayıt akışının son adımı: doğrulama maili. Network hatası kaydı
+    // iptal etmesin — kullanıcı `VerifyEmailScreen` üstünden tekrar
+    // tetikleyebiliyor.
+    try {
+      await cred.user?.sendEmailVerification();
+    } catch (e, st) {
+      debugPrint('[register] sendEmailVerification failed: $e\n$st');
     }
     return cred;
   }

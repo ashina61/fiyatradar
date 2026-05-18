@@ -198,11 +198,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
     );
     if (res != null) {
-      await state.setProductAlert(productId: product.id, targetPrice: res);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Alarm ayarlandı: ₺${res.toStringAsFixed(2)}')),
-      );
+      try {
+        await state.setProductAlert(productId: product.id, targetPrice: res);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Alarm ayarlandı: ₺${res.toStringAsFixed(2)}')),
+        );
+      } on StateError catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
     }
   }
 }

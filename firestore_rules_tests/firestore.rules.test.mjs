@@ -118,8 +118,10 @@ describe('users rules', () => {
 });
 
 describe('users/{uid}/productAlerts rules', () => {
-  test('owner can create and update own product alert', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+  test('verified owner can create and update own product alert', async () => {
+    const db = testEnv
+      .authenticatedContext('user1', { email_verified: true })
+      .firestore();
     await assertSucceeds(
       setDoc(doc(db, 'users/user1/productAlerts/p1'), {
         targetPrice: 42.5,
@@ -133,7 +135,9 @@ describe('users/{uid}/productAlerts rules', () => {
   });
 
   test('another user cannot write someone else product alert doc', async () => {
-    const db = testEnv.authenticatedContext('user2').firestore();
+    const db = testEnv
+      .authenticatedContext('user2', { email_verified: true })
+      .firestore();
     await assertFails(
       setDoc(doc(db, 'users/user1/productAlerts/p2'), {
         targetPrice: 21.0,
@@ -158,7 +162,7 @@ describe('products rules', () => {
 
 describe('priceReports rules', () => {
   test('authenticated user can create own price report', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'priceReports/user1_e1'), {
         productId: 'p1',
@@ -170,7 +174,7 @@ describe('priceReports rules', () => {
   });
 
   test('authenticated user can create own price report with string reason', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'priceReports/user1_e1b'), {
         productId: 'p1',
@@ -183,7 +187,7 @@ describe('priceReports rules', () => {
   });
 
   test('authenticated user cannot create report for another user uid', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'priceReports/user1_e2'), {
         productId: 'p1',
@@ -195,7 +199,7 @@ describe('priceReports rules', () => {
   });
 
   test('authenticated user cannot create report as pre-verified', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'priceReports/user1_e5'), {
         productId: 'p1',
@@ -208,7 +212,7 @@ describe('priceReports rules', () => {
   });
 
   test('authenticated user cannot create report with unexpected field', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'priceReports/user1_e9'), {
         productId: 'p1',
@@ -221,7 +225,7 @@ describe('priceReports rules', () => {
   });
 
   test('authenticated user cannot create report with invalid price type', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'priceReports/user1_e10'), {
         productId: 'p1',
@@ -233,7 +237,7 @@ describe('priceReports rules', () => {
   });
 
   test('authenticated user cannot create report with removed status', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'priceReports/user1_e6'), {
         productId: 'p1',
@@ -246,7 +250,7 @@ describe('priceReports rules', () => {
   });
 
   test('owner cannot update moderation fields (status / verificationStatus)', async () => {
-    const ownerDb = testEnv.authenticatedContext('user1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(ownerDb, 'priceReports/user1_e3'), {
         productId: 'p1',
@@ -258,7 +262,7 @@ describe('priceReports rules', () => {
       }),
     );
 
-    const userDb = testEnv.authenticatedContext('user1').firestore();
+    const userDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       updateDoc(doc(userDb, 'priceReports/user1_e3'), {
         status: 'removed',
@@ -272,7 +276,7 @@ describe('priceReports rules', () => {
   });
 
   test('owner can update allowed mutable fields (price/storeName)', async () => {
-    const ownerDb = testEnv.authenticatedContext('user1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(ownerDb, 'priceReports/user1_e4'), {
         productId: 'p1',
@@ -285,7 +289,7 @@ describe('priceReports rules', () => {
       }),
     );
 
-    const userDb = testEnv.authenticatedContext('user1').firestore();
+    const userDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       updateDoc(doc(userDb, 'priceReports/user1_e4'), {
         price: 30.9,
@@ -295,7 +299,7 @@ describe('priceReports rules', () => {
   });
 
   test('owner cannot update disallowed immutable domain fields (productId)', async () => {
-    const ownerDb = testEnv.authenticatedContext('user1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(ownerDb, 'priceReports/user1_e7'), {
         productId: 'p1',
@@ -307,7 +311,7 @@ describe('priceReports rules', () => {
       }),
     );
 
-    const userDb = testEnv.authenticatedContext('user1').firestore();
+    const userDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       updateDoc(doc(userDb, 'priceReports/user1_e7'), {
         productId: 'p2',
@@ -316,7 +320,7 @@ describe('priceReports rules', () => {
   });
 
   test('admin can update moderation fields on priceReports', async () => {
-    const ownerDb = testEnv.authenticatedContext('user1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(ownerDb, 'priceReports/user1_e8'), {
         productId: 'p1',
@@ -341,7 +345,7 @@ describe('priceReports rules', () => {
 
 describe('comments rules', () => {
   test('authenticated user can create own comment with default likes state', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'comments/c1'), {
         productId: 'p1',
@@ -354,7 +358,7 @@ describe('comments rules', () => {
   });
 
   test('authenticated user cannot create comment with pre-populated likes', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'comments/c2'), {
         productId: 'p1',
@@ -366,7 +370,7 @@ describe('comments rules', () => {
   });
 
   test('authenticated user cannot create comment with unexpected field', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'comments/c8'), {
         productId: 'p1',
@@ -378,7 +382,7 @@ describe('comments rules', () => {
   });
 
   test('authenticated user cannot create comment with invalid text type', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'comments/c9'), {
         productId: 'p1',
@@ -389,7 +393,7 @@ describe('comments rules', () => {
   });
 
   test('authenticated user cannot create comment with pre-populated likedBy list', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'comments/c3'), {
         productId: 'p1',
@@ -401,7 +405,7 @@ describe('comments rules', () => {
   });
 
   test('comment owner can update own text', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'comments/c4'), {
         productId: 'p1',
@@ -420,7 +424,7 @@ describe('comments rules', () => {
   });
 
   test('comment owner cannot update likes counters directly', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'comments/c5'), {
         productId: 'p1',
@@ -439,7 +443,7 @@ describe('comments rules', () => {
   });
 
   test('non-owner cannot update another user comment text', async () => {
-    const ownerDb = testEnv.authenticatedContext('user1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(ownerDb, 'comments/c6'), {
         productId: 'p1',
@@ -450,7 +454,7 @@ describe('comments rules', () => {
       }),
     );
 
-    const otherUserDb = testEnv.authenticatedContext('user2').firestore();
+    const otherUserDb = testEnv.authenticatedContext('user2', { email_verified: true }).firestore();
     await assertFails(
       updateDoc(doc(otherUserDb, 'comments/c6'), {
         text: 'Kotu niyetli guncelleme',
@@ -459,7 +463,7 @@ describe('comments rules', () => {
   });
 
   test('admin can update comment moderation-related fields when needed', async () => {
-    const ownerDb = testEnv.authenticatedContext('user1').firestore();
+    const ownerDb = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(ownerDb, 'comments/c7'), {
         productId: 'p1',
@@ -730,7 +734,7 @@ describe('adminActions rules', () => {
 
 describe('priceGroups rules', () => {
   test('signed-in user can create with own uid as lastReporterId', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'priceGroups/g_a'), {
         productId: 'p1',
@@ -753,7 +757,7 @@ describe('priceGroups rules', () => {
   });
 
   test('cannot impersonate another user as lastReporterId', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'priceGroups/g_b'), {
         productId: 'p1',
@@ -769,7 +773,7 @@ describe('priceGroups rules', () => {
   });
 
   test('cannot inflate verifiedCount by more than +1', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await withDisabledRules(async (admin) => {
       await setDoc(doc(admin, 'priceGroups/g_inflate'), {
         productId: 'p1',
@@ -791,7 +795,7 @@ describe('priceGroups rules', () => {
   });
 
   test('cannot rewrite chain identity after creation', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await withDisabledRules(async (admin) => {
       await setDoc(doc(admin, 'priceGroups/g_immut'), {
         productId: 'p1',
@@ -815,7 +819,7 @@ describe('priceGroups rules', () => {
 
 describe('priceReportDedupes rules', () => {
   test('first verifier may create with self-only verifierUserIds map', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'priceReportDedupes/dk1'), {
         groupId: 'g1',
@@ -828,7 +832,7 @@ describe('priceReportDedupes rules', () => {
   });
 
   test('cannot impersonate other user in verifierUserIds', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'priceReportDedupes/dk2'), {
         groupId: 'g1',
@@ -841,7 +845,7 @@ describe('priceReportDedupes rules', () => {
   });
 
   test('cannot double-credit yourself on update', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await withDisabledRules(async (admin) => {
       await setDoc(doc(admin, 'priceReportDedupes/dk3'), {
         groupId: 'g1',
@@ -862,9 +866,211 @@ describe('priceReportDedupes rules', () => {
   });
 });
 
+describe('email verification gating', () => {
+  // Token claim email_verified=true → user can perform contribution writes.
+  // email_verified=false (varsayılan) → tüm katkı yazımları reddedilmeli.
+  const verifiedCtx = (uid) =>
+    testEnv.authenticatedContext(uid, { email_verified: true }).firestore();
+  const unverifiedCtx = (uid) =>
+    testEnv.authenticatedContext(uid, { email_verified: false }).firestore();
+
+  test('unverified user cannot create priceReports doc', async () => {
+    const db = unverifiedCtx('uvuser1');
+    await assertFails(
+      setDoc(doc(db, 'priceReports/uvuser1_e1'), {
+        productId: 'p1',
+        entryId: 'e1',
+        createdByUid: 'uvuser1',
+        price: 19.9,
+      }),
+    );
+  });
+
+  test('verified user can create priceReports doc', async () => {
+    const db = verifiedCtx('vuser1');
+    await assertSucceeds(
+      setDoc(doc(db, 'priceReports/vuser1_e1'), {
+        productId: 'p1',
+        entryId: 'e1',
+        createdByUid: 'vuser1',
+        price: 19.9,
+      }),
+    );
+  });
+
+  test('unverified user cannot create comment', async () => {
+    const db = unverifiedCtx('uvuser2');
+    await assertFails(
+      setDoc(doc(db, 'comments/uv_c1'), {
+        productId: 'p1',
+        userId: 'uvuser2',
+        text: 'Doğrulanmamış yorum',
+        likes: 0,
+        likedBy: [],
+      }),
+    );
+  });
+
+  test('verified user can create comment', async () => {
+    const db = verifiedCtx('vuser2');
+    await assertSucceeds(
+      setDoc(doc(db, 'comments/v_c1'), {
+        productId: 'p1',
+        userId: 'vuser2',
+        text: 'Doğrulanmış yorum',
+        likes: 0,
+        likedBy: [],
+      }),
+    );
+  });
+
+  test('unverified user cannot create productAlert', async () => {
+    // user doc seed (rules için).
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/uvuser3'), { isAdmin: false, role: 'user', points: 0 });
+    });
+    const db = unverifiedCtx('uvuser3');
+    await assertFails(
+      setDoc(doc(db, 'users/uvuser3/productAlerts/p1'), {
+        targetPrice: 21.0,
+      }),
+    );
+  });
+
+  test('verified user can create productAlert', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/vuser3'), { isAdmin: false, role: 'user', points: 0 });
+    });
+    const db = verifiedCtx('vuser3');
+    await assertSucceeds(
+      setDoc(doc(db, 'users/vuser3/productAlerts/p1'), {
+        targetPrice: 21.0,
+      }),
+    );
+  });
+
+  test('unverified user cannot change profileImageUrl', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/uvuser4'), {
+        isAdmin: false,
+        role: 'user',
+        points: 0,
+        profileImageUrl: 'https://example.com/old.jpg',
+      });
+    });
+    const db = unverifiedCtx('uvuser4');
+    await assertFails(
+      updateDoc(doc(db, 'users/uvuser4'), {
+        profileImageUrl: 'https://example.com/new.jpg',
+      }),
+    );
+  });
+
+  test('verified user can change profileImageUrl', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/vuser4'), {
+        isAdmin: false,
+        role: 'user',
+        points: 0,
+        profileImageUrl: 'https://example.com/old.jpg',
+      });
+    });
+    const db = verifiedCtx('vuser4');
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/vuser4'), {
+        profileImageUrl: 'https://example.com/new.jpg',
+      }),
+    );
+  });
+
+  test('unverified user can still update safe profile fields (city/displayName)', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/uvuser5'), {
+        isAdmin: false,
+        role: 'user',
+        points: 0,
+        displayName: 'Eski Ad',
+      });
+    });
+    const db = unverifiedCtx('uvuser5');
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/uvuser5'), {
+        displayName: 'Yeni Ad',
+        city: 'İstanbul',
+      }),
+    );
+  });
+
+  test('unverified user cannot bump points / gamification fields', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/uvuser6'), {
+        isAdmin: false,
+        role: 'user',
+        points: 0,
+      });
+    });
+    const db = unverifiedCtx('uvuser6');
+    await assertFails(
+      updateDoc(doc(db, 'users/uvuser6'), {
+        points: 10,
+      }),
+    );
+  });
+
+  test('unverified user cannot set emailVerified=true on user doc', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/uvuser7'), {
+        isAdmin: false,
+        role: 'user',
+        points: 0,
+        emailVerified: false,
+      });
+    });
+    const db = unverifiedCtx('uvuser7');
+    await assertFails(
+      updateDoc(doc(db, 'users/uvuser7'), {
+        emailVerified: true,
+      }),
+    );
+  });
+
+  test('verified user can set emailVerified=true on own user doc', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'users/vuser7'), {
+        isAdmin: false,
+        role: 'user',
+        points: 0,
+        emailVerified: false,
+      });
+    });
+    const db = verifiedCtx('vuser7');
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/vuser7'), {
+        emailVerified: true,
+      }),
+    );
+  });
+
+  test('unverified user cannot create priceGroup', async () => {
+    const db = unverifiedCtx('uvuser8');
+    await assertFails(
+      setDoc(doc(db, 'priceGroups/uv_g1'), {
+        productId: 'p1',
+        chainId: 'a101',
+        cityId: 'adana',
+        districtId: 'seyhan',
+        reportCount: 1,
+        verifiedCount: 0,
+        confidence: 'low',
+        lastReporterId: 'uvuser8',
+      }),
+    );
+  });
+});
+
 describe('users.points delta cap', () => {
   test('cannot self-bump points beyond +50 in one update', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertFails(
       updateDoc(doc(db, 'users/user1'), {
         points: 9999,
@@ -873,7 +1079,7 @@ describe('users.points delta cap', () => {
   });
 
   test('can bump points by +10 (one report worth)', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       updateDoc(doc(db, 'users/user1'), {
         points: 10,
@@ -882,7 +1088,7 @@ describe('users.points delta cap', () => {
   });
 
   test('streak/badge fields are writable by owner', async () => {
-    const db = testEnv.authenticatedContext('user1').firestore();
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
       updateDoc(doc(db, 'users/user1'), {
         currentStreak: 1,

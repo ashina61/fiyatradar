@@ -134,6 +134,7 @@ Bu repodaki mevcut varlıklar:
 | `usernameChangedAt` + 90 günlük cooldown | Şikayet riskini azaltır (kullanıcı isim spam'i) |
 | `ageConfirmedAt` timestamp | Data-safety formunda "age confirmation collected" alanını işaretle |
 | Image cacheHeight + frameBuilder | Algılanan performansı artırır — Play Vitals "slow rendering" metriklerine olumlu |
+| **E-posta doğrulama zorunluluğu** | E-posta/şifre ile kayıt olan kullanıcı, fiyat ekleme / yorum / profil fotoğrafı / fiyat alarmı / katkı puanı gibi aksiyonları yapabilmek için Firebase verification mailindeki linke tıklamalı. Google ile gelen hesaplar zaten verified. Play Console **test hesabı** kayıt sonrası verification mailini açıp doğrulamış olmalı — aksi halde reviewer fiyat ekleyemez ve uygulama "boş" görünür. |
 
 ---
 

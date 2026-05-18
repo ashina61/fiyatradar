@@ -8,6 +8,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
+import 'verify_email_screen.dart';
 
 /// Versioned consent metadata. Bump [_kConsentVersion] whenever the legal
 /// text changes; the user's stored consent record gets the active version
@@ -111,8 +112,19 @@ class _LoginScreenState extends State<LoginScreen> {
       state.setGuestAcknowledged(false);
       await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
       if (!mounted) return;
+      // E-posta/şifre kayıtlı kullanıcı doğrulamadan uygulamaya
+      // giremesin — Google ile gelen (zaten verified) ya da doğrulanmış
+      // kullanıcı normal akışla MainScreen'e iner.
+      final currentUser = svc.auth.currentUser;
+      final needsVerification = currentUser != null &&
+          !currentUser.isAnonymous &&
+          !currentUser.emailVerified;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
+        MaterialPageRoute(
+          builder: (_) => needsVerification
+              ? const VerifyEmailScreen()
+              : const MainScreen(),
+        ),
         (_) => false,
       );
     } on FirebaseAuthException catch (e) {
@@ -163,8 +175,18 @@ class _LoginScreenState extends State<LoginScreen> {
       state.setGuestAcknowledged(false);
       await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
       if (!mounted) return;
+      // Google hesapları normalde verified gelir; yine de defansif
+      // olarak doğrulama gerekiyorsa VerifyEmailScreen'e yönlendir.
+      final currentUser = svc.auth.currentUser;
+      final needsVerification = currentUser != null &&
+          !currentUser.isAnonymous &&
+          !currentUser.emailVerified;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
+        MaterialPageRoute(
+          builder: (_) => needsVerification
+              ? const VerifyEmailScreen()
+              : const MainScreen(),
+        ),
         (_) => false,
       );
     } on FirebaseAuthException catch (e) {
