@@ -503,13 +503,59 @@ class _QuickJump extends StatelessWidget {
 
 // ─── Catalog (products + requests + categories) ─────────────────────────────
 
-class _CatalogTab extends StatelessWidget {
+class _CatalogTab extends StatefulWidget {
   const _CatalogTab({required this.state});
   final AppState state;
 
   @override
+  State<_CatalogTab> createState() => _CatalogTabState();
+}
+
+class _CatalogTabState extends State<_CatalogTab> {
+  static const int _previewLimit = 40;
+
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == _query) return;
+    setState(() => _query = normalized);
+  }
+
+  void _clearSearch() {
+    if (_query.isEmpty && _searchCtrl.text.isEmpty) return;
+    _searchCtrl.clear();
+    setState(() => _query = '');
+  }
+
+  List<Product> _filterProducts(List<Product> products) {
+    if (_query.isEmpty) return products;
+    return products.where((p) {
+      final haystack = <String>[
+        p.name,
+        p.brand,
+        p.category,
+        if (p.barcode != null) p.barcode!,
+      ].join(' ').toLowerCase();
+      return haystack.contains(_query);
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     final products = state.products;
+    final filtered = _filterProducts(products);
+    final hasQuery = _query.isNotEmpty;
+    final visibleProducts =
+        hasQuery ? filtered : filtered.take(_previewLimit).toList();
     final pendingRequests =
         state.productRequests.where((r) => r.isPending).toList();
     final decidedRequests =
@@ -540,20 +586,41 @@ class _CatalogTab extends StatelessWidget {
         const SizedBox(height: 22),
         FRSectionHead(
           eyebrow: 'KATALOG',
-          title: 'Ürünler · ${products.length}',
+          title: hasQuery
+              ? 'Sonuç · ${filtered.length} / ${products.length}'
+              : 'Ürünler · ${products.length}',
         ),
         const SizedBox(height: 10),
-        if (products.isEmpty)
-          adminEmpty('Henüz ürün yok.')
+        TextField(
+          controller: _searchCtrl,
+          onChanged: _onSearchChanged,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Ürün ara · ad · marka · kategori · barkod',
+            prefixIcon: Icon(Icons.search_rounded, color: FR.ink3),
+            suffixIcon: hasQuery
+                ? IconButton(
+                    icon: Icon(Icons.close_rounded, color: FR.ink3),
+                    onPressed: _clearSearch,
+                    tooltip: 'Aramayı temizle',
+                  )
+                : null,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (visibleProducts.isEmpty)
+          adminEmpty(hasQuery
+              ? 'Aramayla eşleşen ürün bulunamadı.'
+              : 'Henüz ürün yok.')
         else
           adminRowList([
-            for (final p in products.take(40)) _ProductAdminRow(product: p),
+            for (final p in visibleProducts) _ProductAdminRow(product: p),
           ]),
-        if (products.length > 40) ...[
+        if (!hasQuery && products.length > _previewLimit) ...[
           const SizedBox(height: 10),
           Center(
             child: Text(
-              'İlk 40 ürün gösteriliyor · arama için ürünü Keşfet sekmesinden aç',
+              'İlk $_previewLimit ürün gösteriliyor · diğer ürünlere ulaşmak için arama yapın',
               style: frText(11, FontWeight.w700, color: FR.ink3),
             ),
           ),
