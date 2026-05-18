@@ -778,6 +778,11 @@ class _AddPriceTabState extends State<AddPriceTab> {
     if (state.isGuestUser) {
       return const _GuestAddPriceBlock();
     }
+    // E-posta/şifre kayıtlı ama doğrulanmamış kullanıcı katkı yapamasın —
+    // doğrulama ekranına yönlendiren öz CTA göster.
+    if (state.needsEmailVerification) {
+      return const _UnverifiedAddPriceBlock();
+    }
 
     final s = AppStrings.of(context);
     return SafeArea(
@@ -2360,6 +2365,189 @@ class _GuestAddPriceBlock extends StatelessWidget {
                   builder: (_) => const MainScreen(initialIndex: 4),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Doğrulanmamış kullanıcıya gösterilen fiyat-ekle bloğu. AuthGate normalde
+/// bu kullanıcıyı VerifyEmailScreen'e yönlendiriyor; tab içinden açıldığında
+/// ise yine net bir kapı görmesi için bu blok kullanılır.
+class _UnverifiedAddPriceBlock extends StatefulWidget {
+  const _UnverifiedAddPriceBlock();
+
+  @override
+  State<_UnverifiedAddPriceBlock> createState() =>
+      _UnverifiedAddPriceBlockState();
+}
+
+class _UnverifiedAddPriceBlockState extends State<_UnverifiedAddPriceBlock> {
+  bool _busy = false;
+  String? _info;
+  String? _error;
+
+  Future<void> _checkNow(AppState state) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _info = null;
+      _error = null;
+    });
+    try {
+      final verified = await state.reloadAndCheckVerification();
+      if (!mounted) return;
+      if (!verified) {
+        setState(() => _info =
+            'Henüz doğrulanmamış. Mail kutunu kontrol edip linke tıkladıktan sonra tekrar dene.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Doğrulama durumu alınamadı. Tekrar dene.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resend(AppState state) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _info = null;
+      _error = null;
+    });
+    try {
+      await state.sendVerificationEmail();
+      if (!mounted) return;
+      setState(() => _info =
+          'Doğrulama maili tekrar gönderildi. Spam klasörünü de kontrol et.');
+    } on StateError catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Mail gönderilemedi. Tekrar dene.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final email = state.user?.email ?? '';
+    final cooldownSeconds = state.verificationEmailCooldownRemaining.inSeconds;
+    final resendDisabled = _busy || cooldownSeconds > 0;
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const FRPageHeader(
+              overline: 'DOĞRULAMA',
+              title: 'E-posta adresini doğrula',
+            ),
+            const SizedBox(height: 18),
+            Center(
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [FR.goldHi, FR.goldDeep],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: FRRad.all(28),
+                  boxShadow: frGoldGlow(opacity: .28),
+                ),
+                child: Icon(Icons.mark_email_unread_rounded,
+                    color: FR.onGold, size: 40),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Fiyat eklemek için doğrulama gerekiyor',
+              textAlign: TextAlign.center,
+              style: frDisplay(22, FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Topluluğa katkı yapabilmen için e-posta adresini doğrulaman '
+              'gerekiyor. Mail kutuna bakıp linke tıkladıktan sonra '
+              '"Doğruladım" butonuna bas.',
+              textAlign: TextAlign.center,
+              style: frText(13, FontWeight.w600, color: FR.ink3, height: 1.5),
+            ),
+            if (email.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: FR.surface,
+                  borderRadius: FRRad.all(FRRad.m),
+                  border: Border.all(color: FR.hairline),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.alternate_email_rounded,
+                        size: 18, color: FR.ink3),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        email,
+                        style: frText(13, FontWeight.w700, color: FR.ink),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            if (_info != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: FR.gold.withOpacity(.10),
+                  borderRadius: FRRad.all(FRRad.m),
+                  border: Border.all(color: FR.gold.withOpacity(.35)),
+                ),
+                child: Text(_info!,
+                    style: frText(12, FontWeight.w700, color: FR.goldDeep)),
+              ),
+            if (_error != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: FR.bad.withOpacity(.10),
+                  borderRadius: FRRad.all(FRRad.m),
+                  border: Border.all(color: FR.bad.withOpacity(.35)),
+                ),
+                child: Text(_error!,
+                    style: frText(12, FontWeight.w700, color: FR.bad)),
+              ),
+            FRCta(
+              label: _busy ? 'Kontrol ediliyor…' : 'Doğruladım',
+              icon: Icons.check_circle_outline_rounded,
+              onTap: _busy ? null : () => _checkNow(state),
+            ),
+            const SizedBox(height: 10),
+            FRCta(
+              label: cooldownSeconds > 0
+                  ? 'Tekrar gönder (${cooldownSeconds}s)'
+                  : 'Doğrulama mailini tekrar gönder',
+              icon: Icons.outgoing_mail,
+              filled: false,
+              onTap: resendDisabled ? null : () => _resend(state),
             ),
           ],
         ),

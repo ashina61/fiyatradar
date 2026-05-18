@@ -13,6 +13,7 @@ import 'l10n/app_strings.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/verify_email_screen.dart';
 import 'services/ads_service.dart';
 import 'services/messaging_service.dart';
 import 'services/premium_service.dart';
@@ -191,6 +192,12 @@ class _AuthGate extends StatelessWidget {
     if (state.isBanned) {
       return _BannedScreen(reason: state.banReason);
     }
+    // E-posta/şifre ile kayıtlı ama doğrulanmamış kullanıcı katkı
+    // yapamasın — uygulamaya girmeden önce mail kutusundaki linke
+    // tıklamalı. Google ile gelenler zaten verified=true gelir.
+    if (!user.isAnonymous && !user.emailVerified) {
+      return const VerifyEmailScreen();
+    }
     return const MainScreen();
   }
 
@@ -198,6 +205,7 @@ class _AuthGate extends StatelessWidget {
     if (user == null) return 'login';
     if (user.isAnonymous && !state.guestAcknowledged) return 'login';
     if (state.isBanned) return 'banned:${user.uid}';
+    if (!user.isAnonymous && !user.emailVerified) return 'verify:${user.uid}';
     return 'main:${user.uid}';
   }
 }

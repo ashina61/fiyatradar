@@ -211,6 +211,104 @@ class AppState extends ChangeNotifier {
   int get guestBasketComputeRemaining =>
       (guestBasketComputeLimit - _guestBasketComputeCount)
           .clamp(0, guestBasketComputeLimit);
+
+  // ─── E-posta doğrulama (email/password kayıtlı kullanıcılar) ────────
+  // Firebase Auth `User.emailVerified` tek source-of-truth. Google ile
+  // giriş yapan kullanıcı zaten verified geliyor; sadece e-posta/şifre ile
+  // kayıt olanlar `VerifyEmailScreen` üzerinden mail kutusunu açıp linke
+  // tıklamalı. Katkı aksiyonları (fiyat ekleme, doğrulama, yorum, profil
+  // fotoğrafı, alarm, puan/streak/badge) doğrulanmamış hesap için
+  // bloklanır — hem client gate hem Firestore/Storage rules backstop.
+  static const Duration kVerificationEmailCooldown = Duration(seconds: 60);
+  DateTime? _lastVerificationEmailSentAt;
+
+  bool get isEmailVerified {
+    final u = user;
+    if (u == null) return false;
+    if (u.isAnonymous) return false;
+    return u.emailVerified;
+  }
+
+  bool get needsEmailVerification {
+    final u = user;
+    if (u == null) return false;
+    if (u.isAnonymous) return false;
+    return !u.emailVerified;
+  }
+
+  Duration get verificationEmailCooldownRemaining {
+    final last = _lastVerificationEmailSentAt;
+    if (last == null) return Duration.zero;
+    final elapsed = DateTime.now().difference(last);
+    if (elapsed >= kVerificationEmailCooldown) return Duration.zero;
+    return kVerificationEmailCooldown - elapsed;
+  }
+
+  bool get canResendVerificationEmail =>
+      verificationEmailCooldownRemaining == Duration.zero;
+
+  /// Doğrulama mailini tekrar gönderir. Cooldown dolmamışsa veya kullanıcı
+  /// uygun değilse [StateError] fırlatır — UI net hata mesajı gösterir.
+  Future<void> sendVerificationEmail() async {
+    final u = user;
+    if (u == null || u.isAnonymous) {
+      throw StateError('E-posta doğrulaması için önce hesabınla giriş yap.');
+    }
+    if (u.emailVerified) return;
+    if (!canResendVerificationEmail) {
+      final remaining = verificationEmailCooldownRemaining;
+      throw StateError(
+        'Tekrar göndermeden önce ${remaining.inSeconds} saniye bekle.',
+      );
+    }
+    await u.sendEmailVerification();
+    _lastVerificationEmailSentAt = DateTime.now();
+    notifyListeners();
+  }
+
+  /// `User.reload()` çağırıp `emailVerified` durumunu tazeler. Doğrulama
+  /// başarılıysa `users/{uid}` doc'unda `emailVerified` + `emailVerifiedAt`
+  /// alanlarını da günceller (rules bunları yalnız token verified ise
+  /// kabul ediyor). Döndürdüğü değer son durum — UI buna göre route eder.
+  Future<bool> reloadAndCheckVerification() async {
+    final u = _svc.auth.currentUser;
+    if (u == null) return false;
+    try {
+      await u.reload();
+    } catch (_) {
+      // Reload best-effort; yine de currentUser üstünden son durumu okuyalım.
+    }
+    final fresh = _svc.auth.currentUser;
+    user = fresh;
+    final verified = fresh?.emailVerified == true && fresh?.isAnonymous != true;
+    if (verified && fresh != null) {
+      try {
+        await _svc.userDoc(fresh.uid).set({
+          'emailVerified': true,
+          'emailVerifiedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } catch (_) {
+        // Firestore rules backstop'u tutar; UI yine doğrulanmış kabul eder.
+      }
+    }
+    notifyListeners();
+    return verified;
+  }
+
+  /// Katkı aksiyonlarının ortak ön-koşulu: signed-in + email_verified.
+  /// Misafir / doğrulanmamış kullanıcı için Türkçe net mesajla
+  /// [StateError] fırlatır. UI bu mesajı snackbar'da gösterebilir.
+  void _ensureEmailVerified(String actionLabel) {
+    final u = user;
+    if (u == null || u.isAnonymous) {
+      throw StateError('$actionLabel için ücretsiz hesap aç.');
+    }
+    if (!u.emailVerified) {
+      throw StateError(
+        '$actionLabel için önce e-posta adresini doğrula.',
+      );
+    }
+  }
   /// `regional_price_drop` push'larına abonelik. Cloud Function
   /// `onPriceGroupUpdate` notification doc'unu yine yazar (in-app sinyali
   /// kaybolmaması için), ama push gönderirken bu bayrağı kontrol etmesi
@@ -696,6 +794,11 @@ class AppState extends ChangeNotifier {
         'trustWrongTotal': 0,
         'trustTotalVotes': 0,
         'contributions': 0,
+        // Kayıt sırasında doğrulama daha tamamlanmadıysa false; Google ile
+        // gelen kullanıcılar zaten verified geldiği için doğru değer
+        // burada da yansır.
+        'emailVerified':
+            !user!.isAnonymous && user!.emailVerified == true,
         'settings': {
           'notifications': {
             'pushEnabled': pushNotificationsEnabled,
@@ -706,6 +809,22 @@ class AppState extends ChangeNotifier {
         },
         'createdAt': FieldValue.serverTimestamp(),
       });
+    } else if (!user!.isAnonymous && user!.emailVerified == true) {
+      // Doc zaten varsa, doğrulanmış durumu Firestore'a en kısa sürede
+      // yansıtalım — başka cihazda doğrulanmış olsa bile bu cihaz
+      // açıldığında sync olsun. Best-effort; rules backstop'u tutar.
+      final existingVerified =
+          (udoc.data()?['emailVerified'] as bool?) == true;
+      if (!existingVerified) {
+        try {
+          await uref.set({
+            'emailVerified': true,
+            'emailVerifiedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (_) {
+          // Best-effort; doğrulanmış kabul edip devam.
+        }
+      }
     }
     _userSub = uref.snapshots().listen((snap) {
       final m = snap.data() ?? <String, dynamic>{};
@@ -1268,12 +1387,10 @@ class AppState extends ChangeNotifier {
     if (p == null) throw StateError('Ürün bulunamadı.');
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Fiyat eklemek için giriş yapmalısın.');
-    // Misafir hesaplar fiyat ekleyemez. Anonim auth ile topluluk verisini
-    // farm'lamayı engellemek için soft-gate UI + bu hard-gate kombinasyonu
-    // çalışır; Firestore rules ayrıca isAdmin/signedIn kontrolü yapıyor.
-    if (isGuestUser) {
-      throw StateError('Fiyat eklemek için ücretsiz hesap aç.');
-    }
+    // Misafir hesaplar fiyat ekleyemez ve doğrulanmamış e-posta sahipleri
+    // de katkı yapamaz. Topluluk verisini farm'lamayı engelliyoruz; rules
+    // ek olarak email_verified token claim'ini kontrol ediyor.
+    _ensureEmailVerified('Fiyat eklemek');
     final isOnlineSource = sourceType == PriceSourceType.online;
     // Online entries are nationwide — they bypass the Türkiye city/district
     // whitelist and use the canonical "Türkiye / Online" pair so the same
@@ -1597,6 +1714,9 @@ class AppState extends ChangeNotifier {
     // Misafir kullanıcılar fiyat doğrulayamaz — topluluk güven puanını
     // anonim hesaplarla farm'lamayı engelliyoruz.
     if (isGuestUser) return 'Fiyat doğrulamak için ücretsiz hesap aç.';
+    if (needsEmailVerification) {
+      return 'Fiyat doğrulamak için önce e-posta adresini doğrula.';
+    }
     final activeCity = (cityName ?? '').trim();
     final activeDistrict = (districtName ?? '').trim();
     if (activeCity.isEmpty || activeDistrict.isEmpty) {
@@ -1935,11 +2055,10 @@ class AppState extends ChangeNotifier {
   }) async {
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Yorum için giriş yapmalısın.');
-    // Misafir hesaplar yorum yazamaz — UI'da zaten gizli ama defansif
-    // olarak burada da bloklarız.
-    if (isGuestUser) {
-      throw StateError('Yorum yazmak için ücretsiz hesap aç.');
-    }
+    // Misafir / doğrulanmamış hesaplar yorum yazamaz — UI'da zaten gizli
+    // ama defansif olarak burada da bloklarız; Firestore rules de
+    // `isVerified()` ile yazımı reddediyor.
+    _ensureEmailVerified('Yorum yazmak');
     final clean = text.trim();
     if (clean.length < 2) throw StateError('Yorum çok kısa.');
     if (clean.length > 1000) throw StateError('Yorum çok uzun.');
@@ -2188,6 +2307,9 @@ class AppState extends ChangeNotifier {
     // doğrulama akışına katkı yapamaz — hesap açması gerekir.
     if (isGuestUser) {
       return 'Doğrulama için ücretsiz hesap aç.';
+    }
+    if (needsEmailVerification) {
+      return 'Doğrulama için önce e-posta adresini doğrula.';
     }
     if (entry.isOwnedBy(uid)) {
       return 'Kendi girdiğin fiyata oy veremezsin.';
@@ -2624,6 +2746,9 @@ class AppState extends ChangeNotifier {
     required double targetPrice,
   }) async {
     if (user == null) return;
+    // Fiyat alarmı bir katkı aksiyonu — doğrulanmamış / misafir hesap
+    // bunu açamasın (rules de aynı kısıtı uyguluyor).
+    _ensureEmailVerified('Fiyat alarmı oluşturmak');
     final existing = productAlerts[productId];
     await _svc.userProductAlerts(user!.uid).doc(productId).set({
       // `productId` alanını da yazıyoruz: Cloud Function (`onProductPriceDrop`)
@@ -2648,6 +2773,12 @@ class AppState extends ChangeNotifier {
   }) async {
     if (user == null) {
       throw StateError('Aktif kullanıcı bulunamadı.');
+    }
+    // Profil fotoğrafı güncellemesi doğrulama gerektirir; isim/şehir gibi
+    // güvenli alanların değişimi için gate açık (kullanıcı doğrulamadan
+    // önce de eksik bilgileri tamamlayabilir).
+    if (profileImageUrl != null || profileImagePath != null) {
+      _ensureEmailVerified('Profil fotoğrafı yüklemek');
     }
     final phoneRaw = phoneNumber?.trim();
     final hasPhone = phoneRaw != null && phoneRaw.isNotEmpty;
@@ -2767,11 +2898,9 @@ class AppState extends ChangeNotifier {
   }) async {
     final uid = user?.uid;
     if (uid == null || uid.isEmpty) return;
-    // Misafir kullanıcılar fiyat raporlayamaz — kötü-niyetli anonim
-    // raporlarla moderasyon kuyruğunu doldurmayı engelliyoruz.
-    if (isGuestUser) {
-      throw StateError('Fiyat raporlamak için ücretsiz hesap aç.');
-    }
+    // Misafir / doğrulanmamış kullanıcılar fiyat raporlayamaz —
+    // kötü-niyetli hesaplarla moderasyon kuyruğunu doldurmayı önlüyoruz.
+    _ensureEmailVerified('Fiyat raporlamak');
     final ref = _svc.db.collection('priceReports').doc('${uid}_${entry.id}');
     await _svc.db.runTransaction((tx) async {
       final snap = await tx.get(ref);

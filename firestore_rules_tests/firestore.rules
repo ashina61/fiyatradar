@@ -9,6 +9,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // Firebase Auth token üzerinden e-posta doğrulaması. Google ile gelen
+    // kullanıcılar zaten verified=true gelir; e-posta/şifre ile kayıt olan
+    // kullanıcı katkı aksiyonlarına başlamadan önce verification mailindeki
+    // linke tıklamış olmalı. Anonim hesaplar email_verified=false döner ve
+    // bu helper tarafından reddedilir. UI tarafı (AppState._ensureEmailVerified)
+    // aynı kapıyı uyguluyor; bu kural client'i bypass eden istemcilere karşı
+    // backstop.
+    function isVerified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
     function isAdmin() {
       return signedIn() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
@@ -55,6 +66,18 @@ service cloud.firestore {
         'avatarUrl',
         'displayName',
         'username',
+        'usernameHandle',
+        // Kullanıcı adı son değiştirilme zamanı — 3 ay cooldown kontrolü
+        // için. Sadece kullanıcının kendi adını gerçekten değiştirdiği
+        // anda yazılmalı (`hasSafeUsernameChange` doğrular).
+        'usernameChangedAt',
+        // Yaş onayı (KVKK / Play Console data-safety 13+ taahhüdü).
+        'ageConfirmedAt',
+        // E-posta doğrulama durumu — istemci `reloadAndCheckVerification`
+        // sonrası kendi user doc'una yazar. `hasSafeEmailVerifiedMutation`
+        // sadece token verified ise true yazımına izin verir.
+        'emailVerified',
+        'emailVerifiedAt',
         'phoneNumber',
         'cityCode',
         'cityName',
@@ -92,6 +115,43 @@ service cloud.firestore {
       ]);
     }
 
+    // `emailVerified` alanı sadece token'da email_verified=true olduğunda
+    // true olarak yazılabilir; client false yazma denerse de izin verilir
+    // (örn. hesap reset senaryosu — pratikte kullanılmıyor). Anahtar
+    // değişmiyorsa sınır geçerli değil.
+    function hasSafeEmailVerifiedMutation() {
+      return (!request.resource.data.diff(resource.data).changedKeys().hasAny(['emailVerified']) ||
+          (request.resource.data.emailVerified is bool &&
+            (request.resource.data.emailVerified == false ||
+              request.auth.token.email_verified == true))) &&
+        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['emailVerifiedAt']) ||
+          request.auth.token.email_verified == true);
+    }
+
+    // Profil fotoğrafı veya katkı/puan alanlarını değiştirmek için
+    // email_verified zorunlu — doğrulanmamış kullanıcı sadece "güvenli
+    // profil alanlarını" (ad, ilçe, dil, bildirim tercihi, vb.) ve
+    // emailVerified senkronizasyonunu yapabilir.
+    function touchesVerifiedOnlyUserFields() {
+      return request.resource.data.diff(resource.data).changedKeys().hasAny([
+        'photoUrl',
+        'profileImageUrl',
+        'profileImagePath',
+        'avatarUrl',
+        'points',
+        'trustTotalVotes',
+        'trustVerifiedTotal',
+        'trustWrongTotal',
+        'contributions',
+        'verifyContributions',
+        'photoContributions',
+        'currentStreak',
+        'longestStreak',
+        'lastContributionDay',
+        'badges'
+      ]);
+    }
+
     function hasSafeProfileImageMutation(uid) {
       return (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImageUrl']) ||
           (request.resource.data.profileImageUrl is string &&
@@ -105,6 +165,32 @@ service cloud.firestore {
         (!request.resource.data.diff(resource.data).changedKeys().hasAny(['avatarUrl']) ||
           (request.resource.data.avatarUrl is string &&
             request.resource.data.avatarUrl.size() <= 2048));
+    }
+
+    // Kullanıcı adı değişiklik cooldown'u: handle gerçekten değişiyorsa
+    // (önceki ile farklıysa) `usernameChangedAt` yazılmış olmalı ve son
+    // değişiklik en az 90 gün önce olmalı. UI tarafı (AppState) da bunu
+    // önce kendi kontrol eder; bu kural client'i atlayan client'lara karşı
+    // backstop. Admin override hâlâ var.
+    function hasSafeUsernameCooldown() {
+      let next = request.resource.data;
+      let prev = resource.data;
+      let nextHandle = ('usernameHandle' in next) ? next.usernameHandle : '';
+      let prevHandle = ('usernameHandle' in prev) ? prev.usernameHandle : '';
+      let handleChanged = nextHandle != prevHandle;
+      let lastChange = ('usernameChangedAt' in prev) ? prev.usernameChangedAt : null;
+      return !handleChanged ||
+        (
+          ('usernameChangedAt' in next) &&
+          next.usernameChangedAt is timestamp &&
+          (
+            lastChange == null ||
+            !(lastChange is timestamp) ||
+            // 90 gün = 7,776,000,000,000 mikrosaniye. Firestore rules
+            // duration aritmetiği üzerinden ifade edersek:
+            request.time >= lastChange + duration.value(90, 'd')
+          )
+        );
     }
 
     function hasSafeUserCreateDefaults() {
@@ -133,7 +219,13 @@ service cloud.firestore {
         'likes',
         'likedBy',
         'createdAt',
-        'updatedAt'
+        'updatedAt',
+        // Denormalize edilmiş yazar bilgileri — yorum listelenirken her
+        // satır için kullanıcı dokümanını ayrı ayrı okumamak için.
+        'authorName',
+        'authorAvatar',
+        'authorIsPro',
+        'authorTrustPercent'
       ]) &&
       ('productId' in request.resource.data) &&
       ('userId' in request.resource.data) &&
@@ -142,13 +234,21 @@ service cloud.firestore {
       (request.resource.data.userId is string) &&
       (request.resource.data.text is string) &&
       (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
-      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+      (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+      (!('authorName' in request.resource.data) || request.resource.data.authorName is string) &&
+      (!('authorAvatar' in request.resource.data) || request.resource.data.authorAvatar is string) &&
+      (!('authorIsPro' in request.resource.data) || request.resource.data.authorIsPro is bool) &&
+      (!('authorTrustPercent' in request.resource.data) || request.resource.data.authorTrustPercent is int);
     }
 
     function hasOnlyCommentOwnerWritableKeys() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'text',
-        'updatedAt'
+        'updatedAt',
+        'authorName',
+        'authorAvatar',
+        'authorIsPro',
+        'authorTrustPercent'
       ]);
     }
 
@@ -229,7 +329,14 @@ service cloud.firestore {
           hasOnlyUserWritableKeys() &&
           hasNoImmutableUserChanges() &&
           hasSafeProfileImageMutation(uid) &&
-          hasSafeUserGamificationMutation()
+          hasSafeUsernameCooldown() &&
+          hasSafeUserGamificationMutation() &&
+          hasSafeEmailVerifiedMutation() &&
+          // Profil fotoğrafı / puan / streak gibi katkı alanlarına dokunmak
+          // istiyorsa kullanıcı doğrulanmış olmalı. Ad/ilçe/dil/bildirim
+          // tercihi gibi güvenli alanlar (örn. hesap doğum ekranı) verified
+          // olmayan kullanıcı için de açık.
+          (!touchesVerifiedOnlyUserFields() || isVerified())
         );
 
       allow delete: if isAdmin();
@@ -242,7 +349,11 @@ service cloud.firestore {
 
       match /productAlerts/{alertId} {
         allow read: if isAdmin() || isOwner(uid);
-        allow create, update, delete: if isAdmin() || isOwner(uid);
+        // Alarm kurulumu bir katkı aksiyonu — doğrulanmamış kullanıcı
+        // notification akışını farm'lamasın. Admin override hâlâ var.
+        // Silme her zaman serbest (kullanıcı kendi alarmını iptal edebilsin).
+        allow create, update: if isAdmin() || (isOwner(uid) && isVerified());
+        allow delete: if isAdmin() || isOwner(uid);
       }
 
       // Legacy migration read path
@@ -258,6 +369,24 @@ service cloud.firestore {
         // Legacy compat: no runtime writes.
         allow create, update, delete: if false;
       }
+    }
+
+    // Benzersiz kullanıcı adı rezervasyonu. Doc id'si normalize edilmiş
+    // handle (lowercase a-z, 0-9, _; 3-20 char). Anyone authenticated can
+    // read so the client can perform availability checks; create yalnız
+    // doc yoksa + payload sahibi == caller; update yasak; delete sadece
+    // sahibi tarafından (kullanıcı handle değiştirdiğinde eski rezervasyon
+    // serbest kalsın).
+    match /usernames/{handle} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.uid is string &&
+        request.resource.data.uid == request.auth.uid &&
+        handle.size() >= 3 && handle.size() <= 20 &&
+        handle.matches('^[a-z0-9_]+$');
+      allow update: if false;
+      allow delete: if isAdmin() ||
+        (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // Legacy global notification docs used during migration.
@@ -288,7 +417,7 @@ service cloud.firestore {
       // the `priceHistory` field (via addPrice / voteOnPrice transactions).
       // The client transaction enforces self-vote / duplicate-vote blocks.
       allow update: if isAdmin() || (
-        signedIn() &&
+        isVerified() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['priceHistory']) &&
         hasSafePriceHistoryMutation()
       );
@@ -299,7 +428,7 @@ service cloud.firestore {
     // only admins can approve / reject / hard-delete them.
     match /product_requests/{requestId} {
       allow read: if signedIn();
-      allow create: if signedIn() &&
+      allow create: if isVerified() &&
         request.resource.data.requestedByUid == request.auth.uid &&
         (!('status' in request.resource.data) || request.resource.data.status == 'pending') &&
         (!('approvedProductId' in request.resource.data)) &&
@@ -330,8 +459,14 @@ service cloud.firestore {
           'city',
           'district',
           'neighborhood',
+          'marketDays',
           'lat',
           'lng',
+          'channel',
+          'sourceType',
+          'address',
+          'websiteUrl',
+          'appDeepLink',
           'status',
           'isActive',
           'usageCount',
@@ -348,6 +483,28 @@ service cloud.firestore {
         (!('neighborhood' in request.resource.data) || request.resource.data.neighborhood == null || request.resource.data.neighborhood is string) &&
         (!('lat' in request.resource.data) || request.resource.data.lat == null || request.resource.data.lat is number) &&
         (!('lng' in request.resource.data) || request.resource.data.lng == null || request.resource.data.lng is number) &&
+        (!('channel' in request.resource.data) || request.resource.data.channel in ['physical', 'online', 'bazaar']) &&
+        (!('sourceType' in request.resource.data) || request.resource.data.sourceType in ['physical', 'online', 'bazaar']) &&
+        (!('address' in request.resource.data) || request.resource.data.address is string) &&
+        (!('websiteUrl' in request.resource.data) || request.resource.data.websiteUrl is string) &&
+        (!('appDeepLink' in request.resource.data) || request.resource.data.appDeepLink is string) &&
+        // Mahalle pazarı için marketDays: lowercase İngilizce gün isimleri
+        // listesi. Bazaar dışındaki yerlerde boş ya da hiç olmamalı; bazaar
+        // olduğunda en az bir gün olmalı (UI tarafı da bunu zorluyor).
+        (!('marketDays' in request.resource.data) ||
+          (request.resource.data.marketDays is list &&
+            request.resource.data.marketDays.size() <= 7)) &&
+        (request.resource.data.type != 'bazaar' ||
+          ('marketDays' in request.resource.data &&
+            request.resource.data.marketDays is list &&
+            request.resource.data.marketDays.size() >= 1)) &&
+        // Mahalle pazarı için mahalle alanı zorunlu — Çekmeköy → Aydınlar
+        // Mah. → Perşembe gibi grupları doğru hizalayabilelim.
+        (request.resource.data.type != 'bazaar' ||
+          ('neighborhood' in request.resource.data &&
+            request.resource.data.neighborhood is string &&
+            request.resource.data.neighborhood.size() > 0)) &&
+        (request.resource.data.type == 'online_market' || (request.resource.data.city.size() > 0 && request.resource.data.district.size() > 0)) &&
         request.resource.data.usageCount == 0;
       }
 
@@ -355,8 +512,9 @@ service cloud.firestore {
       // Admin panel owns the canonical store inventory. Admin-created places may
       // include verified/trusted status and admin-only metadata; community users
       // can only create pending place suggestions with the safe public payload.
+      // Topluluk önerisi katkı aksiyonu olduğu için email_verified zorunlu.
       allow create: if isAdmin() ||
-        (signedIn() &&
+        (isVerified() &&
           hasSafeStorePlaceRequestPayload() &&
           request.resource.data.status == 'pending' &&
           request.resource.data.isActive == true &&
@@ -417,8 +575,10 @@ service cloud.firestore {
       }
 
       allow read: if true;
-      // Client create allowed for now; status/trust moderation remains admin-only.
-      allow create: if signedIn() &&
+      // Client create allowed for verified users; status/trust moderation
+      // remains admin-only. Doğrulanmamış kullanıcı topluluk fiyat
+      // omurgasına yazamasın.
+      allow create: if isVerified() &&
         request.resource.data.reportedByUid == request.auth.uid &&
         hasSafePriceEntryCreatePayload();
       allow update, delete: if isAdmin();
@@ -544,7 +704,7 @@ service cloud.firestore {
         (signedIn() && priceId.matches('^' + request.auth.uid + '_.*'));
       allow list: if isAdmin() ||
         (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if signedIn() && (
+      allow create: if isVerified() && (
         (
           hasSafePriceReportCreatePayload() &&
           priceId == (request.auth.uid + '_' + request.resource.data.entryId) &&
@@ -559,7 +719,7 @@ service cloud.firestore {
         )
       );
       allow update: if isAdmin() || (
-        signedIn() &&
+        isVerified() &&
         (
           (
             resource.data.createdByUid == request.auth.uid &&
@@ -634,14 +794,14 @@ service cloud.firestore {
 
     match /priceGroups/{groupId} {
       allow read: if true;
-      // First-write: any signed-in user may create (counter is presumed 0).
-      allow create: if signedIn() &&
+      // First-write: yalnız doğrulanmış kullanıcı (counter 0 varsayılır).
+      allow create: if isVerified() &&
         hasSafePriceGroupPayload() &&
         (!('reportCount' in request.resource.data) || request.resource.data.reportCount == 1) &&
         (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount == 0);
       // Updates: counters can grow by at most +1 per call (one report or one
       // verify at a time). Stops `verifiedCount: 99999` style attacks.
-      allow update: if signedIn() &&
+      allow update: if isVerified() &&
         hasSafePriceGroupPayload() &&
         priceGroupCounterMonotonic('reportCount') &&
         priceGroupCounterMonotonic('verifiedCount') &&
@@ -688,7 +848,7 @@ service cloud.firestore {
     match /priceReportDedupes/{dedupeId} {
       allow read: if signedIn();
       // First write: caller marks themselves as a verifier for this dedupe.
-      allow create: if signedIn() &&
+      allow create: if isVerified() &&
         hasSafePriceDedupePayload() &&
         (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount == 1) &&
         (!('verifierUserIds' in request.resource.data) ||
@@ -696,7 +856,7 @@ service cloud.firestore {
            request.resource.data.verifierUserIds[request.auth.uid] == true));
       // Updates: only +1 to verifiedCount and only adding self to map. Cannot
       // remove other users, cannot bulk-set a fake count.
-      allow update: if signedIn() &&
+      allow update: if isVerified() &&
         hasSafePriceDedupePayload() &&
         request.resource.data.dedupeKey == resource.data.dedupeKey &&
         request.resource.data.groupId == resource.data.groupId &&
@@ -712,20 +872,30 @@ service cloud.firestore {
 
     match /price_votes/{priceId}/votes/{voteUid} {
       allow read: if signedIn();
-      allow create, update, delete: if isAdmin() || (signedIn() && voteUid == request.auth.uid);
+      // Vote create/update doğrulanmış kullanıcıya kapalı; kullanıcı kendi
+      // oyunu silmek isterse (örn. yanlış oy) yine yapabilir.
+      allow create, update: if isAdmin() || (isVerified() && voteUid == request.auth.uid);
+      allow delete: if isAdmin() || (signedIn() && voteUid == request.auth.uid);
     }
 
     match /comments/{commentId} {
       allow read: if true;
-      allow create: if signedIn() &&
+      allow create: if isVerified() &&
         hasSafeCommentCreatePayload() &&
         request.resource.data.userId == request.auth.uid &&
         hasSafeCommentCreateDefaults();
       allow update: if isAdmin() ||
         (
-          signedIn() &&
+          isVerified() &&
           resource.data.userId == request.auth.uid &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt']) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'text',
+            'updatedAt',
+            'authorName',
+            'authorAvatar',
+            'authorIsPro',
+            'authorTrustPercent'
+          ]) &&
           request.resource.data.text is string &&
           request.resource.data.text.size() > 0 &&
           request.resource.data.text.size() <= 500
@@ -793,7 +963,9 @@ service cloud.firestore {
 
     match /reports/{reportId} {
       allow read: if isAdmin();
-      allow create: if signedIn() &&
+      // Şikayet oluşturmak doğrulanmamış kullanıcıya açık değil — sahte
+      // şikayetlerle moderasyon kuyruğunu spam etmesin.
+      allow create: if isVerified() &&
         (
           (!('reporterUserId' in request.resource.data)) ||
           request.resource.data.reporterUserId == request.auth.uid

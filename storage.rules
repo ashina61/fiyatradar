@@ -4,11 +4,15 @@ service firebase.storage {
   match /b/{bucket}/o {
     // Public profile avatars. Clients upload to:
     //   user_profiles/{uid}/{timestamp}.{jpg|png|webp}
-    // Users can only create/update/delete files inside their own uid folder.
+    // Users can only create/update/delete files inside their own uid folder
+    // AND must have a verified e-posta (Auth token claim email_verified).
+    // Anonim / doğrulanmamış kullanıcı profil fotoğrafı yükleyemez —
+    // Firestore rules de aynısını user doc tarafında uyguluyor.
     match /user_profiles/{uid}/{file=**} {
       allow read: if true;
       allow create, update: if request.auth != null
         && request.auth.uid == uid
+        && request.auth.token.email_verified == true
         && request.resource.size <= 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if request.auth != null && request.auth.uid == uid;
@@ -36,11 +40,14 @@ service firebase.storage {
     //   price_proofs/{uid}/{groupId}/{ts}.jpg
     // so any authenticated user can write their own proofs but cannot
     // overwrite someone else's; reads are public so the price card can
-    // render the proof inline.
+    // render the proof inline. Yalnız doğrulanmış (email_verified=true)
+    // kullanıcı yazabilir — anonim ve doğrulanmamış hesaplar fiyat
+    // kanıt fotoğrafı yükleyemez.
     match /price_proofs/{uid}/{file=**} {
       allow read: if true;
       allow write: if request.auth != null
         && request.auth.uid == uid
+        && request.auth.token.email_verified == true
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }

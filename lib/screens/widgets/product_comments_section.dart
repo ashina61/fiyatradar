@@ -52,7 +52,9 @@ class _ProductCommentsSectionState extends State<ProductCommentsSection> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final uid = state.user?.uid ?? '';
-    final canPost = uid.isNotEmpty && state.user?.isAnonymous == false;
+    final isAnonymous = state.user?.isAnonymous != false;
+    final canPost = uid.isNotEmpty && !isAnonymous && state.isEmailVerified;
+    final needsVerification = !isAnonymous && state.needsEmailVerification;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -150,7 +152,9 @@ class _ProductCommentsSectionState extends State<ProductCommentsSection> {
             padding: const EdgeInsets.all(14),
             decoration: frSurface(radius: FRRad.l),
             child: Text(
-              'Yorum yazmak için kayıtlı bir hesapla giriş yap.',
+              needsVerification
+                  ? 'Yorum yazmak için önce e-posta adresini doğrula.'
+                  : 'Yorum yazmak için kayıtlı bir hesapla giriş yap.',
               style: frText(12.5, FontWeight.w700, color: FR.ink3),
             ),
           )
