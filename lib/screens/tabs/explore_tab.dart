@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../features/admin/illustration_picker/illustration_manifest_service.dart';
+import '../../features/admin/models/illustration_asset.dart';
 import '../../models/product.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
@@ -187,32 +190,39 @@ class _ExploreTabState extends State<ExploreTab> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 38,
+            height: 44,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: state.categories.length,
               itemBuilder: (_, i) {
                 final c = state.categories[i];
+                final active = _category == c;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: InkWell(
                     onTap: () => setState(() => _category = c),
-                    borderRadius: FRRad.all(10),
+                    borderRadius: FRRad.all(12),
                     child: Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: _category == c ? FR.gold.withOpacity(.14) : Colors.transparent,
-                        borderRadius: FRRad.all(10),
+                        color: active
+                            ? FR.gold.withOpacity(.14)
+                            : FR.surface,
+                        borderRadius: FRRad.all(12),
                         border: Border.all(
-                          color: _category == c ? FR.goldDeep : FR.hairline,
+                          color: active ? FR.goldDeep : FR.hairline,
                         ),
                       ),
                       child: Text(
                         c,
-                        style: frText(11.5, FontWeight.w700,
-                            color: _category == c ? FR.gold : FR.ink2),
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        softWrap: false,
+                        style: frText(13, FontWeight.w800,
+                            color: active ? FR.gold : FR.ink2),
                       ),
                     ),
                   ),
@@ -292,8 +302,9 @@ class _ExploreTabState extends State<ExploreTab> {
   }
 }
 
-Widget _exploreCardEmojiFallback(String emoji) {
-  return Container(
+Widget _exploreCardFallback(Product product) {
+  final id = product.assignedIllustrationId;
+  final container = Container(
     decoration: BoxDecoration(
       gradient: LinearGradient(
         colors: [FR.surfaceHi, FR.surfaceLo],
@@ -301,7 +312,44 @@ Widget _exploreCardEmojiFallback(String emoji) {
         end: Alignment.bottomRight,
       ),
     ),
-    child: Center(child: Text(emoji, style: const TextStyle(fontSize: 54))),
+  );
+  if (id == null || id.isEmpty) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        container,
+        Center(
+          child: Icon(Icons.shopping_basket_outlined,
+              color: FR.gold, size: 36),
+        ),
+      ],
+    );
+  }
+  return Stack(
+    fit: StackFit.expand,
+    children: [
+      container,
+      FutureBuilder<IllustrationAsset?>(
+        future: IllustrationManifestService.findById(id),
+        builder: (_, snap) {
+          final asset = snap.data;
+          if (asset == null) {
+            return Center(
+              child: Icon(Icons.shopping_basket_outlined,
+                  color: FR.gold, size: 36),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.all(14),
+            child: SvgPicture.asset(
+              asset.assetPath,
+              fit: BoxFit.contain,
+              semanticsLabel: asset.label,
+            ),
+          );
+        },
+      ),
+    ],
   );
 }
 
@@ -348,9 +396,9 @@ class _ExploreCard extends StatelessWidget {
                             filterQuality: FilterQuality.medium,
                             frameBuilder: frFadeFrameBuilder,
                             errorBuilder: (_, __, ___) =>
-                                _exploreCardEmojiFallback(product.emoji),
+                                _exploreCardFallback(product),
                           )
-                        : _exploreCardEmojiFallback(product.emoji),
+                        : _exploreCardFallback(product),
                   ),
                 ),
                 Positioned(

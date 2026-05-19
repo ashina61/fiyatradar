@@ -123,6 +123,48 @@ class FirebaseService {
     }
   }
 
+  /// Upload a community-submitted product photo under
+  /// `product_image_submissions/{uid}/{ts}.{ext}`. Storage rules restrict
+  /// writes to the owning user (matching uid path segment) so only that
+  /// user can add files into their own pending submissions folder. Admin
+  /// approval copies the bytes into the canonical `product_images/...`
+  /// path before flipping the doc status to `approved`.
+  Future<({String url, String path})> uploadProductImageSubmission({
+    required String uid,
+    required Uint8List bytes,
+    String? contentType,
+  }) async {
+    final current = auth.currentUser;
+    if (current == null || current.uid != uid) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'unauthenticated',
+        message: 'Fotoğraf yüklemek için tekrar giriş yapman gerekiyor.',
+      );
+    }
+    if (bytes.length > 6 * 1024 * 1024) {
+      throw FirebaseException(
+        plugin: 'firebase_storage',
+        code: 'image-too-large',
+        message: 'Fotoğraf 6 MB üstünde, daha küçük bir dosya seç.',
+      );
+    }
+    final detected = _detectImageType(bytes, fallback: contentType);
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path =
+        'product_image_submissions/$uid/$ts.${detected.extension}';
+    final ref = storage.ref(path);
+    final snap = await ref.putData(
+      bytes,
+      SettableMetadata(
+        contentType: detected.contentType,
+        cacheControl: 'public, max-age=86400',
+      ),
+    );
+    final url = await snap.ref.getDownloadURL();
+    return (url: url, path: path);
+  }
+
   /// Upload a banner hero image under `banner_images/{bannerId}/…`.
   Future<({String url, String path})> uploadBannerImage({
     required String bannerId,
@@ -349,6 +391,13 @@ class FirebaseService {
   /// Community-sourced product additions awaiting admin approval.
   CollectionReference<Map<String, dynamic>> get productRequests =>
       db.collection('product_requests');
+
+  /// Community-sourced product photos awaiting admin approval. On approval
+  /// the admin promotes the submitted Storage object to the canonical
+  /// `product_images/{productId}/...` path and points `products.imageUrl`
+  /// at it.
+  CollectionReference<Map<String, dynamic>> get productImageSubmissions =>
+      db.collection('product_image_submissions');
 
   DocumentReference<Map<String, dynamic>> userDoc(String uid) =>
       users.doc(uid);

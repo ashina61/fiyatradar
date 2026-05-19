@@ -9,6 +9,7 @@ import '../ui/tokens.dart';
 import 'admin/admin_crud_screens.dart';
 import 'admin/admin_price_groups_screen.dart';
 import 'admin/admin_price_reports_screen.dart';
+import 'admin/admin_product_image_submissions_screen.dart';
 import 'admin/admin_shared_widgets.dart';
 import 'admin/admin_store_management_screen.dart';
 import 'admin/admin_user_edit_screen.dart';
@@ -581,6 +582,19 @@ class _CatalogTabState extends State<_CatalogTab> {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const AdminCategoryCrudScreen()),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _GenericRow(
+          title: 'Topluluk görsel önerileri',
+          subtitle: 'Kullanıcı fotoğraflarını onayla · reddet',
+          icon: Icons.add_a_photo_outlined,
+          withActions: true,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AdminProductImageSubmissionsScreen(),
+            ),
           ),
         ),
         const SizedBox(height: 22),

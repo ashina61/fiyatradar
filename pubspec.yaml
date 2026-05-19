@@ -43,6 +43,10 @@ dependencies:
   geocoding: ^2.1.1
   shared_preferences: ^2.2.2
   url_launcher: ^6.3.1
+  # OpenFoodFacts barkod lookup. Admin paneli ürün eklerken
+  # https://world.openfoodfacts.org/api/v0/product/{barcode}.json
+  # uçundan gelen front image_url'i otomatik dolduruyor.
+  http: ^1.2.0
 
   # FiyatRadar Pro: Play Billing (Android) + StoreKit (iOS) için
   # ortak abstraction. Cloud Function tarafı Google Play Developer API

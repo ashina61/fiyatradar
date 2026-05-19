@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../features/admin/illustration_picker/illustration_manifest_service.dart';
+import '../features/admin/models/illustration_asset.dart';
 import '../models/price_reporting.dart';
 import '../models/product.dart';
 import '../state/app_state.dart';
@@ -19,11 +23,18 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late List<PriceEntry> _sorted;
   late PriceEntry? _best;
+  final ScrollController _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _recomputeDerived();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,26 +71,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     return Scaffold(
       backgroundColor: FR.bg,
+      // _Actions zaten kendi bottom safe area'sını ekliyor, bu nedenle
+      // SafeArea bottom çift-padding üretmemeli; aksi halde ListView
+      // aşağıdan kapanıp scroll'un en altı görünmüyor ve geri çıkamıyor.
       body: SafeArea(
-        child: Column(
-          children: [
-            _DetailTopBar(
-              isFav: isFav,
-              onBack: () => Navigator.pop(context),
-              onFav: () => state.toggleFavorite(product.id),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
-                children: [
-                  _DetailTitleBlock(product: product),
-                  const SizedBox(height: 16),
-                  _DetailHero(product: product),
-                  const SizedBox(height: 20),
-                  _DetailHeadlinePrice(product: product, state: state),
-                  const SizedBox(height: 24),
-                  _RegionalPriceSections(
-                      product: product, state: state, legacyBest: _best),
+        bottom: false,
+        child: GestureDetector(
+          // Comments composer veya rapor dialog'undan dönerken kalan focus
+          // listview'in scroll gesture'ını yutuyordu — boş alana dokunulunca
+          // klavyeyi/odağı bırak.
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              _DetailTopBar(
+                isFav: isFav,
+                onBack: () => Navigator.pop(context),
+                onFav: () => state.toggleFavorite(product.id),
+              ),
+              Expanded(
+                child: ListView(
+                  controller: _scroll,
+                  // Klavye açıkken aşağı sürüklemek klavyeyi otomatik
+                  // kapatsın — kullanıcı aşağı indikten sonra yukarı
+                  // tekrar çıkamama bug'ı buradan geliyordu.
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+                  children: [
+                    _DetailTitleBlock(product: product),
+                    const SizedBox(height: 16),
+                    _DetailHero(product: product),
+                    const SizedBox(height: 14),
+                    _CommunityImageCta(product: product),
+                    const SizedBox(height: 20),
+                    _DetailHeadlinePrice(product: product, state: state),
+                    const SizedBox(height: 24),
+                    _RegionalPriceSections(
+                        product: product, state: state, legacyBest: _best),
                   if (product.validEntries.length >= 2) ...[
                     const SizedBox(height: 24),
                     const FRSectionHead(
@@ -122,23 +152,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ],
               ),
             ),
-            _Actions(
-              isAlertActive: alert != null,
-              alertTarget: alert?.targetPrice,
-              onAlert: () =>
-                  _openAlert(context, state, product, alert?.targetPrice),
-              onAdd: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                    builder: (_) => const MainScreen(initialIndex: 2)),
+              _Actions(
+                isAlertActive: alert != null,
+                alertTarget: alert?.targetPrice,
+                onAlert: () =>
+                    _openAlert(context, state, product, alert?.targetPrice),
+                onAdd: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                      builder: (_) => const MainScreen(initialIndex: 2)),
+                ),
+                onCart: () {
+                  state.addToCart(product);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${product.name} sepete eklendi.')),
+                  );
+                },
               ),
-              onCart: () {
-                state.addToCart(product);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${product.name} sepete eklendi.')),
-                );
-              },
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -330,15 +361,49 @@ class _DetailHero extends StatelessWidget {
               cacheHeight: 1200,
               filterQuality: FilterQuality.medium,
               frameBuilder: frFadeFrameBuilder,
-              errorBuilder: (_, __, ___) => Center(
-                child: Text(product.emoji,
-                    style: const TextStyle(fontSize: 108)),
-              ),
+              errorBuilder: (_, __, ___) =>
+                  _CategoryIllustrationFallback(product: product),
             )
-          : Center(
-              child: Text(product.emoji,
-                  style: const TextStyle(fontSize: 108)),
-            ),
+          : _CategoryIllustrationFallback(product: product),
+    );
+  }
+}
+
+/// Renders the brand-agnostic illustration assigned to the product by an
+/// admin. Falls back to a quiet container with an inline icon when no
+/// illustration is set so the product hero still feels intentional.
+class _CategoryIllustrationFallback extends StatelessWidget {
+  const _CategoryIllustrationFallback({required this.product});
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = product.assignedIllustrationId;
+    if (id == null || id.isEmpty) {
+      return Center(
+        child: Icon(Icons.shopping_basket_outlined,
+            color: FR.gold, size: 56),
+      );
+    }
+    return FutureBuilder<IllustrationAsset?>(
+      future: IllustrationManifestService.findById(id),
+      builder: (context, snap) {
+        final asset = snap.data;
+        if (asset == null) {
+          return Center(
+            child: Icon(Icons.shopping_basket_outlined,
+                color: FR.gold, size: 56),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.all(28),
+          child: SvgPicture.asset(
+            asset.assetPath,
+            fit: BoxFit.contain,
+            semanticsLabel: asset.label,
+          ),
+        );
+      },
     );
   }
 }
@@ -1362,6 +1427,173 @@ class _SquareIconAction extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Community photo submission CTA ─────────────────────────────────────────
+
+/// Soft prompt under the hero image inviting verified users to submit a
+/// better product photo. Submissions land in `product_image_submissions`
+/// with status `pending` until an admin promotes the bytes to the
+/// canonical `product_images/{productId}/...` path.
+class _CommunityImageCta extends StatefulWidget {
+  const _CommunityImageCta({required this.product});
+  final Product product;
+
+  @override
+  State<_CommunityImageCta> createState() => _CommunityImageCtaState();
+}
+
+class _CommunityImageCtaState extends State<_CommunityImageCta> {
+  bool _busy = false;
+
+  Future<void> _submit(AppState state) async {
+    if (_busy) return;
+    final blockReason = _blockReason(state);
+    if (blockReason != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(blockReason)),
+      );
+      return;
+    }
+    try {
+      final picker = ImagePicker();
+      final x = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 88,
+      );
+      if (x == null) return;
+      final bytes = await x.readAsBytes();
+      if (!mounted) return;
+      setState(() => _busy = true);
+      await state.submitProductImage(
+        product: widget.product,
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Görsel önerin alındı, admin onayı sonrası yayınlanacak. Teşekkürler!',
+          ),
+        ),
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Görsel gönderilemedi: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String? _blockReason(AppState state) {
+    final uid = state.user?.uid ?? '';
+    if (uid.isEmpty) return 'Görsel önermek için giriş yap.';
+    if (state.isGuestUser) {
+      return 'Görsel önermek için ücretsiz hesap aç.';
+    }
+    if (state.needsEmailVerification) {
+      return 'Görsel önermek için e-posta adresini doğrula.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final hasImage = (widget.product.imageUrl ?? '').isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.gold.withOpacity(.32)),
+        boxShadow: frGoldGlow(opacity: .08),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FR.gold.withOpacity(.14),
+              borderRadius: FRRad.all(12),
+              border: Border.all(color: FR.gold.withOpacity(.4)),
+            ),
+            child: Icon(Icons.add_a_photo_outlined,
+                color: FR.gold, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasImage
+                      ? 'Daha iyi bir fotoğrafın mı var?'
+                      : 'Bu ürüne fotoğraf ekle',
+                  style: frText(13.5, FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hasImage
+                      ? 'Profesyonel veya net çekim önerirsen admin onayından sonra ana görsel olur.'
+                      : 'Net, profesyonel bir çekim öner — admin onayından sonra bu üründe yayınlanır.',
+                  style: frText(11.5, FontWeight.w600,
+                      color: FR.ink3, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          InkWell(
+            onTap: _busy ? null : () => _submit(state),
+            borderRadius: FRRad.all(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: FR.gold,
+                borderRadius: FRRad.all(12),
+                boxShadow: frGoldGlow(opacity: .18),
+              ),
+              child: _busy
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: FR.onGold,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.upload_rounded,
+                            color: FR.onGold, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Öner',
+                          style: frText(12, FontWeight.w800,
+                              color: FR.onGold),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
