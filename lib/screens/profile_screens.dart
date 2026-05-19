@@ -597,6 +597,16 @@ class NotificationPrefsScreen extends StatelessWidget {
                 regionalDropPushEnabled: v),
           ),
           const SizedBox(height: 10),
+          _ToggleRow(
+            icon: Icons.verified_rounded,
+            title: 'Doğrulama bildirimleri',
+            subtitle:
+                'Eklediğin fiyat topluluk tarafından doğrulandığında veya reddedildiğinde haber al',
+            value: state.verificationsEnabled,
+            onChanged: (v) => state.updateNotificationSettings(
+                verificationsEnabled: v),
+          ),
+          const SizedBox(height: 10),
           // Haftalık özet — Pro özelliği. Non-Pro kullanıcılar için
           // toggle kapalı görünüyor ve tıklayınca paywall'a yönlendiriyor.
           // Cloud Function tarafında ek olarak `isPremium` kontrolü var

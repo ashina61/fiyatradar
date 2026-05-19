@@ -190,6 +190,10 @@ class AppState extends ChangeNotifier {
   bool pushNotificationsEnabled = true;
   bool priceAlertsEnabled = true;
   bool weeklySummaryEnabled = true;
+  // Topluluk fiyatın `community_verified` ya da `rejected` durumuna geçtiğinde
+  // ekleyene push gönderilsin mi? in-app notification doc'u her halükarda
+  // yazılır; bu flag sadece FCM kanalını kapatır.
+  bool verificationsEnabled = true;
 
   /// Aktif arayüz dili ('tr' veya 'en'). SharedPreferences'da
   /// `app_locale` anahtarıyla saklanır. AppState.init içinde yüklenir;
@@ -806,6 +810,7 @@ class AppState extends ChangeNotifier {
             'priceAlertsEnabled': priceAlertsEnabled,
             'weeklySummaryEnabled': weeklySummaryEnabled,
             'regionalDropPushEnabled': regionalDropPushEnabled,
+            'verificationsEnabled': verificationsEnabled,
           },
         },
         'createdAt': FieldValue.serverTimestamp(),
@@ -846,6 +851,7 @@ class AppState extends ChangeNotifier {
       final prevPriceAlerts = priceAlertsEnabled;
       final prevWeekly = weeklySummaryEnabled;
       final prevRegionalDrop = regionalDropPushEnabled;
+      final prevVerifications = verificationsEnabled;
       final prevIsAdmin = _isAdmin;
       final prevIsBanned = _isBanned;
       final prevBanReason = banReason;
@@ -941,6 +947,8 @@ class AppState extends ChangeNotifier {
           notificationsSettings['weeklySummaryEnabled'] as bool? ?? true;
       regionalDropPushEnabled =
           notificationsSettings['regionalDropPushEnabled'] as bool? ?? true;
+      verificationsEnabled =
+          notificationsSettings['verificationsEnabled'] as bool? ?? true;
       _isAdmin = (m['isAdmin'] as bool?) == true ||
           (m['role'] as String?) == 'admin';
       _isBanned = (m['isBanned'] as bool?) == true;
@@ -988,6 +996,7 @@ class AppState extends ChangeNotifier {
           prevPriceAlerts != priceAlertsEnabled ||
           prevWeekly != weeklySummaryEnabled ||
           prevRegionalDrop != regionalDropPushEnabled ||
+          prevVerifications != verificationsEnabled ||
           prevIsAdmin != _isAdmin ||
           prevIsBanned != _isBanned ||
           prevBanReason != banReason ||
@@ -3150,6 +3159,7 @@ class AppState extends ChangeNotifier {
     bool? priceAlertsEnabled,
     bool? weeklySummaryEnabled,
     bool? regionalDropPushEnabled,
+    bool? verificationsEnabled,
   }) async {
     if (user == null) return;
     await _svc.userDoc(user!.uid).set({
@@ -3162,6 +3172,8 @@ class AppState extends ChangeNotifier {
             'weeklySummaryEnabled': weeklySummaryEnabled,
           if (regionalDropPushEnabled != null)
             'regionalDropPushEnabled': regionalDropPushEnabled,
+          if (verificationsEnabled != null)
+            'verificationsEnabled': verificationsEnabled,
         },
       },
       'updatedAt': FieldValue.serverTimestamp(),

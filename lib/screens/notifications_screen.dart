@@ -263,10 +263,16 @@ IconData _iconForType(AppNotification n) {
       case 'regional_price_drop':
       case 'price_drop':
         return Icons.trending_down_rounded;
+      case 'price_rise':
+        return Icons.trending_up_rounded;
+      case 'price_verified':
       case 'product_request_approved':
         return Icons.verified_rounded;
+      case 'price_rejected':
       case 'product_request_rejected':
         return Icons.gpp_maybe_rounded;
+      case 'weekly_summary':
+        return Icons.insights_rounded;
       default:
         return Icons.notifications_none_rounded;
     }
@@ -276,10 +282,18 @@ IconData _iconForType(AppNotification n) {
       return Icons.radar_rounded;
     case 'price_drop':
       return Icons.trending_down_rounded;
+    case 'price_rise':
+      return Icons.trending_up_rounded;
+    case 'price_verified':
+      return Icons.thumb_up_alt_rounded;
+    case 'price_rejected':
+      return Icons.thumb_down_alt_rounded;
     case 'product_request_approved':
       return Icons.verified_rounded;
     case 'product_request_rejected':
       return Icons.gpp_maybe_rounded;
+    case 'weekly_summary':
+      return Icons.insights_rounded;
     default:
       return Icons.notifications_active_rounded;
   }

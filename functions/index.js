@@ -599,3 +599,180 @@ exports.weeklySummary = onSchedule(
     }
   },
 );
+
+/**
+ * Topluluk doğrulama / red bildirimi.
+ *
+ * `products/{productId}` doc update'inde priceHistory dizisindeki entry
+ * status değişimlerini izler. Bir kullanıcının eklediği fiyat
+ * `community_verified` ya da `rejected` terminal durumuna geçtiğinde
+ * fiyatın orijinal sahibine (entry.reportedByUid) hem in-app notification
+ * doc'u yazar hem de varsa FCM push gönderir. Tek bir ürün update'inde
+ * birden fazla entry'nin terminal'e gitmesi mümkün, hepsi tek tek
+ * işlenir.
+ */
+exports.onPriceVerificationChange = onDocumentUpdated(
+  'products/{productId}',
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    if (!before || !after) return;
+
+    const productId = event.params.productId;
+    const productName = (after.name || 'Ürün').toString();
+
+    const beforeMap = new Map();
+    if (Array.isArray(before.priceHistory)) {
+      for (const e of before.priceHistory) {
+        if (e && typeof e === 'object' && typeof e.id === 'string') {
+          beforeMap.set(e.id, e);
+        }
+      }
+    }
+
+    const afterEntries = Array.isArray(after.priceHistory)
+      ? after.priceHistory
+      : [];
+
+    // (uid, type, body, entry) tuple'larını topla — aynı kullanıcıya birden
+    // fazla terminal aynı update'te gelirse hepsini tek tek yazıyoruz.
+    const transitions = [];
+    for (const entry of afterEntries) {
+      if (!entry || typeof entry !== 'object') continue;
+      const id = (entry.id || '').toString();
+      if (!id) continue;
+      const reporterUid = (entry.reportedByUid || '').toString();
+      if (!reporterUid) continue;
+      const prev = beforeMap.get(id);
+      const prevStatus = prev ? (prev.status || 'pending').toString() : null;
+      const nextStatus = (entry.status || 'pending').toString();
+      if (prevStatus === nextStatus) continue;
+      if (
+        nextStatus !== 'community_verified' &&
+        nextStatus !== 'rejected'
+      ) {
+        continue;
+      }
+      const verified = nextStatus === 'community_verified';
+      const priceText = Number(entry.price).toFixed(2);
+      const storeText = (entry.store || '').toString();
+      const title = verified
+        ? 'Fiyatın doğrulandı'
+        : 'Fiyatın reddedildi';
+      const body = verified
+        ? `${productName}${storeText ? ' · ' + storeText : ''}: ${priceText}₺ topluluk tarafından doğrulandı.`
+        : `${productName}${storeText ? ' · ' + storeText : ''}: ${priceText}₺ topluluk tarafından reddedildi.`;
+      transitions.push({
+        reporterUid,
+        type: verified ? 'price_verified' : 'price_rejected',
+        title,
+        body,
+        entryId: id,
+      });
+    }
+
+    if (transitions.length === 0) return;
+
+    const tokens = [];
+    const tokenToRefs = new Map();
+    let inAppSent = 0;
+
+    const writes = transitions.map(async (t) => {
+      try {
+        await db
+          .collection('users')
+          .doc(t.reporterUid)
+          .collection('notifications')
+          .add({
+            title: t.title,
+            body: t.body,
+            productId,
+            entryId: t.entryId,
+            type: t.type,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        inAppSent++;
+      } catch (e) {
+        logger.warn('verification notification write failed', {
+          productId,
+          reporterUid: t.reporterUid,
+          error: e.message,
+        });
+        return;
+      }
+      try {
+        const userSnap = await db
+          .collection('users')
+          .doc(t.reporterUid)
+          .get();
+        const u = userSnap.data() || {};
+        const fcmToken = (u.fcmToken || '').toString().trim();
+        const settings = (u.settings || {}).notifications || {};
+        const pushEnabled = settings.pushEnabled !== false;
+        const verificationsEnabled =
+          settings.verificationsEnabled !== false;
+        if (fcmToken && pushEnabled && verificationsEnabled) {
+          tokens.push(fcmToken);
+          if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
+          tokenToRefs.get(fcmToken).push({
+            ref: userSnap.ref,
+            title: t.title,
+            body: t.body,
+            type: t.type,
+          });
+        }
+      } catch (e) {
+        logger.warn('verification: user fetch failed', {
+          reporterUid: t.reporterUid,
+          error: e.message,
+        });
+      }
+    });
+    await Promise.all(writes);
+
+    if (tokens.length === 0) {
+      logger.info('Doğrulama bildirimi yazıldı (push yok)', {
+        productId,
+        inAppSent,
+      });
+      return;
+    }
+
+    // Her tokene farklı body olabileceği için tek tek push gönderiyoruz.
+    let pushSent = 0;
+    let pushFailed = 0;
+    const cleanupPromises = [];
+    for (const token of tokens) {
+      const entries = tokenToRefs.get(token) || [];
+      for (const meta of entries) {
+        try {
+          await messaging.send({
+            token,
+            notification: { title: meta.title, body: meta.body },
+            data: { productId, type: meta.type },
+          });
+          pushSent++;
+        } catch (err) {
+          pushFailed++;
+          const code = err.code || (err.errorInfo && err.errorInfo.code);
+          if (INVALID_TOKEN_ERROR_CODES.has(code)) {
+            cleanupPromises.push(
+              meta.ref.update({
+                fcmToken: admin.firestore.FieldValue.delete(),
+              }),
+            );
+          }
+        }
+      }
+    }
+    await Promise.all(cleanupPromises);
+
+    logger.info('Doğrulama bildirimleri işlendi', {
+      productId,
+      inAppSent,
+      pushSent,
+      pushFailed,
+      cleanedTokens: cleanupPromises.length,
+    });
+  },
+);
