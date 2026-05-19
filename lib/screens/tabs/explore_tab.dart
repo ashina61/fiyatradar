@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../product_detail_screen.dart';
+import '../widgets/product_visual.dart';
 
 class ExploreTab extends StatefulWidget {
   const ExploreTab({super.key});
@@ -303,7 +304,6 @@ class _ExploreTabState extends State<ExploreTab> {
 }
 
 Widget _exploreCardFallback(Product product) {
-  final id = product.assignedIllustrationId;
   final container = Container(
     decoration: BoxDecoration(
       gradient: LinearGradient(
@@ -313,32 +313,17 @@ Widget _exploreCardFallback(Product product) {
       ),
     ),
   );
-  if (id == null || id.isEmpty) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        container,
-        Center(
-          child: Icon(Icons.shopping_basket_outlined,
-              color: FR.gold, size: 36),
-        ),
-      ],
-    );
-  }
   return Stack(
     fit: StackFit.expand,
     children: [
       container,
-      FutureBuilder<IllustrationAsset?>(
-        future: IllustrationManifestService.findById(id),
+      FutureBuilder<IllustrationManifest>(
+        future: IllustrationManifestService.load(),
         builder: (_, snap) {
-          final asset = snap.data;
-          if (asset == null) {
-            return Center(
-              child: Icon(Icons.shopping_basket_outlined,
-                  color: FR.gold, size: 36),
-            );
-          }
+          final manifest = snap.data;
+          if (manifest == null) return const SizedBox.shrink();
+          final asset = resolveProductIllustration(manifest, product);
+          if (asset == null) return const SizedBox.shrink();
           return Padding(
             padding: const EdgeInsets.all(14),
             child: SvgPicture.asset(

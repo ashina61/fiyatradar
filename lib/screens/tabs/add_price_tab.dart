@@ -968,7 +968,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 _ChainQuickPickRow(
                   sourceType: _sourceType,
                   selectedChainId: _freeTextChainId,
-                  quickPickStores: state.topStoresByFrequency(limit: 5),
                   onPick: (id, name) {
                     if (_storeQueryCtrl.text != name) {
                       _storeQueryCtrl.text = name;
@@ -1546,12 +1545,10 @@ class _ChainQuickPickRow extends StatelessWidget {
   const _ChainQuickPickRow({
     required this.sourceType,
     required this.selectedChainId,
-    required this.quickPickStores,
     required this.onPick,
   });
   final PriceSourceType sourceType;
   final String? selectedChainId;
-  final List<String> quickPickStores;
   final void Function(String id, String name) onPick;
 
   String get _channelKey =>
@@ -1608,17 +1605,6 @@ class _ChainQuickPickRow extends StatelessWidget {
         }).toList(growable: false);
         final picks = <({String id, String name, bool legacy})>[];
         final seen = <String>{};
-        if (sourceType == PriceSourceType.physical) {
-          // Only the five most-used market names should be surfaced by default;
-          // everything else remains available through the search field below.
-          for (final legacyName in quickPickStores.take(5)) {
-            final name = legacyName.trim();
-            if (name.isEmpty) continue;
-            if (seen.add(name.toLowerCase())) {
-              picks.add((id: 'quick:$name', name: name, legacy: true));
-            }
-          }
-        }
         for (final d in docs) {
           if (picks.length >= 5) break;
           final name = (d.data()['name'] ?? '').toString().trim();

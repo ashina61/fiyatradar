@@ -11,6 +11,7 @@ import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
 import 'widgets/product_comments_section.dart';
+import 'widgets/product_visual.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({super.key, required this.product});
@@ -378,23 +379,13 @@ class _CategoryIllustrationFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final id = product.assignedIllustrationId;
-    if (id == null || id.isEmpty) {
-      return Center(
-        child: Icon(Icons.shopping_basket_outlined,
-            color: FR.gold, size: 56),
-      );
-    }
-    return FutureBuilder<IllustrationAsset?>(
-      future: IllustrationManifestService.findById(id),
+    return FutureBuilder<IllustrationManifest>(
+      future: IllustrationManifestService.load(),
       builder: (context, snap) {
-        final asset = snap.data;
-        if (asset == null) {
-          return Center(
-            child: Icon(Icons.shopping_basket_outlined,
-                color: FR.gold, size: 56),
-          );
-        }
+        final manifest = snap.data;
+        if (manifest == null) return const SizedBox.shrink();
+        final asset = resolveProductIllustration(manifest, product);
+        if (asset == null) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.all(28),
           child: SvgPicture.asset(
