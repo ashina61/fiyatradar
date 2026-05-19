@@ -1274,12 +1274,21 @@ class _FeedRow extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            FRProductThumb(
-              emoji: product.emoji,
-              imageUrl: product.imageUrl,
-              size: 48,
-              radius: 12,
-              cacheWidth: 192,
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
+                borderRadius: FRRad.all(12),
+                border: Border.all(color: FR.hairline),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ProductVisual(
+                product: product,
+                cacheWidth: 192,
+                padIllustration: false,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

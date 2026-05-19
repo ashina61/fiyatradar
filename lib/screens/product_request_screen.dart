@@ -24,14 +24,12 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
   final _barcodeCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   String _category = 'Tümü';
-  String _emoji = '🛒';
   bool _submitting = false;
 
-  static const _emojiPool = [
-    '🛒', '🥛', '🍞', '🍳', '🧀', '🍎', '🥬', '🥕', '🍌', '🍊', '🍇',
-    '🥦', '🍅', '🍝', '🍚', '🍲', '🫒', '☕', '🍵', '🥤', '🍫', '🍪',
-    '🥜', '🧂', '🧼', '🧻', '🧴'
-  ];
+  // Emoji is no longer surfaced to the user — the category determines the
+  // illustration via the manifest. Stored as a neutral default so legacy
+  // readers that still look at `emoji` get a sensible fallback.
+  static const String _legacyEmoji = '🛒';
 
   @override
   void dispose() {
@@ -71,7 +69,7 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
         'brand': _brandCtrl.text.trim(),
         'category': _category,
         'unit': _unitCtrl.text.trim(),
-        'emoji': _emoji,
+        'emoji': _legacyEmoji,
         'barcode': _barcodeCtrl.text.trim(),
         'note': _noteCtrl.text.trim(),
         'requestedByUid': uid,
@@ -87,7 +85,6 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
       _noteCtrl.clear();
       setState(() {
         _category = 'Tümü';
-        _emoji = '🛒';
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -186,35 +183,6 @@ class _ProductRequestScreenState extends State<ProductRequestScreen> {
                                       color:
                                           _category == c ? FR.bg : FR.ink),
                                 ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      _label('İkon'),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final e in _emojiPool)
-                            InkWell(
-                              onTap: () => setState(() => _emoji = e),
-                              borderRadius: FRRad.all(10),
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: _emoji == e
-                                      ? FR.gold.withOpacity(.18)
-                                      : FR.surface,
-                                  borderRadius: FRRad.all(10),
-                                  border: Border.all(
-                                    color: _emoji == e ? FR.gold : FR.hairline,
-                                  ),
-                                ),
-                                child: Text(e,
-                                    style: const TextStyle(fontSize: 20)),
                               ),
                             ),
                         ],
