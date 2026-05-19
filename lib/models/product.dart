@@ -228,6 +228,11 @@ class Product {
   final String? barcode;
   final bool isActive;
   final List<PriceEntry> priceHistory;
+  /// Manifest id (see `assets/illustrations/manifest.json`) of the
+  /// brand-agnostic category illustration assigned by an admin. When a
+  /// real product photo is unavailable / unapproved, the UI falls back to
+  /// rendering this illustration as the default visual.
+  final String? assignedIllustrationId;
 
   Product({
     required this.id,
@@ -241,6 +246,7 @@ class Product {
     this.barcode,
     this.isActive = true,
     List<PriceEntry>? priceHistory,
+    this.assignedIllustrationId,
   }) : priceHistory = priceHistory ?? [];
 
   /// Entries deemed trustworthy enough to surface (not rejected).
@@ -362,6 +368,7 @@ class Product {
       }
       entries.add(PriceEntry.fromMap(raw));
     }
+    final illustration = (m['assignedIllustrationId'] as String?)?.trim();
     return Product(
       id: d.id,
       name: (m['name'] ?? '') as String,
@@ -374,6 +381,8 @@ class Product {
       barcode: m['barcode'] as String?,
       isActive: (m['isActive'] as bool?) ?? true,
       priceHistory: entries,
+      assignedIllustrationId:
+          (illustration != null && illustration.isNotEmpty) ? illustration : null,
     );
   }
 }

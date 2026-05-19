@@ -2151,6 +2151,7 @@ class AppState extends ChangeNotifier {
     String? imagePath,
     String? barcode,
     bool isActive = true,
+    String? assignedIllustrationId,
   }) async {
     final doc = await _svc.products.add({
       'name': name.trim(),
@@ -2162,6 +2163,8 @@ class AppState extends ChangeNotifier {
       if (imagePath != null) 'imagePath': imagePath,
       if (barcode != null && barcode.isNotEmpty) 'barcode': barcode,
       'isActive': isActive,
+      if (assignedIllustrationId != null && assignedIllustrationId.isNotEmpty)
+        'assignedIllustrationId': assignedIllustrationId,
       'priceHistory': <Map<String, dynamic>>[],
       'createdAt': FieldValue.serverTimestamp(),
       'createdByUid': user?.uid ?? '',
@@ -2180,6 +2183,8 @@ class AppState extends ChangeNotifier {
     String? imagePath,
     String? barcode,
     bool? isActive,
+    String? assignedIllustrationId,
+    bool clearAssignedIllustration = false,
   }) async {
     await _svc.products.doc(productId).update({
       if (name != null) 'name': name.trim(),
@@ -2191,6 +2196,10 @@ class AppState extends ChangeNotifier {
       if (imagePath != null) 'imagePath': imagePath,
       if (barcode != null) 'barcode': barcode,
       if (isActive != null) 'isActive': isActive,
+      if (assignedIllustrationId != null && assignedIllustrationId.isNotEmpty)
+        'assignedIllustrationId': assignedIllustrationId,
+      if (clearAssignedIllustration)
+        'assignedIllustrationId': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
