@@ -32,6 +32,53 @@
       "createdAt": "2026-05-19"
     },
     {
+      "id": "icecek-su-pet-6li",
+      "fileName": "icecek-su-pet-6li.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Su 6'lı (PET)",
+      "tags": [
+        "su",
+        "pet",
+        "6lı",
+        "altılı",
+        "paket",
+        "koli"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-karbonatli-kutu-6li",
+      "fileName": "icecek-karbonatli-kutu-6li.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Karbonatlı 6'lı Kutu",
+      "tags": [
+        "kola",
+        "soda",
+        "kutu",
+        "6lı",
+        "altılı",
+        "karbonatlı"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-meyve-suyu-coklu",
+      "fileName": "icecek-meyve-suyu-coklu.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Meyve Suyu 4'lü",
+      "tags": [
+        "meyve suyu",
+        "4lü",
+        "dörtlü",
+        "paket",
+        "kutu meyve suyu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
       "id": "icecek-su-cam",
       "fileName": "icecek-su-cam.svg",
       "category": "icecek",
@@ -691,6 +738,36 @@
       "tags": [
         "bisküvi",
         "kurabiye"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-biskuvi-coklu",
+      "fileName": "atistirmalik-biskuvi-coklu.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Bisküvi 6'lı Paket",
+      "tags": [
+        "bisküvi",
+        "6lı",
+        "altılı",
+        "paket",
+        "çoklu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-cikolata-bar-coklu",
+      "fileName": "atistirmalik-cikolata-bar-coklu.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Çikolata Bar 4'lü",
+      "tags": [
+        "çikolata bar",
+        "4lü",
+        "dörtlü",
+        "paket",
+        "çoklu"
       ],
       "createdAt": "2026-05-19"
     },

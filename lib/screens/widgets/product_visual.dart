@@ -81,32 +81,69 @@ class _IllustrationOrIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final id = product.assignedIllustrationId;
-    final fallback = Center(
-      child: Icon(
-        Icons.shopping_basket_outlined,
-        color: iconColor ?? FR.gold,
-        size: iconSize,
-      ),
-    );
-    if (id == null || id.isEmpty) return fallback;
-    return FutureBuilder<IllustrationAsset?>(
-      future: IllustrationManifestService.findById(id),
+    return FutureBuilder<IllustrationManifest>(
+      future: IllustrationManifestService.load(),
       builder: (_, snap) {
-        final asset = snap.data;
-        if (asset == null) return fallback;
+        final manifest = snap.data;
+        if (manifest == null) return const SizedBox.shrink();
+        final asset = resolveProductIllustration(manifest, product);
+        if (asset == null) return const SizedBox.shrink();
         final svg = SvgPicture.asset(
           asset.assetPath,
           fit: BoxFit.contain,
           semanticsLabel: asset.label,
         );
         return padded
-            ? Padding(
-                padding: const EdgeInsets.all(6),
-                child: svg,
-              )
+            ? Padding(padding: const EdgeInsets.all(6), child: svg)
             : svg;
       },
     );
   }
+}
+
+/// Maps a product's Turkish category label to a manifest category id.
+const Map<String, String> _categoryToManifestId = {
+  'İçecek': 'icecek',
+  'İçecekler': 'icecek',
+  'Kahvaltılık': 'kahvalti',
+  'Meyve & Sebze': 'meyve',
+  'Meyve': 'meyve',
+  'Sebze': 'sebze',
+  'Atıştırmalık': 'atistirmalik',
+  'Süt Ürünleri': 'sut',
+  'Temizlik': 'temizlik',
+  'Et & Balık': 'et',
+  'Et': 'et',
+  'Temel Gıda': 'gida',
+  'Yağ & Sirke': 'yag',
+  'Diğer': 'diger',
+};
+
+/// Resolves the best brand-agnostic illustration for a product:
+///   1. Explicit `assignedIllustrationId` match
+///   2. First illustration matching the product's category
+///   3. `diger-genel` fallback
+///   4. First illustration in the manifest
+/// Always returns a non-null asset when the manifest has any entries —
+/// callers can render the result directly without an icon fallback.
+IllustrationAsset? resolveProductIllustration(
+    IllustrationManifest manifest, Product product) {
+  final id = product.assignedIllustrationId;
+  if (id != null && id.isNotEmpty) {
+    for (final a in manifest.illustrations) {
+      if (a.id == id) return a;
+    }
+  }
+  final manifestCat = _categoryToManifestId[product.category];
+  if (manifestCat != null) {
+    for (final a in manifest.illustrations) {
+      if (a.category == manifestCat) return a;
+    }
+  }
+  for (final a in manifest.illustrations) {
+    if (a.id == 'diger-genel') return a;
+  }
+  return manifest.illustrations.isNotEmpty
+      ? manifest.illustrations.first
+      : null;
 }
