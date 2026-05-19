@@ -2,8 +2,12 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../features/admin/illustration_picker/illustration_manifest_service.dart';
+import '../../features/admin/illustration_picker/illustration_picker_screen.dart';
+import '../../features/admin/models/illustration_asset.dart';
 import '../../models/product.dart';
 import '../../services/firebase_service.dart';
 import '../../state/app_state.dart';
@@ -37,6 +41,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _saving = false;
   bool _deleting = false;
 
+  /// Manifest id of the brand-agnostic illustration assigned to this
+  /// product. `null` means the admin has not picked one (or cleared it).
+  String? _assignedIllustrationId;
+  IllustrationAsset? _assignedIllustration;
+
   static const _emojiPool = [
     '🛒', '🥛', '🍞', '🍳', '🧀', '🍎', '🥬', '🥕', '🍌', '🍊', '🍇',
     '🥦', '🍅', '🍝', '🍚', '🍲', '🫒', '☕', '🍵', '🥤', '🍫', '🍪',
@@ -58,6 +67,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _currentImageUrl = p.imageUrl;
       _currentImagePath = p.imagePath;
       _isActive = p.isActive;
+      _assignedIllustrationId = p.assignedIllustrationId;
+      if (_assignedIllustrationId != null) {
+        IllustrationManifestService.findById(_assignedIllustrationId!)
+            .then((asset) {
+          if (!mounted || asset == null) return;
+          setState(() => _assignedIllustration = asset);
+        });
+      }
     } else if (req != null) {
       _nameCtrl.text = req.name;
       _brandCtrl.text = req.brand;
@@ -112,6 +129,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           unit: _unitCtrl.text.trim(),
           barcode: _barcodeCtrl.text.trim(),
           isActive: _isActive,
+          assignedIllustrationId: _assignedIllustrationId,
         );
         if (_pendingImageBytes != null) {
           final res = await FirebaseService.instance.uploadProductImage(
@@ -146,6 +164,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           newImageUrl = res.url;
           newImagePath = res.path;
         }
+        final previousIllustrationId = widget.existing!.assignedIllustrationId;
+        final illustrationChanged =
+            previousIllustrationId != _assignedIllustrationId;
         await state.adminUpdateProduct(
           productId: id,
           name: name,
@@ -157,6 +178,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           isActive: _isActive,
           imageUrl: newImageUrl,
           imagePath: newImagePath,
+          assignedIllustrationId: _assignedIllustrationId,
+          clearAssignedIllustration: illustrationChanged &&
+              (_assignedIllustrationId == null || _assignedIllustrationId!.isEmpty),
         );
         if (newImagePath != null &&
             previousImagePath != null &&
@@ -292,6 +316,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     ),
                     children: [
                       _imageBlock(),
+                      const SizedBox(height: 16),
+                      _label('Kategori görseli'),
+                      _illustrationBlock(),
                       const SizedBox(height: 16),
                       _label('Ürün adı'),
                       _input(_nameCtrl, 'Tam Yağlı Süt 1L'),
@@ -440,6 +467,98 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openIllustrationPicker() async {
+    final selected = await Navigator.of(context).push<IllustrationAsset?>(
+      MaterialPageRoute(
+        builder: (_) => IllustrationPickerScreen(
+          currentIllustrationId: _assignedIllustrationId,
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      _assignedIllustrationId = selected.id;
+      _assignedIllustration = selected;
+    });
+  }
+
+  void _clearIllustration() {
+    setState(() {
+      _assignedIllustrationId = null;
+      _assignedIllustration = null;
+    });
+  }
+
+  Widget _illustrationBlock() {
+    final asset = _assignedIllustration;
+    final hasId = _assignedIllustrationId != null;
+    return InkWell(
+      onTap: _openIllustrationPicker,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        decoration: frSurface(radius: FRRad.l),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 76,
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
+                borderRadius: FRRad.all(12),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: asset != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: SvgPicture.asset(
+                        asset.assetPath,
+                        fit: BoxFit.contain,
+                        semanticsLabel: asset.label,
+                      ),
+                    )
+                  : Icon(Icons.photo_size_select_actual_outlined,
+                      color: FR.gold, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    asset != null
+                        ? asset.label
+                        : (hasId
+                            ? 'Görsel yükleniyor…'
+                            : 'Kategori görseli ata'),
+                    style: frText(13.5, FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    asset != null
+                        ? '${asset.categoryLabel} · marka-bağımsız kütüphane'
+                        : 'Marka-bağımsız kategori illüstrasyonu seç',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3),
+                  ),
+                ],
+              ),
+            ),
+            if (asset != null)
+              InkWell(
+                onTap: _clearIllustration,
+                borderRadius: FRRad.all(999),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(Icons.close_rounded, color: FR.ink3, size: 18),
+                ),
+              ),
+            Icon(Icons.chevron_right_rounded, color: FR.gold, size: 22),
           ],
         ),
       ),

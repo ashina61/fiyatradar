@@ -34,6 +34,7 @@ dependencies:
   # UI / icons
   cupertino_icons: ^1.0.6
   cached_network_image: ^3.3.1
+  flutter_svg: ^2.0.10+1
 
   # Utilities
   image_picker: ^1.0.7
@@ -73,6 +74,8 @@ flutter:
     - assets/icons/icon.png
     - assets/fiyatradar_marketler.json
     - assets/fiyatradar_urunler.json
+    - assets/illustrations/
+    - assets/illustrations/manifest.json
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: false

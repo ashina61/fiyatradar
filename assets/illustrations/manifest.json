@@ -1,0 +1,1060 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-05-19",
+  "illustrations": [
+    {
+      "id": "icecek-karbonatli",
+      "fileName": "icecek-karbonatli.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Karbonatlı İçecek",
+      "tags": [
+        "kola",
+        "soda",
+        "gazoz",
+        "karbonatlı",
+        "kutu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-su-pet",
+      "fileName": "icecek-su-pet.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Su (PET)",
+      "tags": [
+        "su",
+        "pet",
+        "şişe",
+        "ambalajlı"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-su-cam",
+      "fileName": "icecek-su-cam.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Su (Cam)",
+      "tags": [
+        "su",
+        "cam",
+        "şişe",
+        "doğal kaynak"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-sut-karton",
+      "fileName": "icecek-sut-karton.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Süt (Karton)",
+      "tags": [
+        "süt",
+        "uht",
+        "karton",
+        "tetra"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-ayran",
+      "fileName": "icecek-ayran.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Ayran",
+      "tags": [
+        "ayran",
+        "yoğurt içeceği",
+        "kase"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-meyve-suyu",
+      "fileName": "icecek-meyve-suyu.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Meyve Suyu",
+      "tags": [
+        "meyve suyu",
+        "nektar",
+        "karton"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-cay-poset",
+      "fileName": "icecek-cay-poset.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Poşet Çay",
+      "tags": [
+        "çay",
+        "poşet çay",
+        "bardak çayı"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-kahve",
+      "fileName": "icecek-kahve.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Kahve",
+      "tags": [
+        "kahve",
+        "filtre",
+        "çekirdek"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-enerji",
+      "fileName": "icecek-enerji.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Enerji İçeceği",
+      "tags": [
+        "enerji içeceği",
+        "kafein",
+        "kutu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "icecek-soguk-cay",
+      "fileName": "icecek-soguk-cay.svg",
+      "category": "icecek",
+      "categoryLabel": "İçecekler",
+      "label": "Soğuk Çay",
+      "tags": [
+        "soğuk çay",
+        "ice tea",
+        "şeftalili"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-ekmek-somun",
+      "fileName": "gida-ekmek-somun.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Ekmek (Somun)",
+      "tags": [
+        "ekmek",
+        "somun",
+        "fırın"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-ekmek-sandvic",
+      "fileName": "gida-ekmek-sandvic.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Sandviç Ekmeği",
+      "tags": [
+        "sandviç ekmeği",
+        "tost ekmeği",
+        "kepekli"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-yumurta",
+      "fileName": "gida-yumurta.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Yumurta",
+      "tags": [
+        "yumurta",
+        "kahvaltı",
+        "10'lu",
+        "viyol"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-pirinc",
+      "fileName": "gida-pirinc.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Pirinç",
+      "tags": [
+        "pirinç",
+        "baldo",
+        "osmancık"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-makarna",
+      "fileName": "gida-makarna.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Makarna",
+      "tags": [
+        "makarna",
+        "spagetti",
+        "burgu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-bulgur",
+      "fileName": "gida-bulgur.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Bulgur",
+      "tags": [
+        "bulgur",
+        "köftelik",
+        "pilavlık"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-mercimek",
+      "fileName": "gida-mercimek.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Mercimek",
+      "tags": [
+        "mercimek",
+        "kırmızı mercimek",
+        "yeşil mercimek"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-nohut",
+      "fileName": "gida-nohut.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Nohut",
+      "tags": [
+        "nohut",
+        "leblebi"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-un",
+      "fileName": "gida-un.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Un",
+      "tags": [
+        "un",
+        "buğday",
+        "tam buğday"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-seker",
+      "fileName": "gida-seker.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Şeker",
+      "tags": [
+        "şeker",
+        "küp şeker",
+        "toz şeker"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-tuz",
+      "fileName": "gida-tuz.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Tuz",
+      "tags": [
+        "tuz",
+        "iyotlu",
+        "kaya tuzu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "gida-zeytin",
+      "fileName": "gida-zeytin.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Zeytin",
+      "tags": [
+        "zeytin",
+        "siyah zeytin",
+        "yeşil zeytin"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sut-yogurt",
+      "fileName": "sut-yogurt.svg",
+      "category": "sut",
+      "categoryLabel": "Süt Ürünleri",
+      "label": "Yoğurt",
+      "tags": [
+        "yoğurt",
+        "süzme",
+        "kase"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sut-peynir-beyaz",
+      "fileName": "sut-peynir-beyaz.svg",
+      "category": "sut",
+      "categoryLabel": "Süt Ürünleri",
+      "label": "Beyaz Peynir",
+      "tags": [
+        "beyaz peynir",
+        "ezine",
+        "salamura"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sut-peynir-kasar",
+      "fileName": "sut-peynir-kasar.svg",
+      "category": "sut",
+      "categoryLabel": "Süt Ürünleri",
+      "label": "Kaşar Peyniri",
+      "tags": [
+        "kaşar",
+        "tost peyniri",
+        "eski kaşar"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sut-tereyag",
+      "fileName": "sut-tereyag.svg",
+      "category": "sut",
+      "categoryLabel": "Süt Ürünleri",
+      "label": "Tereyağı",
+      "tags": [
+        "tereyağı",
+        "süt yağı"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sut-krema",
+      "fileName": "sut-krema.svg",
+      "category": "sut",
+      "categoryLabel": "Süt Ürünleri",
+      "label": "Krema",
+      "tags": [
+        "krema",
+        "süt kreması",
+        "pasta kreması"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "yag-sivi-ayicicegi",
+      "fileName": "yag-sivi-ayicicegi.svg",
+      "category": "yag",
+      "categoryLabel": "Yağ & Sirke",
+      "label": "Ayçiçek Yağı",
+      "tags": [
+        "yağ",
+        "ayçiçek yağı",
+        "sıvı yağ"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "yag-zeytinyagi",
+      "fileName": "yag-zeytinyagi.svg",
+      "category": "yag",
+      "categoryLabel": "Yağ & Sirke",
+      "label": "Zeytinyağı",
+      "tags": [
+        "zeytinyağı",
+        "natürel sızma"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "yag-sirke",
+      "fileName": "yag-sirke.svg",
+      "category": "yag",
+      "categoryLabel": "Yağ & Sirke",
+      "label": "Sirke",
+      "tags": [
+        "sirke",
+        "üzüm sirkesi",
+        "elma sirkesi"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-domates",
+      "fileName": "sebze-domates.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Domates",
+      "tags": [
+        "domates",
+        "salata",
+        "soslu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-salatalik",
+      "fileName": "sebze-salatalik.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Salatalık",
+      "tags": [
+        "salatalık",
+        "hıyar"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-patates",
+      "fileName": "sebze-patates.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Patates",
+      "tags": [
+        "patates",
+        "kızartmalık"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-sogan",
+      "fileName": "sebze-sogan.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Soğan",
+      "tags": [
+        "soğan",
+        "kuru soğan"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-sarimsak",
+      "fileName": "sebze-sarimsak.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Sarımsak",
+      "tags": [
+        "sarımsak"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-biber-yesil",
+      "fileName": "sebze-biber-yesil.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Yeşil Biber",
+      "tags": [
+        "yeşil biber",
+        "sivri biber",
+        "çarliston"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-biber-kirmizi",
+      "fileName": "sebze-biber-kirmizi.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Kırmızı Biber",
+      "tags": [
+        "kırmızı biber",
+        "kapya"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-patlican",
+      "fileName": "sebze-patlican.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Patlıcan",
+      "tags": [
+        "patlıcan"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-kabak",
+      "fileName": "sebze-kabak.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Kabak",
+      "tags": [
+        "kabak",
+        "sakız kabak"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "sebze-marul",
+      "fileName": "sebze-marul.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Marul",
+      "tags": [
+        "marul",
+        "yeşillik",
+        "salata"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-elma",
+      "fileName": "meyve-elma.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Elma",
+      "tags": [
+        "elma"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-muz",
+      "fileName": "meyve-muz.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Muz",
+      "tags": [
+        "muz"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-portakal",
+      "fileName": "meyve-portakal.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Portakal",
+      "tags": [
+        "portakal"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-mandalina",
+      "fileName": "meyve-mandalina.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Mandalina",
+      "tags": [
+        "mandalina"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-uzum",
+      "fileName": "meyve-uzum.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Üzüm",
+      "tags": [
+        "üzüm",
+        "salkım"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-karpuz",
+      "fileName": "meyve-karpuz.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Karpuz",
+      "tags": [
+        "karpuz"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-cilek",
+      "fileName": "meyve-cilek.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Çilek",
+      "tags": [
+        "çilek"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-limon",
+      "fileName": "meyve-limon.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Limon",
+      "tags": [
+        "limon"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "et-tavuk",
+      "fileName": "et-tavuk.svg",
+      "category": "et",
+      "categoryLabel": "Et & Balık",
+      "label": "Tavuk",
+      "tags": [
+        "tavuk",
+        "but",
+        "göğüs"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "et-kirmizi",
+      "fileName": "et-kirmizi.svg",
+      "category": "et",
+      "categoryLabel": "Et & Balık",
+      "label": "Kırmızı Et",
+      "tags": [
+        "dana",
+        "kuzu",
+        "biftek",
+        "kırmızı et"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "et-kiyma",
+      "fileName": "et-kiyma.svg",
+      "category": "et",
+      "categoryLabel": "Et & Balık",
+      "label": "Kıyma",
+      "tags": [
+        "kıyma",
+        "köftelik"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "et-balik",
+      "fileName": "et-balik.svg",
+      "category": "et",
+      "categoryLabel": "Et & Balık",
+      "label": "Balık",
+      "tags": [
+        "balık",
+        "hamsi",
+        "levrek"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-cikolata-tablet",
+      "fileName": "atistirmalik-cikolata-tablet.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Tablet Çikolata",
+      "tags": [
+        "çikolata",
+        "tablet",
+        "sütlü çikolata"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-cikolata-bar",
+      "fileName": "atistirmalik-cikolata-bar.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Çikolata Bar",
+      "tags": [
+        "çikolata bar",
+        "bar"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-biskuvi",
+      "fileName": "atistirmalik-biskuvi.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Bisküvi",
+      "tags": [
+        "bisküvi",
+        "kurabiye"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-kraker",
+      "fileName": "atistirmalik-kraker.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Kraker",
+      "tags": [
+        "kraker",
+        "tuzlu"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-cips",
+      "fileName": "atistirmalik-cips.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Cips",
+      "tags": [
+        "cips",
+        "patates cipsi"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-gofret",
+      "fileName": "atistirmalik-gofret.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Gofret",
+      "tags": [
+        "gofret",
+        "wafer"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-kuruyemis",
+      "fileName": "atistirmalik-kuruyemis.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Kuruyemiş",
+      "tags": [
+        "kuruyemiş",
+        "fıstık",
+        "fındık",
+        "badem"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "atistirmalik-sakiz",
+      "fileName": "atistirmalik-sakiz.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Sakız",
+      "tags": [
+        "sakız"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "kahvalti-recel",
+      "fileName": "kahvalti-recel.svg",
+      "category": "kahvalti",
+      "categoryLabel": "Kahvaltılık",
+      "label": "Reçel",
+      "tags": [
+        "reçel",
+        "kavanoz"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "kahvalti-bal",
+      "fileName": "kahvalti-bal.svg",
+      "category": "kahvalti",
+      "categoryLabel": "Kahvaltılık",
+      "label": "Bal",
+      "tags": [
+        "bal",
+        "süzme bal"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "kahvalti-tahin",
+      "fileName": "kahvalti-tahin.svg",
+      "category": "kahvalti",
+      "categoryLabel": "Kahvaltılık",
+      "label": "Tahin",
+      "tags": [
+        "tahin",
+        "susam"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "kahvalti-pekmez",
+      "fileName": "kahvalti-pekmez.svg",
+      "category": "kahvalti",
+      "categoryLabel": "Kahvaltılık",
+      "label": "Pekmez",
+      "tags": [
+        "pekmez",
+        "üzüm pekmezi"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "kahvalti-helva",
+      "fileName": "kahvalti-helva.svg",
+      "category": "kahvalti",
+      "categoryLabel": "Kahvaltılık",
+      "label": "Helva",
+      "tags": [
+        "helva",
+        "tahin helvası"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "kahvalti-kakao-kreme",
+      "fileName": "kahvalti-kakao-kreme.svg",
+      "category": "kahvalti",
+      "categoryLabel": "Kahvaltılık",
+      "label": "Kakao Kreması",
+      "tags": [
+        "kakao kreması",
+        "fındık kreması",
+        "sürülebilir"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-camasir-sivi",
+      "fileName": "temizlik-camasir-sivi.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Çamaşır Deterjanı (Sıvı)",
+      "tags": [
+        "çamaşır",
+        "sıvı deterjan"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-camasir-toz",
+      "fileName": "temizlik-camasir-toz.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Çamaşır Deterjanı (Toz)",
+      "tags": [
+        "çamaşır",
+        "toz deterjan"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-bulasik-sivi",
+      "fileName": "temizlik-bulasik-sivi.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Bulaşık Deterjanı (Sıvı)",
+      "tags": [
+        "bulaşık deterjanı",
+        "sıvı"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-bulasik-tablet",
+      "fileName": "temizlik-bulasik-tablet.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Bulaşık Tableti",
+      "tags": [
+        "bulaşık tableti",
+        "makine"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-yuzey",
+      "fileName": "temizlik-yuzey.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Yüzey Temizleyici",
+      "tags": [
+        "yüzey",
+        "sprey",
+        "temizleyici"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-cam",
+      "fileName": "temizlik-cam.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Cam Temizleyici",
+      "tags": [
+        "cam",
+        "cam sileceği",
+        "sprey"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-sabun",
+      "fileName": "temizlik-sabun.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Sabun",
+      "tags": [
+        "sabun",
+        "kalıp sabun"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-sampuan",
+      "fileName": "temizlik-sampuan.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Şampuan",
+      "tags": [
+        "şampuan",
+        "saç bakımı"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-dis-macunu",
+      "fileName": "temizlik-dis-macunu.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Diş Macunu",
+      "tags": [
+        "diş macunu",
+        "ağız bakımı"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "temizlik-tuvalet-kagidi",
+      "fileName": "temizlik-tuvalet-kagidi.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Tuvalet Kağıdı",
+      "tags": [
+        "tuvalet kağıdı",
+        "rulo"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "diger-bebek-bezi",
+      "fileName": "diger-bebek-bezi.svg",
+      "category": "diger",
+      "categoryLabel": "Diğer",
+      "label": "Bebek Bezi",
+      "tags": [
+        "bebek bezi",
+        "bebek"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "diger-kedi-mamasi",
+      "fileName": "diger-kedi-mamasi.svg",
+      "category": "diger",
+      "categoryLabel": "Diğer",
+      "label": "Kedi Maması",
+      "tags": [
+        "kedi maması",
+        "evcil"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "diger-kopek-mamasi",
+      "fileName": "diger-kopek-mamasi.svg",
+      "category": "diger",
+      "categoryLabel": "Diğer",
+      "label": "Köpek Maması",
+      "tags": [
+        "köpek maması",
+        "evcil"
+      ],
+      "createdAt": "2026-05-19"
+    },
+    {
+      "id": "diger-genel",
+      "fileName": "diger-genel.svg",
+      "category": "diger",
+      "categoryLabel": "Diğer",
+      "label": "Genel (Fallback)",
+      "tags": [
+        "genel",
+        "fallback",
+        "varsayılan"
+      ],
+      "createdAt": "2026-05-19"
+    }
+  ],
+  "categories": [
+    {
+      "id": "icecek",
+      "label": "İçecekler",
+      "icon": "local_drink"
+    },
+    {
+      "id": "gida",
+      "label": "Temel Gıda",
+      "icon": "rice_bowl"
+    },
+    {
+      "id": "sut",
+      "label": "Süt Ürünleri",
+      "icon": "egg_alt"
+    },
+    {
+      "id": "yag",
+      "label": "Yağ & Sirke",
+      "icon": "opacity"
+    },
+    {
+      "id": "sebze",
+      "label": "Sebze",
+      "icon": "eco"
+    },
+    {
+      "id": "meyve",
+      "label": "Meyve",
+      "icon": "apple"
+    },
+    {
+      "id": "et",
+      "label": "Et & Balık",
+      "icon": "set_meal"
+    },
+    {
+      "id": "atistirmalik",
+      "label": "Atıştırmalık",
+      "icon": "cookie"
+    },
+    {
+      "id": "kahvalti",
+      "label": "Kahvaltılık",
+      "icon": "breakfast_dining"
+    },
+    {
+      "id": "temizlik",
+      "label": "Temizlik",
+      "icon": "cleaning_services"
+    },
+    {
+      "id": "diger",
+      "label": "Diğer",
+      "icon": "category"
+    }
+  ]
+}
