@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'product_detail_screen.dart';
+import 'widgets/product_visual.dart';
 
 /// Birleşik takip paneli: kullanıcı favorileri + fiyat alarmları tek
 /// ekranda görür. Eskiden Favoriler ve Alarmlarım profil listesinde iki
@@ -284,7 +285,14 @@ class _Row extends StatelessWidget {
               borderRadius: FRRad.all(12),
               border: Border.all(color: FR.hairline),
             ),
-            child: Text(product.emoji, style: const TextStyle(fontSize: 22)),
+            child: ClipRRect(
+              borderRadius: FRRad.all(12),
+              child: ProductVisual(
+                product: product,
+                iconSize: 22,
+                padIllustration: false,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

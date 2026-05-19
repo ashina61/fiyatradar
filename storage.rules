@@ -27,6 +27,23 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Community-submitted product photo candidates. The owning user
+    // uploads a single object under their own uid folder; admin then
+    // promotes the bytes to `product_images/...` upon approval. Reads
+    // are open so the admin review panel can preview without extra
+    // tokens. Yalnız doğrulanmış kullanıcı yazabilir.
+    match /product_image_submissions/{uid}/{file=**} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && request.resource.size < 6 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+
     // Banner hero / blog images: same rule set as product images.
     match /banner_images/{bannerId}/{file=**} {
       allow read: if true;

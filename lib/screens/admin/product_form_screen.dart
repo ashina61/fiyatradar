@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../../features/admin/illustration_picker/illustration_manifest_service.dart';
@@ -10,6 +12,7 @@ import '../../features/admin/illustration_picker/illustration_picker_screen.dart
 import '../../features/admin/models/illustration_asset.dart';
 import '../../models/product.dart';
 import '../../services/firebase_service.dart';
+import '../../services/openfoodfacts_service.dart';
 import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
@@ -33,24 +36,26 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _unitCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
   String _category = 'Tümü';
+  // Legacy emoji column kept for backwards compatibility with older
+  // product docs; admin no longer picks one — barcode/illustration
+  // fallback handles the visual.
   String _emoji = '🛒';
   String? _currentImageUrl;
   String? _currentImagePath;
   Uint8List? _pendingImageBytes;
+  // OpenFoodFacts ile getirilen, henüz kaydedilmemiş URL. Save akışı
+  // bunu Storage'a kopyalayarak kalıcı `product_images/...` URL'i üretir.
+  String? _pendingRemoteImageUrl;
   bool _isActive = true;
   bool _saving = false;
   bool _deleting = false;
+  bool _lookingUpBarcode = false;
+  String? _barcodeLookupError;
 
   /// Manifest id of the brand-agnostic illustration assigned to this
   /// product. `null` means the admin has not picked one (or cleared it).
   String? _assignedIllustrationId;
   IllustrationAsset? _assignedIllustration;
-
-  static const _emojiPool = [
-    '🛒', '🥛', '🍞', '🍳', '🧀', '🍎', '🥬', '🥕', '🍌', '🍊', '🍇',
-    '🥦', '🍅', '🍝', '🍚', '🍲', '🫒', '☕', '🍵', '🥤', '🍫', '🍪',
-    '🥜', '🧂', '🧼', '🧻', '🧴'
-  ];
 
   @override
   void initState() {
@@ -104,7 +109,91 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (x == null) return;
     final bytes = await x.readAsBytes();
     if (!mounted) return;
-    setState(() => _pendingImageBytes = bytes);
+    setState(() {
+      _pendingImageBytes = bytes;
+      // Local seçim, OpenFoodFacts ön izlemesini ezsin.
+      _pendingRemoteImageUrl = null;
+    });
+  }
+
+  Future<void> _lookupBarcode() async {
+    final code = _barcodeCtrl.text.trim();
+    if (code.isEmpty) {
+      setState(() => _barcodeLookupError =
+          'Önce barkod numarasını gir (EAN-8/13).');
+      return;
+    }
+    setState(() {
+      _lookingUpBarcode = true;
+      _barcodeLookupError = null;
+    });
+    try {
+      final result =
+          await OpenFoodFactsService.instance.lookup(code);
+      if (!mounted) return;
+      if (result == null) {
+        setState(() {
+          _barcodeLookupError =
+              'OpenFoodFacts bu barkodda bir görsel bulamadı.';
+        });
+        return;
+      }
+      // Görsel byte'larını çekip lokal preview'a koy. Save akışı bu
+      // bytes'ı Storage'a yükleyip imageUrl alanını yazacak — böylece
+      // production'da OpenFoodFacts CDN'ine bağımlı kalmıyoruz.
+      Uint8List? bytes;
+      try {
+        final resp = await http
+            .get(Uri.parse(result.imageUrl))
+            .timeout(const Duration(seconds: 10));
+        if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
+          bytes = resp.bodyBytes;
+        }
+      } catch (_) {/* sessizce yedek URL'e düş */}
+
+      if (!mounted) return;
+      setState(() {
+        if (bytes != null) {
+          _pendingImageBytes = bytes;
+          _pendingRemoteImageUrl = null;
+        } else {
+          // Bytes çekilemediyse URL'i tut, Save'de tekrar denenecek.
+          _pendingImageBytes = null;
+          _pendingRemoteImageUrl = result.imageUrl;
+        }
+        // İsim/marka/birim alanı boşsa öneri olarak doldur — admin
+        // istemezse üzerine yazar.
+        if (_nameCtrl.text.trim().isEmpty &&
+            (result.productName ?? '').isNotEmpty) {
+          _nameCtrl.text = result.productName!;
+        }
+        if (_brandCtrl.text.trim().isEmpty &&
+            (result.brand ?? '').isNotEmpty) {
+          _brandCtrl.text = result.brand!.split(',').first.trim();
+        }
+        if (_unitCtrl.text.trim().isEmpty &&
+            (result.quantity ?? '').isNotEmpty) {
+          _unitCtrl.text = result.quantity!;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _lookingUpBarcode = false);
+    }
+  }
+
+  Future<Uint8List?> _bytesForPendingImage() async {
+    if (_pendingImageBytes != null) return _pendingImageBytes;
+    final remote = _pendingRemoteImageUrl;
+    if (remote == null || remote.isEmpty) return null;
+    try {
+      final resp = await http
+          .get(Uri.parse(remote))
+          .timeout(const Duration(seconds: 12));
+      if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
+        return resp.bodyBytes;
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _save(AppState state) async {
@@ -119,6 +208,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     try {
       String? newImageUrl;
       String? newImagePath;
+      final pendingBytes = await _bytesForPendingImage();
 
       if (widget.existing == null) {
         final productId = await state.adminCreateProduct(
@@ -131,10 +221,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           isActive: _isActive,
           assignedIllustrationId: _assignedIllustrationId,
         );
-        if (_pendingImageBytes != null) {
+        if (pendingBytes != null) {
           final res = await FirebaseService.instance.uploadProductImage(
             productId: productId,
-            bytes: _pendingImageBytes!,
+            bytes: pendingBytes,
           );
           newImageUrl = res.url;
           newImagePath = res.path;
@@ -156,10 +246,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       } else {
         final id = widget.existing!.id;
         final previousImagePath = _currentImagePath;
-        if (_pendingImageBytes != null) {
+        if (pendingBytes != null) {
           final res = await FirebaseService.instance.uploadProductImage(
             productId: id,
-            bytes: _pendingImageBytes!,
+            bytes: pendingBytes,
           );
           newImageUrl = res.url;
           newImagePath = res.path;
@@ -330,8 +420,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       _input(_unitCtrl, '1 L / 250 g / 30 adet'),
                       const SizedBox(height: 14),
                       _label('Barkod (opsiyonel)'),
-                      _input(_barcodeCtrl, '8690…',
-                          keyboard: TextInputType.number),
+                      _barcodeBlock(),
                       const SizedBox(height: 14),
                       _label('Kategori'),
                       Wrap(
@@ -359,35 +448,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                                       color:
                                           _category == c ? FR.bg : FR.ink),
                                 ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      _label('İkon'),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final e in _emojiPool)
-                            InkWell(
-                              onTap: () => setState(() => _emoji = e),
-                              borderRadius: FRRad.all(10),
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: _emoji == e
-                                      ? FR.gold.withOpacity(.18)
-                                      : FR.surface,
-                                  borderRadius: FRRad.all(10),
-                                  border: Border.all(
-                                    color: _emoji == e ? FR.gold : FR.hairline,
-                                  ),
-                                ),
-                                child: Text(e,
-                                    style: const TextStyle(fontSize: 20)),
                               ),
                             ),
                         ],
@@ -565,7 +625,114 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     );
   }
 
+  Widget _barcodeBlock() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 2, 6, 2),
+          decoration: frSurface(radius: FRRad.m),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _barcodeCtrl,
+                  keyboardType: TextInputType.number,
+                  style: frText(14, FontWeight.w700),
+                  cursorColor: FR.gold,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '8690…',
+                    hintStyle:
+                        frText(13, FontWeight.w600, color: FR.ink3),
+                  ),
+                  onChanged: (_) {
+                    if (_barcodeLookupError != null) {
+                      setState(() => _barcodeLookupError = null);
+                    }
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: InkWell(
+                  onTap: _lookingUpBarcode ? null : _lookupBarcode,
+                  borderRadius: FRRad.all(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: FR.gold.withOpacity(.16),
+                      borderRadius: FRRad.all(10),
+                      border: Border.all(color: FR.gold.withOpacity(.45)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_lookingUpBarcode)
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: FR.gold,
+                            ),
+                          )
+                        else
+                          Icon(Icons.download_rounded,
+                              color: FR.gold, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          _lookingUpBarcode
+                              ? 'Aranıyor…'
+                              : 'Görseli getir',
+                          style: frText(11.5, FontWeight.w800,
+                              color: FR.gold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_barcodeLookupError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _barcodeLookupError!,
+            style: frText(11.5, FontWeight.w700, color: FR.bad),
+          ),
+        ] else ...[
+          const SizedBox(height: 8),
+          Text(
+            'Barkod gir ve OpenFoodFacts\'tan ürün görselini otomatik çek.',
+            style: frText(11.5, FontWeight.w600, color: FR.ink3),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _imageBlock() {
+    Widget? preview;
+    if (_pendingImageBytes != null) {
+      preview = Image.memory(_pendingImageBytes!, fit: BoxFit.cover);
+    } else if (_pendingRemoteImageUrl != null) {
+      preview = Image.network(
+        _pendingRemoteImageUrl!,
+        fit: BoxFit.cover,
+        cacheWidth: 1400,
+        filterQuality: FilterQuality.medium,
+      );
+    } else if (_currentImageUrl != null) {
+      preview = Image.network(
+        _currentImageUrl!,
+        fit: BoxFit.cover,
+        cacheWidth: 1400,
+        filterQuality: FilterQuality.medium,
+      );
+    }
     return InkWell(
       onTap: _pickImage,
       borderRadius: FRRad.all(FRRad.xl),
@@ -579,44 +746,31 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: _pendingImageBytes != null
+              child: preview != null
                   ? ClipRRect(
                       borderRadius: FRRad.all(FRRad.xl),
-                      child: Image.memory(
-                        _pendingImageBytes!,
-                        fit: BoxFit.cover,
-                      ),
+                      child: preview,
                     )
-                  : (_currentImageUrl != null
-                      ? ClipRRect(
-                          borderRadius: FRRad.all(FRRad.xl),
-                          child: Image.network(
-                            _currentImageUrl!,
-                            fit: BoxFit.cover,
-                            cacheWidth: 1400,
-                            filterQuality: FilterQuality.medium,
+                  : Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.photo_outlined,
+                              color: FR.gold, size: 36),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Ürün görseli ekle',
+                            style: frText(12.5, FontWeight.w800),
                           ),
-                        )
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.photo_outlined,
-                                  color: FR.gold, size: 36),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Ürün görseli ekle',
-                                style: frText(12.5, FontWeight.w800),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Galeriden seç · JPG/PNG · 1200px',
-                                style: frText(11, FontWeight.w600,
-                                    color: FR.ink3),
-                              ),
-                            ],
+                          const SizedBox(height: 2),
+                          Text(
+                            'Galeriden seç · JPG/PNG · 1200px',
+                            style: frText(11, FontWeight.w600,
+                                color: FR.ink3),
                           ),
-                        )),
+                        ],
+                      ),
+                    ),
             ),
             Positioned(
               right: 10,
@@ -638,9 +792,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     Text(
                       _pendingImageBytes != null
                           ? 'Görsel değiştirildi'
-                          : (_currentImageUrl != null
-                              ? 'Değiştir'
-                              : 'Görsel yükle'),
+                          : (_pendingRemoteImageUrl != null
+                              ? 'OpenFoodFacts ön izleme'
+                              : (_currentImageUrl != null
+                                  ? 'Değiştir'
+                                  : 'Görsel yükle')),
                       style: frText(11, FontWeight.w800, color: FR.gold),
                     ),
                   ],

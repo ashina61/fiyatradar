@@ -581,6 +581,62 @@ class ProductRequest {
   }
 }
 
+/// Community-submitted product photo awaiting admin approval. Stored in
+/// the `product_image_submissions` collection; on approval the admin
+/// promotes the storage object to `product_images/{productId}/…` and
+/// updates the product's hero image.
+class ProductImageSubmission {
+  final String id;
+  final String productId;
+  final String productName;
+  final String submittedByUid;
+  final String submittedByName;
+  final String imageUrl;
+  final String imagePath;
+  final String status; // 'pending' | 'approved' | 'rejected'
+  final String? rejectionReason;
+  final DateTime createdAt;
+  final DateTime? decidedAt;
+
+  const ProductImageSubmission({
+    required this.id,
+    required this.productId,
+    required this.productName,
+    required this.submittedByUid,
+    required this.submittedByName,
+    required this.imageUrl,
+    required this.imagePath,
+    required this.status,
+    required this.createdAt,
+    this.rejectionReason,
+    this.decidedAt,
+  });
+
+  bool get isPending => status == 'pending';
+  bool get isApproved => status == 'approved';
+  bool get isRejected => status == 'rejected';
+
+  factory ProductImageSubmission.fromDoc(
+      DocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data() ?? <String, dynamic>{};
+    final created = m['createdAt'];
+    final decided = m['decidedAt'];
+    return ProductImageSubmission(
+      id: d.id,
+      productId: (m['productId'] ?? '') as String,
+      productName: (m['productName'] ?? '') as String,
+      submittedByUid: (m['submittedByUid'] ?? '') as String,
+      submittedByName: (m['submittedByName'] ?? 'Topluluk') as String,
+      imageUrl: (m['imageUrl'] ?? '') as String,
+      imagePath: (m['imagePath'] ?? '') as String,
+      status: (m['status'] ?? 'pending') as String,
+      rejectionReason: m['rejectionReason'] as String?,
+      createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
+      decidedAt: decided is Timestamp ? decided.toDate() : null,
+    );
+  }
+}
+
 class ProductAlert {
   final String productId;
   final double targetPrice;

@@ -10,6 +10,7 @@ import '../banner_page_screen.dart';
 import '../main_screen.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
+import '../widgets/product_visual.dart';
 import '../widgets/region_picker_sheet.dart';
 import '../widgets/profile_avatar.dart';
 
@@ -1134,9 +1135,9 @@ class _TrendCard extends StatelessWidget {
                             filterQuality: FilterQuality.medium,
                             frameBuilder: frFadeFrameBuilder,
                             errorBuilder: (_, __, ___) =>
-                                _trendCardEmojiFallback(product.emoji),
+                                _trendCardVisualFallback(product),
                           )
-                        : _trendCardEmojiFallback(product.emoji),
+                        : _trendCardVisualFallback(product),
                   ),
                 ),
                 Positioned(
@@ -1226,7 +1227,7 @@ class _TrendCard extends StatelessWidget {
   }
 }
 
-Widget _trendCardEmojiFallback(String emoji) {
+Widget _trendCardVisualFallback(Product product) {
   return Container(
     decoration: BoxDecoration(
       gradient: LinearGradient(
@@ -1235,7 +1236,11 @@ Widget _trendCardEmojiFallback(String emoji) {
         end: Alignment.bottomRight,
       ),
     ),
-    child: Center(child: Text(emoji, style: const TextStyle(fontSize: 66))),
+    child: ProductVisual(
+      product: product,
+      iconSize: 48,
+      padIllustration: true,
+    ),
   );
 }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -2301,6 +2302,143 @@ class AppState extends ChangeNotifier {
             : '${req.name}: $reason',
         'createdAt': FieldValue.serverTimestamp(),
         'type': 'product_request_rejected',
+      });
+    }
+  }
+
+  // --- Community product image submissions ------------------------------
+
+  /// User-side: upload a candidate product photo and create a pending
+  /// review doc. Admin approval promotes the image to the canonical
+  /// `product_images/{productId}/...` path.
+  Future<void> submitProductImage({
+    required Product product,
+    required Uint8List bytes,
+  }) async {
+    final u = user;
+    if (u == null || u.uid.isEmpty) {
+      throw StateError('Görsel önermek için giriş yap.');
+    }
+    if (isGuestUser) {
+      throw StateError('Görsel önermek için ücretsiz hesap aç.');
+    }
+    if (needsEmailVerification) {
+      throw StateError('Görsel önermek için e-posta adresini doğrula.');
+    }
+    final upload = await _svc.uploadProductImageSubmission(
+      uid: u.uid,
+      bytes: bytes,
+    );
+    final name = (u.displayName?.trim().isNotEmpty == true
+            ? u.displayName!.trim()
+            : null) ??
+        'Topluluk';
+    await _svc.productImageSubmissions.add({
+      'productId': product.id,
+      'productName': product.name,
+      'submittedByUid': u.uid,
+      'submittedByName': name,
+      'imageUrl': upload.url,
+      'imagePath': upload.path,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Admin-side stream of pending photo submissions.
+  Stream<List<ProductImageSubmission>> watchPendingProductImageSubmissions() {
+    return _svc.productImageSubmissions
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt')
+        .snapshots()
+        .map((s) =>
+            s.docs.map((d) => ProductImageSubmission.fromDoc(d)).toList());
+  }
+
+  /// Admin-side: accept a submitted photo. Reads the source bytes from
+  /// the user's submission path, re-uploads them under the canonical
+  /// `product_images/{productId}/...` so the product image URL remains
+  /// stable even if the submission folder is later cleaned up.
+  Future<void> approveProductImageSubmission(
+      ProductImageSubmission submission) async {
+    final productRef = _svc.products.doc(submission.productId);
+    final productSnap = await productRef.get();
+    if (!productSnap.exists) {
+      throw StateError('Ürün bulunamadı.');
+    }
+    final prev = productSnap.data() ?? <String, dynamic>{};
+    final previousImagePath = (prev['imagePath'] as String?) ?? '';
+
+    // Pull bytes from the submission Storage object and republish them
+    // under product_images/ so the canonical URL no longer depends on the
+    // submitter's folder.
+    final sourceRef = _svc.storage.ref(submission.imagePath);
+    final bytes = await sourceRef.getData(8 * 1024 * 1024);
+    if (bytes == null || bytes.isEmpty) {
+      throw StateError('Önerilen görsel okunamadı.');
+    }
+    final res = await _svc.uploadProductImage(
+      productId: submission.productId,
+      bytes: bytes,
+    );
+
+    await productRef.update({
+      'imageUrl': res.url,
+      'imagePath': res.path,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    await _svc.productImageSubmissions.doc(submission.id).update({
+      'status': 'approved',
+      'decidedAt': FieldValue.serverTimestamp(),
+      'decidedByUid': user?.uid ?? '',
+      'promotedImageUrl': res.url,
+      'promotedImagePath': res.path,
+    });
+
+    // Cleanup: drop the original submission file (best-effort) and the
+    // product's previous hero so Storage doesn't drift.
+    await _svc.deleteStorageFile(submission.imagePath);
+    if (previousImagePath.isNotEmpty && previousImagePath != res.path) {
+      await _svc.deleteStorageFile(previousImagePath);
+    }
+
+    if (submission.submittedByUid.isNotEmpty) {
+      await _svc
+          .userNotifications(submission.submittedByUid)
+          .add({
+        'title': 'Ürün fotoğrafın onaylandı',
+        'body':
+            '${submission.productName} için önerdiğin görsel yayınlandı. Teşekkürler!',
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'product_image_approved',
+        'productId': submission.productId,
+      });
+    }
+  }
+
+  Future<void> rejectProductImageSubmission(
+    ProductImageSubmission submission, {
+    String reason = '',
+  }) async {
+    await _svc.productImageSubmissions.doc(submission.id).update({
+      'status': 'rejected',
+      'rejectionReason': reason,
+      'decidedAt': FieldValue.serverTimestamp(),
+      'decidedByUid': user?.uid ?? '',
+    });
+    await _svc.deleteStorageFile(submission.imagePath);
+    if (submission.submittedByUid.isNotEmpty) {
+      await _svc
+          .userNotifications(submission.submittedByUid)
+          .add({
+        'title': 'Görsel önerin onaylanmadı',
+        'body': reason.isEmpty
+            ? '${submission.productName} için önerdiğin görsel yayınlanmadı.'
+            : '${submission.productName}: $reason',
+        'createdAt': FieldValue.serverTimestamp(),
+        'type': 'product_image_rejected',
+        'productId': submission.productId,
       });
     }
   }
