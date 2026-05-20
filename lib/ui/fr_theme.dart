@@ -73,7 +73,8 @@ ThemeData buildFRTheme({required FRPalette palette}) {
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: FRRad.all(FRRad.m)),
     ),
-    dialogTheme: DialogTheme(
+    // DialogTheme is deprecated in Flutter 3.27+ in favor of DialogThemeData.
+    dialogTheme: DialogThemeData(
       backgroundColor: palette.surface,
       shape: RoundedRectangleBorder(borderRadius: FRRad.all(FRRad.l)),
       titleTextStyle: frDisplay(22, FontWeight.w700, color: palette.ink),

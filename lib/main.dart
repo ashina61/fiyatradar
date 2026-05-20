@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -94,6 +95,24 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
         // AnimatedBuilder altında birleştiriyoruz.
         animation: Listenable.merge([FRThemeController.instance, _state]),
         builder: (context, _) {
+          // Android 15 / targetSdk 35 edge-to-edge: status + nav çubuklarını
+          // şeffaflaştır, ikon parlaklığını aktif temayla eşle. AppBar yoksa
+          // Flutter default'u status bar'ı koyu bırakıyor; krem zemin
+          // üstünde okunmaz oluyordu. Theme her değiştiğinde rebuild burada
+          // tetiklendiği için overlay style anında güncellenir.
+          final isDark = FRThemeController.instance.isDark;
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness:
+                isDark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarDividerColor: Colors.transparent,
+            systemNavigationBarContrastEnforced: true,
+          ));
           return MaterialApp(
             title: 'FiyatRadar',
             debugShowCheckedModeBanner: false,

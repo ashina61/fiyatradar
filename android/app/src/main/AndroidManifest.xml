@@ -68,9 +68,12 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="high_importance_channel"/>
 
+        <!-- Notification small icon MUST be a white-on-transparent silhouette
+             (drawable/, not mipmap/) — otherwise Android 5+ renders a solid
+             white square in the status bar. See drawable/ic_notification.xml. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher"/>
+            android:resource="@drawable/ic_notification"/>
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"

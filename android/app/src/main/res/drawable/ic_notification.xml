@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FCM notification small icon. Android requires a single-color, transparent
+  silhouette for the status bar; mipmap/ic_launcher renders as a solid
+  white square on Android 5+ which is a Play Vitals quality issue. This
+  drawable is tinted by the system to either pure white (status bar) or to
+  the value declared in `notification_color` meta-data (notification body).
+  Shape: simplified radar mark (two concentric arcs + sweep) matching the
+  FiyatRadar brand wordmark.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10s10,-4.48 10,-10S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8s8,3.59 8,8S16.41,20 12,20z"/>
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M12,6.5c-3.03,0 -5.5,2.47 -5.5,5.5s2.47,5.5 5.5,5.5s5.5,-2.47 5.5,-5.5S15.03,6.5 12,6.5zM12,15.5c-1.93,0 -3.5,-1.57 -3.5,-3.5s1.57,-3.5 3.5,-3.5s3.5,1.57 3.5,3.5S13.93,15.5 12,15.5z"/>
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:pathData="M12,10.5c-0.83,0 -1.5,0.67 -1.5,1.5s0.67,1.5 1.5,1.5s1.5,-0.67 1.5,-1.5S12.83,10.5 12,10.5z"/>
+</vector>

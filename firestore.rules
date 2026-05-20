@@ -339,7 +339,15 @@ service cloud.firestore {
           (!touchesVerifiedOnlyUserFields() || isVerified())
         );
 
-      allow delete: if isAdmin();
+      // Play Store / GDPR / KVKK gereği "hesabımı sil" akışında kullanıcı
+      // kendi user doc'unu da silmek zorunda — admin-only kalırsa silme
+      // sessizce başarısız oluyor ve auth account silinince Firestore'da
+      // orphan profil verisi kalıyor (data-safety formuna aykırı). Admin
+      // moderasyon amaçlı yine silebilir. Subkoleksiyonlar (notifications,
+      // productAlerts) Firestore'un client recursive-delete desteği
+      // olmadığı için ayrıca temizlenmeli — Cloud Function
+      // `onUserDocDeleted` cascade işini üstlenir.
+      allow delete: if isAdmin() || isOwner(uid);
 
       match /notifications/{notificationId} {
         allow read: if isAdmin() || isOwner(uid);
