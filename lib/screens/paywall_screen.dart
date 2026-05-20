@@ -11,18 +11,16 @@ import '../ui/tokens.dart';
 /// Akış:
 ///   1. PremiumService.availableProducts üzerinden aylık + yıllık fiyatları
 ///      göster (yerel para birimi otomatik). Play Console'da SKU yoksa
-///      sembolik fallback (yıllık ₺199, aylık ₺29.90) — kullanıcı yine
-///      "Subscribe" tıklayınca PremiumService.purchase() çağrılır, IAP
-///      altyapısı yoksa snackbar.
+///      paywall yine hard-coded fiyatlarla render edilir — RevenueCat
+///      entegrasyonu eklendiğinde fiyatlar mağazadan dinamik çekilecek.
 ///   2. Subscribe → in_app_purchase → Play Billing → purchaseStream →
 ///      PremiumService.enqueueForServerVerification → Cloud Function
 ///      doğrular → users/{uid}.isPremium = true.
 ///   3. AppState premium.isActive true olduğunda paywall otomatik
 ///      "Tebrikler" durumuna geçer (StreamBuilder ile).
 ///
-/// Premium feature listesi: bayat-fiyat alarmı, leaderboard top-100,
-/// reklamsız (Aşama 3 sonrası AdMob koyulduğunda devreye girer),
-/// haftalık özet PDF, sepet AI önerisi.
+/// Premium feature listesi: Sepet AI önerisi, geçmiş fiyat grafikleri,
+/// sınırsız akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim.
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
 
@@ -32,13 +30,9 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _purchasing = false;
-  String? _selectedSku;
+  String _selectedSku = PremiumService.yearlySku;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedSku = PremiumService.yearlySku;
-  }
+  bool get _isYearly => _selectedSku == PremiumService.yearlySku;
 
   Future<void> _purchase(ProductDetails p) async {
     if (_purchasing) return;
@@ -69,6 +63,24 @@ class _PaywallScreenState extends State<PaywallScreen> {
     }
   }
 
+  Future<void> _onCtaTap() async {
+    final svc = PremiumService.instance;
+    if (!svc.available || svc.availableProducts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Mağaza bağlantısı hazır değil. Birkaç dakika sonra tekrar dene.'),
+        ),
+      );
+      return;
+    }
+    final selected = svc.availableProducts.firstWhere(
+      (p) => p.id == _selectedSku,
+      orElse: () => svc.availableProducts.first,
+    );
+    await _purchase(selected);
+  }
+
   Future<void> _restore() async {
     try {
       await PremiumService.instance.restore();
@@ -89,7 +101,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final premium = state.premium;
-    final products = PremiumService.instance.availableProducts;
     final available = PremiumService.instance.available;
 
     return Scaffold(
@@ -126,37 +137,30 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     const SizedBox(height: 24),
                     const _BenefitList(),
                     const SizedBox(height: 24),
-                    if (!available)
-                      _StoreUnavailable()
-                    else if (products.isEmpty)
-                      const _ProductsLoading()
-                    else
-                      _PlanPicker(
-                        products: products,
-                        selectedSku: _selectedSku,
-                        onSelect: (sku) =>
-                            setState(() => _selectedSku = sku),
-                      ),
+                    _PlanToggle(
+                      selectedSku: _selectedSku,
+                      onSelect: (sku) =>
+                          setState(() => _selectedSku = sku),
+                    ),
+                    if (!available) ...[
+                      const SizedBox(height: 14),
+                      _StoreUnavailable(),
+                    ],
                     const SizedBox(height: 18),
-                    if (available && products.isNotEmpty)
-                      FRCta(
-                        label: _purchasing
-                            ? 'İşleniyor…'
-                            : 'Pro\'ya geç',
-                        icon: Icons.workspace_premium_rounded,
-                        onTap: _purchasing
-                            ? null
-                            : () {
-                                final selected = products.firstWhere(
-                                  (p) => p.id == _selectedSku,
-                                  orElse: () => products.first,
-                                );
-                                _purchase(selected);
-                              },
-                      ),
+                    FRCta(
+                      label: _purchasing
+                          ? 'İşleniyor…'
+                          : (_isYearly
+                              ? '7 gün ücretsiz başla'
+                              : 'Pro\'ya geç'),
+                      icon: Icons.workspace_premium_rounded,
+                      onTap: _purchasing ? null : _onCtaTap,
+                    ),
                     const SizedBox(height: 12),
                     Text(
-                      'Aboneliğin Play Store\'da yönetilir. İstediğin zaman iptal edebilirsin.',
+                      _isYearly
+                          ? '7 gün sonra yıllık abonelik başlar. İstediğin zaman Play Store\'dan iptal edebilirsin.'
+                          : 'Aboneliğin Play Store\'da yönetilir. İstediğin zaman iptal edebilirsin.',
                       textAlign: TextAlign.center,
                       style: frText(11, FontWeight.w600,
                           color: FR.ink3, height: 1.5),
@@ -193,6 +197,10 @@ class _Hero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!active) ...[
+            const _FreeTrialBadge(),
+            const SizedBox(height: 14),
+          ],
           Container(
             width: 56,
             height: 56,
@@ -220,6 +228,32 @@ class _Hero extends StatelessWidget {
                 : 'Bölgenin gerçek fiyat zekâsı, derinlemesine.',
             style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.5),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FreeTrialBadge extends StatelessWidget {
+  const _FreeTrialBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: FR.gold.withOpacity(.16),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: FR.gold.withOpacity(.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bolt_rounded, size: 14, color: FR.gold),
+          const SizedBox(width: 6),
+          Text('7 gün ücretsiz dene',
+              style: frText(11, FontWeight.w800,
+                  color: FR.gold, letter: 0.4)),
         ],
       ),
     );
@@ -255,9 +289,8 @@ class _ActiveCard extends StatelessWidget {
                 style: frText(12, FontWeight.w700, color: FR.ink3)),
           const SizedBox(height: 12),
           Text(
-            'Premium özellikler: bölgesel bayat fiyat alarmı, '
-            'leaderboard top-100 görünüm, reklamsız deneyim, '
-            'haftalık özet bildirimi.',
+            'Premium özellikler: sepet AI önerisi, geçmiş fiyat grafikleri, '
+            'sınırsız akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim.',
             style: frText(12, FontWeight.w600,
                 color: FR.ink2, height: 1.5),
           ),
@@ -273,16 +306,31 @@ class _BenefitList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const items = [
-      ('🛡', 'Bölgesel bayat-fiyat alarmı',
-          'Bölgendeki fiyat 7 gün üstü ise haber al.'),
-      ('🏆', 'Leaderboard top-100',
-          'Şehrindeki en aktif katkıcılar arasında yerini gör.'),
-      ('📵', 'Reklamsız deneyim',
-          'Pro ile reklam yok, premium FR akışı.'),
-      ('📊', 'Haftalık özet bildirimi',
-          'Bölgenin haftalık fiyat raporu push olarak.'),
-      ('🤖', 'Sepet AI önerisi',
-          'Sepetin için en akıllı dağılım önerisi.'),
+      (
+        '🧠',
+        'Sepet AI önerisi',
+        'AI ile sepetini optimize et, ortalama %15-25 tasarruf et.'
+      ),
+      (
+        '📊',
+        'Geçmiş fiyat grafikleri',
+        '12 aya kadar fiyat geçmişi ve trend analizi.'
+      ),
+      (
+        '🔔',
+        'Sınırsız akıllı alarm',
+        'Sınırsız ürün takibi + özel eşik (%X düşüş, Y₺ altı).'
+      ),
+      (
+        '🚫',
+        'Reklamsız deneyim',
+        'Tüm bannerlar ve geçiş reklamları kapatılır.'
+      ),
+      (
+        '⭐',
+        'Pro rozeti + erken erişim',
+        'Leaderboard\'da Pro etiketi, yeni özelliklere ilk erişim.'
+      ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,102 +369,119 @@ class _BenefitList extends StatelessWidget {
   }
 }
 
-class _PlanPicker extends StatelessWidget {
-  const _PlanPicker({
-    required this.products,
+/// İki segmentli plan toggle'ı. Fiyatlar şimdilik hard-coded —
+/// RevenueCat entegrasyonu eklendiğinde dinamik fiyat çekme buraya
+/// bağlanacak (PremiumService.availableProducts üzerinden).
+class _PlanToggle extends StatelessWidget {
+  const _PlanToggle({
     required this.selectedSku,
     required this.onSelect,
   });
-  final List<ProductDetails> products;
-  final String? selectedSku;
+  final String selectedSku;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: products.map((p) {
-        final selected = p.id == selectedSku;
-        final isYearly = p.id == PremiumService.yearlySku;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: InkWell(
-            onTap: () => onSelect(p.id),
-            borderRadius: FRRad.all(FRRad.l),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: selected ? FR.gold.withOpacity(.10) : FR.surface,
-                borderRadius: FRRad.all(FRRad.l),
-                border: Border.all(
-                  color: selected ? FR.gold : FR.hairline,
-                  width: selected ? 1.4 : 1.0,
-                ),
-              ),
-              child: Row(children: [
-                Icon(
-                  selected
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  color: selected ? FR.gold : FR.ink3,
-                  size: 18,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Text(p.title.isNotEmpty ? p.title : p.id,
-                            style: frText(13.5, FontWeight.w800)),
-                        if (isYearly) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: FR.gold.withOpacity(.18),
-                              borderRadius: FRRad.all(999),
-                              border: Border.all(
-                                  color: FR.gold.withOpacity(.4)),
-                            ),
-                            child: Text('Önerilen',
-                                style: frText(9.5, FontWeight.w800,
-                                    color: FR.gold, letter: 1)),
-                          ),
-                        ],
-                      ]),
-                      const SizedBox(height: 2),
-                      Text(p.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: frText(11.5, FontWeight.w600,
-                              color: FR.ink3)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(p.price,
-                    style: frPrice(15, color: FR.gold)),
-              ]),
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.xl),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _PlanSegment(
+              selected: selectedSku == PremiumService.monthlySku,
+              title: 'Aylık',
+              price: '49,99₺',
+              subtitle: 'Her ay yenilenir',
+              onTap: () => onSelect(PremiumService.monthlySku),
             ),
           ),
-        );
-      }).toList(),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _PlanSegment(
+              selected: selectedSku == PremiumService.yearlySku,
+              title: 'Yıllık',
+              price: '299,99₺',
+              subtitle: '7 gün ücretsiz',
+              badge: '%50 tasarruf',
+              onTap: () => onSelect(PremiumService.yearlySku),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _ProductsLoading extends StatelessWidget {
-  const _ProductsLoading();
+class _PlanSegment extends StatelessWidget {
+  const _PlanSegment({
+    required this.selected,
+    required this.title,
+    required this.price,
+    required this.subtitle,
+    required this.onTap,
+    this.badge,
+  });
+  final bool selected;
+  final String title;
+  final String price;
+  final String subtitle;
+  final String? badge;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        FRSkeleton(height: 64, radius: 14),
-        SizedBox(height: 10),
-        FRSkeleton(height: 64, radius: 14),
-      ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.l),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+        decoration: BoxDecoration(
+          color: selected ? FR.gold.withOpacity(.14) : Colors.transparent,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(
+            color: selected ? FR.gold : Colors.transparent,
+            width: selected ? 1.4 : 1.0,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Text(title,
+                  style: frText(13.5, FontWeight.w800,
+                      color: selected ? FR.ink : FR.ink2)),
+              const Spacer(),
+              if (badge != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: FR.gold.withOpacity(.22),
+                    borderRadius: FRRad.all(999),
+                    border: Border.all(color: FR.gold.withOpacity(.5)),
+                  ),
+                  child: Text(badge!,
+                      style: frText(9, FontWeight.w800,
+                          color: FR.gold, letter: 0.6)),
+                ),
+            ]),
+            const SizedBox(height: 8),
+            Text(price,
+                style:
+                    frPrice(20, color: selected ? FR.gold : FR.ink)),
+            const SizedBox(height: 2),
+            Text(subtitle,
+                style: frText(10.5, FontWeight.w600, color: FR.ink3)),
+          ],
+        ),
+      ),
     );
   }
 }
