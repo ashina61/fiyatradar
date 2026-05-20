@@ -104,8 +104,10 @@ local.properties
 # android/key.properties dosyası ve referans verilen .jks keystore'u
 # güvenli bir vault'tan (1Password / Bitwarden) edinin.
 android/key.properties
+key.properties
 **/*.jks
 **/*.keystore
+android/keystore/
 !android/app/debug.keystore
 
 # Android gradle

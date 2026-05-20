@@ -55,6 +55,20 @@
 # Geolocation
 -keep class com.baseflow.geolocator.** { *; }
 
+# AdMob (google_mobile_ads) — Pro kullanıcılarda devre dışı olsa da
+# R8'in reklam SDK'sını strip etmemesi için keep kuralları.
+-keep class com.google.android.gms.ads.** { *; }
+-keep class com.google.android.gms.internal.ads.** { *; }
+-dontwarn com.google.android.gms.ads.**
+-keep class io.flutter.plugins.googlemobileads.** { *; }
+
+# RevenueCat (purchases_flutter) — henüz entegre değil, ileride
+# eklendiğinde R8'in client/proxy sınıflarını strip etmemesi için
+# kuralları şimdiden bırakıyoruz.
+-keep class com.revenuecat.purchases.** { *; }
+-dontwarn com.revenuecat.purchases.**
+-keep class io.flutter.plugins.revenue_cat.** { *; }
+
 # Keep generic Parcelable / Serializable patterns that Firebase relies on
 -keep class * implements android.os.Parcelable {
   public static final android.os.Parcelable$Creator *;

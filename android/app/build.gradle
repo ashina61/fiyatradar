@@ -23,10 +23,19 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
-// Play Store release imzası: android/key.properties dosyasından okunur.
-// Bu dosya .gitignore'da; geliştirici makinelerinde key.properties yoksa
-// derleme yine debug imzasıyla devam eder (CI ve geliştirme akışı kırılmaz),
-// ama Play Store yüklemesi için release keystore zorunludur.
+// Release imza kaynak önceliği:
+//   1) CI ortam değişkenleri (KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD)
+//   2) android/key.properties (local dev için, .gitignore'da)
+//   3) Debug imza (her ikisi de yoksa — local geliştirme akışı kırılmasın)
+def envKeystorePath = System.getenv('KEYSTORE_PATH')
+def envKeystorePassword = System.getenv('KEYSTORE_PASSWORD')
+def envKeyAlias = System.getenv('KEY_ALIAS')
+def envKeyPassword = System.getenv('KEY_PASSWORD')
+
+def hasEnvKeystore = envKeystorePath != null && !envKeystorePath.isEmpty() &&
+        envKeystorePassword != null && envKeyAlias != null && envKeyPassword != null &&
+        file(envKeystorePath).exists()
+
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
@@ -34,8 +43,11 @@ if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(reader)
     }
 }
-def hasReleaseKeystore = keystoreProperties.getProperty('storeFile') != null &&
+def hasFileKeystore = !hasEnvKeystore &&
+        keystoreProperties.getProperty('storeFile') != null &&
         file(keystoreProperties.getProperty('storeFile')).exists()
+
+def hasReleaseKeystore = hasEnvKeystore || hasFileKeystore
 
 android {
     namespace "com.fiyatradar"
@@ -67,7 +79,14 @@ android {
     }
 
     signingConfigs {
-        if (hasReleaseKeystore) {
+        if (hasEnvKeystore) {
+            release {
+                storeFile file(envKeystorePath)
+                storePassword envKeystorePassword
+                keyAlias envKeyAlias
+                keyPassword envKeyPassword
+            }
+        } else if (hasFileKeystore) {
             release {
                 keyAlias keystoreProperties.getProperty('keyAlias')
                 keyPassword keystoreProperties.getProperty('keyPassword')
@@ -79,9 +98,7 @@ android {
 
     buildTypes {
         release {
-            // key.properties varsa release keystore'u, yoksa debug imzayı
-            // kullan. Play Store yüklemesi için key.properties zorunlu.
-            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
+            signingConfig hasReleaseKeystore ? signingConfigs.getByName('release') : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
