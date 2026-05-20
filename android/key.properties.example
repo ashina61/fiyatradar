@@ -1,0 +1,20 @@
+# FiyatRadar Android release imzası — local dev örneği.
+#
+# Bu dosyayı `android/key.properties` olarak kopyalayın (gitignored)
+# ve değerleri doldurun. CI'da kullanılmaz — GitHub Actions secret'ları
+# ortam değişkeni olarak okur (KEYSTORE_PASSWORD, KEY_PASSWORD vs.).
+#
+# Keystore üretimi:
+#   keytool -genkeypair -v -keystore upload-keystore.jks \
+#     -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+#     -alias upload \
+#     -dname "CN=Adem, O=FiyatRadar, L=Istanbul, ST=Istanbul, C=TR"
+#
+# `.jks` dosyasını güvenli bir vault'tan (1Password / Bitwarden)
+# edinin; ASLA repo'ya commit edilmez. Tipik konum:
+#   android/upload-keystore.jks   (gitignored, *.jks pattern'i ile)
+
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=upload
+storeFile=../upload-keystore.jks
