@@ -36,8 +36,12 @@ class _AdminStoreManagementScreenState
   static const _pageSize = 50;
   /// Admin paneli sadece Türkçe — kullanıcı dil değiştirse bile
   /// admin etiketleri hep TR. Bunun için literal liste yeterli.
+  ///
+  /// Eskiden "Zincirler" ayrı bir sekmeydi; topluluk geri bildirimine göre
+  /// "iki ayrı sisteme gerek yok" — zincir master listesi artık "Fiziksel
+  /// Mağazalar" sekmesinin başına gömülü olarak yönetiliyor. Online
+  /// mağazalar da aynı zincir kataloğunu paylaşıyor.
   static const _tabs = [
-    'Zincirler',
     'Fiziksel Mağazalar',
     'Online Mağazalar',
     'Mahalle Pazarları',
@@ -45,15 +49,13 @@ class _AdminStoreManagementScreenState
     'Eski Kayıtlar',
   ];
 
-  // Tab indeksleri. Yeni Pazarlar sekmesi 3. sıraya eklendi; bu yüzden
-  // Bekleyen=4, Eski=5'e kaydı. admin_screen.dart deep linkleri de
-  // bu sıraya göre güncellendi.
-  static const int _tabChains = 0;
-  static const int _tabPhysical = 1;
-  static const int _tabOnline = 2;
-  static const int _tabBazaar = 3;
-  static const int _tabPending = 4;
-  static const int _tabLegacy = 5;
+  // Tab indeksleri. "Zincirler" sekmesi kaldırıldı; admin_screen.dart deep
+  // linkleri de bu sıraya göre güncellendi.
+  static const int _tabPhysical = 0;
+  static const int _tabOnline = 1;
+  static const int _tabBazaar = 2;
+  static const int _tabPending = 3;
+  static const int _tabLegacy = 4;
 
   int _tab = 0;
   final _cityCtrl = TextEditingController();
@@ -82,8 +84,7 @@ class _AdminStoreManagementScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _loadingPlaces) return;
       _loadPlaces(reset: true);
-      final openable = initial == _tabChains ||
-          initial == _tabPhysical ||
+      final openable = initial == _tabPhysical ||
           initial == _tabOnline ||
           initial == _tabBazaar;
       if (widget.openCreateOnLaunch && openable) {
@@ -699,9 +700,6 @@ class _AdminStoreManagementScreenState
 
   void _onAddPressed() {
     switch (_tab) {
-      case _tabChains:
-        _createChainFromSheet();
-        break;
       case _tabPhysical:
         _createPlaceFromSheet(channel: 'physical');
         break;
@@ -783,6 +781,18 @@ class _AdminStoreManagementScreenState
                 ),
               ),
             ),
+            // Zincir master listesi artık üst seviye sekme yerine fiziksel /
+            // online mağaza listesinin başında inline yönetiliyor. Pazarlar,
+            // bekleyen ve eski sekmelerinde gerekmediği için gizliyoruz.
+            if (_tab == _tabPhysical || _tab == _tabOnline) ...[
+              const SizedBox(height: 14),
+              _ChainsInlineManager(
+                channel: _placeChannel,
+                onCreate: _createChainFromSheet,
+                onEdit: _editChainFromSheet,
+                onDelete: _confirmDeleteChain,
+              ),
+            ],
             const SizedBox(height: 14),
             Expanded(child: _buildTab()),
           ],
@@ -793,8 +803,6 @@ class _AdminStoreManagementScreenState
 
   Widget _buildTab() {
     switch (_tab) {
-      case _tabChains:
-        return _buildChainsTab();
       case _tabPhysical:
         return _buildPlacesTab(channel: 'physical');
       case _tabOnline:
@@ -806,44 +814,6 @@ class _AdminStoreManagementScreenState
       default:
         return _buildLegacyTab();
     }
-  }
-
-  Widget _buildChainsTab() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseService.instance.storeChains
-          .orderBy('updatedAt', descending: true)
-          .limit(60)
-          .snapshots(),
-      builder: (_, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const AdminLoading();
-        }
-        final docs = snap.data?.docs ?? const [];
-        if (docs.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            child: adminEmpty('Henüz zincir kaydı yok.'),
-          );
-        }
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          children: [
-            adminRowList([
-              for (final d in docs)
-                _ChainRow(
-                  data: d.data(),
-                  onEdit: () => _editChainFromSheet(d),
-                  onToggleActive: (v) => d.reference.update({
-                    'isActive': v,
-                    'updatedAt': FieldValue.serverTimestamp(),
-                  }),
-                  onDelete: () => _confirmDeleteChain(d),
-                ),
-            ]),
-          ],
-        );
-      },
-    );
   }
 
   Widget _buildPlacesTab({required String channel}) {
@@ -1017,90 +987,304 @@ class _AdminStoreManagementScreenState
 
 // ─── Sub-widgets ─────────────────────────────────────────────────────────────
 
-class _ChainRow extends StatelessWidget {
-  const _ChainRow({
-    required this.data,
+/// "Zincirler" master listesi artık üst seviye sekme değil. Fiziksel /
+/// Online mağaza sekmelerinin tepesinde, açılır-kapanır bir kart olarak
+/// görünür. Aynı action set: ekle / düzenle / sil / aktif tikle.
+class _ChainsInlineManager extends StatefulWidget {
+  const _ChainsInlineManager({
+    required this.channel,
+    required this.onCreate,
     required this.onEdit,
-    required this.onToggleActive,
     required this.onDelete,
   });
-  final Map<String, dynamic> data;
-  final VoidCallback onEdit;
-  final ValueChanged<bool> onToggleActive;
-  final VoidCallback onDelete;
+
+  /// 'physical' veya 'online' — fiziksel sekmesindeysek sadece fiziksel
+  /// kanalı destekleyen zincirleri, online sekmesindeysek online kanalı
+  /// destekleyen zincirleri öne çıkartır (deactiveleri yine listede tutar
+  /// ama uyarı ile).
+  final String channel;
+  final Future<void> Function() onCreate;
+  final void Function(QueryDocumentSnapshot<Map<String, dynamic>> doc) onEdit;
+  final Future<void> Function(QueryDocumentSnapshot<Map<String, dynamic>> doc)
+      onDelete;
+
+  @override
+  State<_ChainsInlineManager> createState() => _ChainsInlineManagerState();
+}
+
+class _ChainsInlineManagerState extends State<_ChainsInlineManager> {
+  bool _expanded = false;
+
+  bool _supportsChannel(Map<String, dynamic> data, String channel) {
+    final supported = data['supportedChannels'];
+    if (supported is Map && supported[channel] is bool) {
+      return supported[channel] == true;
+    }
+    if (channel == 'online') {
+      return (data['isOnlineEnabled'] as bool?) ??
+          (data['supportsOnline'] as bool?) ??
+          false;
+    }
+    return (data['isPhysicalEnabled'] as bool?) ??
+        (data['supportsPhysical'] as bool?) ??
+        true;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final active = (data['isActive'] as bool?) ?? true;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: FR.surface,
-        borderRadius: FRRad.all(FRRad.l),
-        border: Border.all(color: FR.hairline),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: FR.surfaceHi,
-              borderRadius: FRRad.all(12),
-              border: Border.all(color: FR.hairline),
-            ),
-            alignment: Alignment.center,
-            child: Icon(Icons.storefront_rounded, color: FR.gold, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: FR.surface,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseService.instance.storeChains
+              .orderBy('name')
+              .limit(120)
+              .snapshots(),
+          builder: (context, snap) {
+            final allDocs = snap.data?.docs ??
+                const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+            final activeDocs = allDocs.where((d) {
+              final m = d.data();
+              return ((m['isActive'] as bool?) ?? true) &&
+                  _supportsChannel(m, widget.channel);
+            }).toList(growable: false);
+            final hasError = snap.hasError;
+            final loading =
+                snap.connectionState == ConnectionState.waiting && !hasError;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  (data['name'] ?? '—').toString(),
-                  style: frText(13.5, FontWeight.w800),
+                InkWell(
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  borderRadius: FRRad.all(FRRad.l),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: FR.gold.withOpacity(.14),
+                            borderRadius: FRRad.all(12),
+                            border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+                          ),
+                          child: Icon(Icons.account_tree_rounded,
+                              size: 18, color: FR.gold),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Zincirler · master liste',
+                                  style: frText(13.5, FontWeight.w800)),
+                              const SizedBox(height: 2),
+                              Text(
+                                loading
+                                    ? 'Yükleniyor…'
+                                    : hasError
+                                        ? 'Liste alınamadı'
+                                        : '${activeDocs.length} aktif · şubeler bu zincirlere bağlanır',
+                                style: frText(11, FontWeight.w700,
+                                    color: FR.ink3),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Yeni zincir ekle',
+                          onPressed: () async {
+                            await widget.onCreate();
+                          },
+                          icon: Icon(Icons.add_rounded, color: FR.gold),
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                        Icon(
+                          _expanded
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          color: FR.ink3,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  [
-                    active ? 'Aktif zincir' : 'Pasif',
-                    if (((data['isPhysicalEnabled'] as bool?) ??
-                        ((data['supportedChannels'] is Map)
-                            ? ((data['supportedChannels'] as Map)['physical'] as bool? ?? true)
-                            : true)))
-                      'fiziksel',
-                    if (((data['isOnlineEnabled'] as bool?) ??
-                        ((data['supportedChannels'] is Map)
-                            ? ((data['supportedChannels'] as Map)['online'] as bool? ?? false)
-                            : false)))
-                      'online',
-                  ].join(' · '),
-                  style: frText(11, FontWeight.w700,
-                      color: active ? FR.good : FR.ink3),
+                if (_expanded) ...[
+                  Divider(color: FR.hairline, height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: loading
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          )
+                        : hasError
+                            ? Text(
+                                'Zincirler yüklenemedi.',
+                                style: frText(12, FontWeight.w700,
+                                    color: FR.bad),
+                              )
+                            : allDocs.isEmpty
+                                ? Text(
+                                    'Henüz zincir yok. Yukarıdaki + butonu '
+                                    'ile yeni bir zincir ekleyebilirsin (ör. A101, BİM).',
+                                    style: frText(11.5, FontWeight.w600,
+                                        color: FR.ink3, height: 1.45),
+                                  )
+                                : Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      for (final d in allDocs)
+                                        _InlineChainChip(
+                                          data: d.data(),
+                                          onEdit: () => widget.onEdit(d),
+                                          onDelete: () async =>
+                                              widget.onDelete(d),
+                                          onToggleActive: () => d.reference
+                                              .update({
+                                            'isActive': !(((d.data()['isActive']
+                                                        as bool?) ??
+                                                    true)),
+                                            'updatedAt':
+                                                FieldValue.serverTimestamp(),
+                                          }),
+                                          dimIfChannelMismatch:
+                                              !_supportsChannel(
+                                                  d.data(), widget.channel),
+                                        ),
+                                    ],
+                                  ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineChainChip extends StatelessWidget {
+  const _InlineChainChip({
+    required this.data,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onToggleActive,
+    required this.dimIfChannelMismatch,
+  });
+
+  final Map<String, dynamic> data;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onToggleActive;
+  final bool dimIfChannelMismatch;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = (data['name'] ?? '—').toString();
+    final active = (data['isActive'] as bool?) ?? true;
+    final disabled = !active || dimIfChannelMismatch;
+    return InkWell(
+      onTap: onEdit,
+      onLongPress: () async {
+        final action = await showModalBottomSheet<String>(
+          context: context,
+          backgroundColor: FR.surface,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.edit_rounded, color: FR.gold),
+                  title: Text('Düzenle',
+                      style: frText(13.5, FontWeight.w800)),
+                  onTap: () => Navigator.pop(ctx, 'edit'),
                 ),
+                ListTile(
+                  leading: Icon(
+                    active
+                        ? Icons.toggle_off_outlined
+                        : Icons.toggle_on_outlined,
+                    color: FR.ink2,
+                  ),
+                  title: Text(
+                    active ? 'Pasifleştir' : 'Aktif yap',
+                    style: frText(13.5, FontWeight.w800),
+                  ),
+                  onTap: () => Navigator.pop(ctx, 'toggle'),
+                ),
+                ListTile(
+                  leading:
+                      Icon(Icons.delete_outline_rounded, color: FR.bad),
+                  title: Text('Sil',
+                      style: frText(13.5, FontWeight.w800, color: FR.bad)),
+                  onTap: () => Navigator.pop(ctx, 'delete'),
+                ),
+                const SizedBox(height: 4),
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Zinciri düzenle',
-            onPressed: onEdit,
-            icon: Icon(Icons.edit_rounded, color: FR.ink2, size: 19),
+        );
+        if (action == 'edit') {
+          onEdit();
+        } else if (action == 'toggle') {
+          onToggleActive();
+        } else if (action == 'delete') {
+          onDelete();
+        }
+      },
+      borderRadius: FRRad.all(999),
+      child: Opacity(
+        opacity: disabled ? 0.55 : 1,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: FR.surfaceHi,
+            borderRadius: FRRad.all(999),
+            border: Border.all(
+              color: active ? FR.goldDeep.withOpacity(.35) : FR.hairline,
+            ),
           ),
-          IconButton(
-            tooltip: 'Zinciri sil',
-            onPressed: onDelete,
-            icon: Icon(Icons.delete_outline_rounded, color: FR.bad, size: 19),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.storefront_rounded, size: 13, color: FR.gold),
+              const SizedBox(width: 6),
+              Text(name,
+                  style: frText(12, FontWeight.w800,
+                      color: disabled ? FR.ink3 : FR.ink)),
+              if (!active) ...[
+                const SizedBox(width: 6),
+                Text('pasif',
+                    style:
+                        frText(10, FontWeight.w800, color: FR.warn)),
+              ],
+            ],
           ),
-          Switch(
-            value: active,
-            onChanged: onToggleActive,
-            activeColor: FR.bg,
-            activeTrackColor: FR.gold,
-            inactiveThumbColor: FR.ink2,
-            inactiveTrackColor: FR.surfaceHi,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2572,14 +2756,16 @@ class _PlaceFormSheetContentState extends State<_PlaceFormSheetContent> {
             TextField(
               controller: _websiteCtrl,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(hintText: 'Website URL'),
+              decoration: const InputDecoration(
+                hintText: 'Web sitesi adresi',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: _deepLinkCtrl,
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
-                hintText: 'App / deeplink (opsiyonel)',
+                hintText: 'Uygulama bağlantısı (opsiyonel)',
               ),
             ),
             const SizedBox(height: 10),

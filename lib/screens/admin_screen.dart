@@ -66,6 +66,12 @@ class _AdminScreenState extends State<AdminScreen> {
       icon: Icons.tune_rounded,
       subtitle: 'Banner · ayar',
     ),
+    _AdminModule(
+      index: 5,
+      label: 'İstatistik',
+      icon: Icons.insights_rounded,
+      subtitle: 'Kullanıcı · içerik · trafik',
+    ),
   ];
 
   _AdminModule get _active =>
@@ -155,8 +161,10 @@ class _AdminScreenState extends State<AdminScreen> {
         return _PriceFlowTab(state: state);
       case 3:
         return const _StoreNetworkTab();
-      default:
+      case 4:
         return _SystemTab(state: state);
+      default:
+        return _StatisticsTab(state: state);
     }
   }
 }
@@ -1369,28 +1377,18 @@ class _StoreNetworkTab extends StatelessWidget {
         // Live counts (chains + places by channel + pending)
         const _StoreNetworkOverview(),
         const SizedBox(height: 14),
-        // Quick actions
+        // Quick actions — "Zincirler" artık Fiziksel sekmesinin başındaki
+        // inline manager'a taşındı, kısayolu da o sekmeyi açıyor.
         Row(
           children: [
             Expanded(
               child: FRCta(
-                label: 'Zincir',
-                icon: Icons.add_business_rounded,
-                filled: false,
-                height: 44,
-                onTap: () => _openManagement(context,
-                    initialTab: 0, openCreate: true),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FRCta(
-                label: 'Şube',
+                label: 'Fiziksel şube',
                 icon: Icons.add_location_alt_rounded,
                 filled: false,
                 height: 44,
                 onTap: () => _openManagement(context,
-                    initialTab: 1, openCreate: true),
+                    initialTab: 0, openCreate: true),
               ),
             ),
             const SizedBox(width: 8),
@@ -1401,7 +1399,7 @@ class _StoreNetworkTab extends StatelessWidget {
                 filled: false,
                 height: 44,
                 onTap: () => _openManagement(context,
-                    initialTab: 2, openCreate: true),
+                    initialTab: 1, openCreate: true),
               ),
             ),
           ],
@@ -1413,7 +1411,7 @@ class _StoreNetworkTab extends StatelessWidget {
           filled: false,
           height: 44,
           onTap: () => _openManagement(context,
-              initialTab: 3, openCreate: true),
+              initialTab: 2, openCreate: true),
         ),
         const SizedBox(height: 14),
         FRCta(
@@ -1668,7 +1666,7 @@ class _PendingPlacesInlineSection extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) =>
-                          const AdminStoreManagementScreen(initialTab: 4),
+                          const AdminStoreManagementScreen(initialTab: 3),
                     ),
                   ),
                   child: Text(
@@ -2028,6 +2026,387 @@ class _SystemTab extends StatelessWidget {
         ]),
       ],
     );
+  }
+}
+
+// ─── Statistics (catalog · users · contributions) ───────────────────────────
+
+class _StatisticsTab extends StatelessWidget {
+  const _StatisticsTab({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final products = state.products;
+    int totalEntries = 0;
+    int verifiedEntries = 0;
+    int pendingEntries = 0;
+    int rejectedEntries = 0;
+    int disputedEntries = 0;
+    int totalUpvotes = 0;
+    int totalDownvotes = 0;
+    double totalValue = 0;
+    int withImage = 0;
+    final categoryCounts = <String, int>{};
+    final brandCounts = <String, int>{};
+    final reporterCounts = <String, int>{};
+
+    final last24h = DateTime.now().subtract(const Duration(hours: 24));
+    final last7d = DateTime.now().subtract(const Duration(days: 7));
+    int entriesLast24h = 0;
+    int entriesLast7d = 0;
+
+    for (final p in products) {
+      if ((p.imageUrl ?? '').isNotEmpty) withImage++;
+      categoryCounts[p.category] = (categoryCounts[p.category] ?? 0) + 1;
+      if (p.brand.trim().isNotEmpty) {
+        brandCounts[p.brand] = (brandCounts[p.brand] ?? 0) + 1;
+      }
+      for (final e in p.priceHistory) {
+        totalEntries++;
+        totalUpvotes += e.upvotes;
+        totalDownvotes += e.downvotes;
+        totalValue += e.price;
+        switch (e.status) {
+          case PriceStatus.communityVerified:
+            verifiedEntries++;
+            break;
+          case PriceStatus.pending:
+            pendingEntries++;
+            break;
+          case PriceStatus.rejected:
+            rejectedEntries++;
+            break;
+          case PriceStatus.disputed:
+            disputedEntries++;
+            break;
+        }
+        if (e.date.isAfter(last24h)) entriesLast24h++;
+        if (e.date.isAfter(last7d)) entriesLast7d++;
+        if (e.reportedBy.trim().isNotEmpty) {
+          reporterCounts[e.reportedBy] =
+              (reporterCounts[e.reportedBy] ?? 0) + 1;
+        }
+      }
+    }
+
+    final avgPrice =
+        totalEntries == 0 ? 0.0 : totalValue / totalEntries;
+    final verifyRatio = totalEntries == 0
+        ? 0
+        : ((verifiedEntries / totalEntries) * 100).round();
+
+    final topCategories = categoryCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topReporters = reporterCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topBrands = brandCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const FRSectionHead(
+          eyebrow: 'KATALOG',
+          title: 'Ürün ve fiyat hacmi',
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                value: '${products.length}',
+                label: 'TOPLAM ÜRÜN',
+                delta: '$withImage görsel',
+                deltaGood: withImage > 0,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatCard(
+                value: '$totalEntries',
+                label: 'FİYAT BİLDİRİMİ',
+                delta: '$entriesLast24h son 24s',
+                deltaGood: entriesLast24h > 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                value: '$verifiedEntries',
+                label: 'DOĞRULANMIŞ',
+                delta: '%$verifyRatio onay oranı',
+                deltaGood: verifyRatio >= 50,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatCard(
+                value: '$pendingEntries',
+                label: 'BEKLEMEDE',
+                delta: '$disputedEntries ihtilaf',
+                deltaGood: disputedEntries == 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                value: '$rejectedEntries',
+                label: 'REDDEDİLEN',
+                delta: rejectedEntries == 0 ? 'temiz' : 'inceleme',
+                deltaGood: rejectedEntries == 0,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatCard(
+                value: '₺${avgPrice.toStringAsFixed(0)}',
+                label: 'ORTALAMA FİYAT',
+                delta: '$entriesLast7d / 7 gün',
+                deltaGood: entriesLast7d > 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                value: '$totalUpvotes',
+                label: 'TOPLAM DOĞRU OY',
+                delta: 'topluluk onayı',
+                deltaGood: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatCard(
+                value: '$totalDownvotes',
+                label: 'TOPLAM RED OYU',
+                delta: 'topluluk itirazı',
+                deltaGood: totalDownvotes < totalUpvotes,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        const FRSectionHead(
+          eyebrow: 'KULLANICI',
+          title: 'Topluluk büyüklüğü',
+        ),
+        const SizedBox(height: 10),
+        FutureBuilder<List<int>>(
+          future: _fetchUserCounts(),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final data = snap.data ?? const [0, 0, 0, 0, 0];
+            final total = data[0];
+            final verified = data[1];
+            final premium = data[2];
+            final admin = data[3];
+            final banned = data[4];
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        value: '$total',
+                        label: 'TOPLAM KULLANICI',
+                        delta:
+                            'Doğrulanmış $verified · Pro $premium',
+                        deltaGood: verified > 0,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        value: '$admin',
+                        label: 'ADMIN',
+                        delta: banned > 0 ? '$banned ban' : 'temiz',
+                        deltaGood: banned == 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 22),
+        const FRSectionHead(
+          eyebrow: 'AĞ',
+          title: 'Mağaza ve içerik',
+        ),
+        const SizedBox(height: 10),
+        FutureBuilder<List<int>>(
+          future: _fetchNetworkCounts(),
+          builder: (context, snap) {
+            final loading = snap.connectionState == ConnectionState.waiting;
+            final data = snap.data ?? const [0, 0, 0, 0, 0, 0];
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        value: loading ? '…' : '${data[0]}',
+                        label: 'ZİNCİR',
+                        delta: loading ? '' : '${data[1]} şube',
+                        deltaGood: true,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        value: loading ? '…' : '${data[2]}',
+                        label: 'FİYAT GRUBU',
+                        delta: loading ? '' : '${data[3]} rapor',
+                        deltaGood: true,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        value: loading ? '…' : '${data[4]}',
+                        label: 'YORUM',
+                        delta: loading ? '' : 'topluluk',
+                        deltaGood: data[4] > 0,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        value: loading ? '…' : '${data[5]}',
+                        label: 'BANNER',
+                        delta: 'aktif',
+                        deltaGood: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 22),
+        if (topCategories.isNotEmpty) ...[
+          const FRSectionHead(
+            eyebrow: 'EN POPÜLER',
+            title: 'Kategori dağılımı',
+          ),
+          const SizedBox(height: 10),
+          adminRowList([
+            for (final c in topCategories.take(6))
+              _GenericRow(
+                title: c.key,
+                subtitle: '${c.value} ürün',
+                icon: Icons.category_rounded,
+                withActions: false,
+              ),
+          ]),
+          const SizedBox(height: 22),
+        ],
+        if (topBrands.isNotEmpty) ...[
+          const FRSectionHead(
+            eyebrow: 'MARKA',
+            title: 'En çok ürünü olan markalar',
+          ),
+          const SizedBox(height: 10),
+          adminRowList([
+            for (final b in topBrands.take(6))
+              _GenericRow(
+                title: b.key,
+                subtitle: '${b.value} ürün',
+                icon: Icons.business_rounded,
+                withActions: false,
+              ),
+          ]),
+          const SizedBox(height: 22),
+        ],
+        if (topReporters.isNotEmpty) ...[
+          const FRSectionHead(
+            eyebrow: 'KATKICILAR',
+            title: 'En çok fiyat bildiren',
+          ),
+          const SizedBox(height: 10),
+          adminRowList([
+            for (final r in topReporters.take(8))
+              _GenericRow(
+                title: r.key,
+                subtitle: '${r.value} fiyat bildirimi',
+                icon: Icons.person_rounded,
+                withActions: false,
+              ),
+          ]),
+        ],
+      ],
+    );
+  }
+
+  Future<List<int>> _fetchUserCounts() async {
+    final svc = FirebaseService.instance;
+    try {
+      final all = await svc.users.count().get();
+      final verified =
+          await svc.users.where('emailVerified', isEqualTo: true).count().get();
+      final premium =
+          await svc.users.where('isPremium', isEqualTo: true).count().get();
+      final admin =
+          await svc.users.where('isAdmin', isEqualTo: true).count().get();
+      final banned =
+          await svc.users.where('isBanned', isEqualTo: true).count().get();
+      return [
+        all.count ?? 0,
+        verified.count ?? 0,
+        premium.count ?? 0,
+        admin.count ?? 0,
+        banned.count ?? 0,
+      ];
+    } catch (_) {
+      return const [0, 0, 0, 0, 0];
+    }
+  }
+
+  Future<List<int>> _fetchNetworkCounts() async {
+    final svc = FirebaseService.instance;
+    try {
+      final chains = await svc.storeChains.count().get();
+      final places = await svc.storePlaces.count().get();
+      final groups = await svc.priceGroups.count().get();
+      final reports = await svc.priceReports.count().get();
+      final comments = await svc.comments.count().get();
+      final banners =
+          await svc.banners.where('isActive', isEqualTo: true).count().get();
+      return [
+        chains.count ?? 0,
+        places.count ?? 0,
+        groups.count ?? 0,
+        reports.count ?? 0,
+        comments.count ?? 0,
+        banners.count ?? 0,
+      ];
+    } catch (_) {
+      return const [0, 0, 0, 0, 0, 0];
+    }
   }
 }
 

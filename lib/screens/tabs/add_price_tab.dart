@@ -984,16 +984,51 @@ class _AddPriceTabState extends State<AddPriceTab> {
                 if (!_isOnlineSource && regionMissing)
                   _missingRegionEmpty(state)
                 else
-                  FutureBuilder<List<StorePlace>>(
-                    future: _placeResults(state),
-                    builder: (context, snapshot) {
-                      final places = snapshot.data ?? const <StorePlace>[];
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Text('Kayıtlar yükleniyor…', style: frText(12, FontWeight.w600, color: FR.ink3));
-                      }
-                      if (places.isEmpty) {
-                        return _placesEmpty(state);
-                      }
+                  // Sabit min-height ile arama sırasında "ekran daralıyor" hissi
+                  // önlenir — Future loading <-> sonuç wrap geçişinde alan
+                  // sıçramaz. Sonuç listesi büyürse kendi yüksekliğine genişler.
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 180),
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FutureBuilder<List<StorePlace>>(
+                        future: _placeResults(state),
+                        builder: (context, snapshot) {
+                          final places =
+                              snapshot.data ?? const <StorePlace>[];
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !snapshot.hasData) {
+                            return Container(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 4),
+                              constraints:
+                                  const BoxConstraints(minHeight: 80),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: FR.gold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Kayıtlar yükleniyor…',
+                                    style: frText(12, FontWeight.w600,
+                                        color: FR.ink3),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          if (places.isEmpty) {
+                            return _placesEmpty(state);
+                          }
                       final ordered = _orderBazaarsByToday(places);
                       return Wrap(
                         spacing: 8,
@@ -1104,7 +1139,9 @@ class _AddPriceTabState extends State<AddPriceTab> {
                           );
                         }).toList(),
                       );
-                    },
+                        },
+                      ),
+                    ),
                   ),
                 const SizedBox(height: 8),
                 _selectedStoreSummary(),

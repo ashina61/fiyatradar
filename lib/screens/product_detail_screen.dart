@@ -22,15 +22,7 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  late List<PriceEntry> _sorted;
-  late PriceEntry? _best;
   final ScrollController _scroll = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _recomputeDerived();
-  }
 
   @override
   void dispose() {
@@ -39,34 +31,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant ProductDetailScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final oldP = oldWidget.product;
-    final next = widget.product;
-    final oldHistorySignature = oldP.priceHistory
-        .map((e) =>
-            '${e.id}:${e.price}:${e.upvotes}:${e.downvotes}:${e.trustWeightedScore}:${e.status.name}:${e.date.millisecondsSinceEpoch}')
-        .join('|');
-    final nextHistorySignature = next.priceHistory
-        .map((e) =>
-            '${e.id}:${e.price}:${e.upvotes}:${e.downvotes}:${e.trustWeightedScore}:${e.status.name}:${e.date.millisecondsSinceEpoch}')
-        .join('|');
-    if (oldP.id != next.id || oldHistorySignature != nextHistorySignature) {
-      _recomputeDerived();
-    }
-  }
-
-  void _recomputeDerived() {
-    final product = widget.product;
-    _sorted = [...product.priceHistory]
-      ..sort((a, b) => b.date.compareTo(a.date));
-    _best = product.bestValueEntry;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final product = widget.product;
     final state = AppStateScope.of(context);
+    // Yorum/oy gibi yazma akışları AppState'i bildirir; ekranı sabit constructor
+    // referansına bağlı tutarsak (widget.product) durum değişiklikleri (oy
+    // sayısı, status, vs.) ancak ekrandan çıkıp tekrar girince görünür.
+    // En güncel kopyayı her build'de katalogdan çek.
+    final product = state.findById(widget.product.id) ?? widget.product;
+    final sorted = [...product.priceHistory]
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final best = product.bestValueEntry;
     final isFav = state.isFavorite(product.id);
     final alert = state.alertForProduct(product.id);
 
@@ -93,11 +67,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Expanded(
                 child: ListView(
                   controller: _scroll,
-                  // Klavye açıkken aşağı sürüklemek klavyeyi otomatik
-                  // kapatsın — kullanıcı aşağı indikten sonra yukarı
-                  // tekrar çıkamama bug'ı buradan geliyordu.
+                  // `onDrag` davranışı klavyeyi aniden kapatıp layout'u
+                  // değiştirdiği için kullanıcı yorum kutusunun yakınındayken
+                  // aşağı/yukarı kaydırma sırasında scroll metric'leri sıçrıyor,
+                  // pratikte "takılıyor" gibi hissediliyordu. `manual` ile
+                  // GestureDetector'daki onTap → unfocus akışı zaten klavyeyi
+                  // bırakıyor; scroll artık sıçramıyor.
                   keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
+                      ScrollViewKeyboardDismissBehavior.manual,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
                   children: [
@@ -110,7 +87,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     _DetailHeadlinePrice(product: product, state: state),
                     const SizedBox(height: 24),
                     _RegionalPriceSections(
-                        product: product, state: state, legacyBest: _best),
+                        product: product, state: state, legacyBest: best),
                   if (product.validEntries.length >= 2) ...[
                     const SizedBox(height: 24),
                     const FRSectionHead(
@@ -130,7 +107,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         color: FR.ink3, height: 1.5),
                   ),
                   const SizedBox(height: 12),
-                  if (_sorted.isEmpty)
+                  if (sorted.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: frSurface(radius: FRRad.l),
@@ -140,7 +117,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     )
                   else
-                    ..._sorted.take(6).map((e) => Padding(
+                    ...sorted.take(6).map((e) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _ContributionRow(
                             product: product,

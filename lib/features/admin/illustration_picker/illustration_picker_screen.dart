@@ -281,11 +281,15 @@ class _IllustrationPickerScreenState extends State<IllustrationPickerScreen> {
     IllustrationManifest manifest,
     int filteredCount,
   ) {
+    // Sabit yükseklik 46px chip içeriği (~36px) + dikey padding (2*8) ile
+    // taşınca metnin alt yarısı kırpılıyordu — "İçecekler" gibi uzun
+    // etiketlerde belirgindi. Yüksekliği 58'e çıkardık, dikey padding'i de
+    // hafifletip metni tam ortaladık.
     return SizedBox(
-      height: 46,
+      height: 58,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         children: [
           IllustrationCategoryChip(
             label: 'Tümü · ${manifest.illustrations.length}',
