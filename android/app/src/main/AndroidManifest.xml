@@ -78,7 +78,7 @@
 
         <!-- AdMob application id (production).
              Test reklamı sandbox'ı bu ID'ye bağlı değil — kDebugMode'da
-             AdHelper test ad unit'i serve ediyor; release'de --dart-define
+             AdHelper test ad unit'i serve ediyor; release'de dart-define
              ile gerçek banner unit'i (default fallback ile) yükleniyor.
              https://developers.google.com/admob/android/test-ads -->
         <meta-data
