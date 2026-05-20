@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-import '../services/ads_service.dart';
+import '../core/ads/ad_helper.dart';
 import 'tokens.dart';
 
 /// Resimler için ortak yumuşak fade-in. `Image.network` ve `Image` widget'ları
@@ -1097,7 +1097,7 @@ class _FRInlineBannerAdState extends State<FRInlineBannerAd> {
 
   void _load() {
     final ad = BannerAd(
-      adUnitId: AdsService.instance.bannerAdUnitId,
+      adUnitId: AdHelper.bannerAdUnitId,
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(

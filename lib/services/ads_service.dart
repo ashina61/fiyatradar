@@ -4,23 +4,22 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../core/ads/ad_helper.dart';
+
 /// FiyatRadar AdMob entegrasyonu.
 ///
 /// Tasarım kararları:
 ///   • Pro kullanıcı asla reklam görmez — gating widget seviyesinde
 ///     (`FRAdSlot.isPremium`, `FRInlineBannerAd.isPremium`). Service yine
 ///     de Pro durumdan habersiz; çağrı noktası check ediyor.
-///   • Bütün ad unit id'leri burada toplandı; production'da AdMob
-///     console'dan alınan id'lerle `_prodAndroidBanner` vs. doldurulur.
-///   • Beta/debug build'lerde Google'ın resmi test id'leri kullanılıyor —
-///     gerçek reklam yüklenmez, false impression sayılmaz.
-///
-/// Production checklist:
-///   1. AdMob console'da app + ad unit'leri oluştur.
-///   2. AndroidManifest meta-data APPLICATION_ID gerçek id ile değiştir.
-///   3. iOS Info.plist GADApplicationIdentifier'ı ekle.
-///   4. `_prodAndroidBanner` vb. değerleri doldur; `_useTestIds` otomatik
-///      false döner çünkü id artık boş değil.
+///   • Banner ad unit id `AdHelper.bannerAdUnitId` üzerinden çözülüyor:
+///     debug → resmi test id, release → `--dart-define=ADMOB_BANNER_ANDROID`
+///     ile override + production fallback.
+///   • Interstitial henüz production'a açılmadı — debug/release fark
+///     etmeksizin Google test id'siyle yükleniyor.
+///   • Init sırası `main.dart`'ta: Firebase → ConsentManager (UMP) →
+///     MobileAds.initialize → runApp. Bu service `init()` tekrar
+///     `MobileAds.initialize()` çağrısı yapsa da SDK idempotent.
 class AdsService {
   AdsService._();
   static final AdsService instance = AdsService._();
@@ -29,44 +28,19 @@ class AdsService {
   bool get initialized => _initialized;
 
   // ─── Ad unit id tablosu ──────────────────────────────────────────────
-  // Test id'leri Google'ın resmi sandbox değerleri:
+  // Banner id'leri tek noktadan AdHelper çözüyor (debug → test, release →
+  // --dart-define override + production fallback). Interstitial henüz
+  // production'a açılmadığı için lokal test id'leriyle çalışıyor.
   // https://developers.google.com/admob/android/test-ads
-  static const String _testAndroidBanner =
-      'ca-app-pub-3940256099942544/6300978111';
-  static const String _testIosBanner =
-      'ca-app-pub-3940256099942544/2934735716';
   static const String _testAndroidInterstitial =
       'ca-app-pub-3940256099942544/1033173712';
   static const String _testIosInterstitial =
       'ca-app-pub-3940256099942544/4411468910';
 
-  // TODO(prod): AdMob console'dan al ve doldur. Boş olduğu sürece
-  // _useTestIds true döner; production'a geçişte buraya gerçek id yaz.
-  static const String _prodAndroidBanner = '';
-  static const String _prodIosBanner = '';
-  static const String _prodAndroidInterstitial = '';
-  static const String _prodIosInterstitial = '';
-
-  /// Beta + production-id-yok durumlarında test reklamı yükle.
-  bool get _useTestIds => kDebugMode || _prodAndroidBanner.isEmpty;
-
-  String get bannerAdUnitId {
-    if (Platform.isAndroid) {
-      return _useTestIds ? _testAndroidBanner : _prodAndroidBanner;
-    }
-    if (Platform.isIOS) {
-      return _useTestIds ? _testIosBanner : _prodIosBanner;
-    }
-    return _testAndroidBanner;
-  }
+  String get bannerAdUnitId => AdHelper.bannerAdUnitId;
 
   String get interstitialAdUnitId {
-    if (Platform.isAndroid) {
-      return _useTestIds ? _testAndroidInterstitial : _prodAndroidInterstitial;
-    }
-    if (Platform.isIOS) {
-      return _useTestIds ? _testIosInterstitial : _prodIosInterstitial;
-    }
+    if (Platform.isIOS) return _testIosInterstitial;
     return _testAndroidInterstitial;
   }
 
@@ -76,7 +50,10 @@ class AdsService {
       await MobileAds.instance.initialize();
       _initialized = true;
       if (kDebugMode) {
-        debugPrint('AdsService: MobileAds initialized (testIds=$_useTestIds).');
+        debugPrint(
+          'AdsService: MobileAds initialized '
+          '(banner=${AdHelper.bannerAdUnitId}).',
+        );
       }
       unawaited(preloadInterstitial());
     } catch (e, st) {

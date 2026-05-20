@@ -7,8 +7,10 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/ads/consent_manager.dart';
 import 'l10n/app_strings.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
@@ -42,6 +44,16 @@ Future<void> main() async {
     // FirebaseAnalytics.instance.log... ile çağırıyoruz; default config
     // yeterli olduğu için burada extra setup yok.
     FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(!kDebugMode);
+    // UMP consent → MobileAds.initialize sıralaması zorunlu: consent formu
+    // gerektiğinde MobileAds init'inden ÖNCE yanıt alınmalı ki ilk reklam
+    // isteği TCF string'iyle çıksın. Hata yiyince akışı bloklamıyoruz —
+    // reklam katmanı boot path'inin geri kalanını batırmamalı.
+    try {
+      await ConsentManager.instance.gatherConsent();
+      await MobileAds.instance.initialize();
+    } catch (e, st) {
+      debugPrint('Ads bootstrap failed (continuing without ads): $e\n$st');
+    }
   } catch (e, st) {
     // Surface to logs but keep the app alive — `_AuthGate` will render the
     // error screen so the user gets actionable feedback instead of a white
