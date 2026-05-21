@@ -26,15 +26,24 @@ if (flutterVersionName == null) {
 // Release imza kaynak önceliği:
 //   1) CI ortam değişkenleri (KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD)
 //   2) android/key.properties (local dev için, .gitignore'da)
-//   3) Debug imza (her ikisi de yoksa — local geliştirme akışı kırılmasın)
+// Hiçbiri yoksa release build patlasin (sessizce debug imzasına düşmek
+// Play Console'da "debug signed" hatasına yol açıyordu).
 def envKeystorePath = System.getenv('KEYSTORE_PATH')
 def envKeystorePassword = System.getenv('KEYSTORE_PASSWORD')
 def envKeyAlias = System.getenv('KEY_ALIAS')
 def envKeyPassword = System.getenv('KEY_PASSWORD')
 
-def hasEnvKeystore = envKeystorePath != null && !envKeystorePath.isEmpty() &&
-        envKeystorePassword != null && envKeyAlias != null && envKeyPassword != null &&
-        file(envKeystorePath).exists()
+def hasEnvKeystore = envKeystorePath != null && !envKeystorePath.trim().isEmpty() &&
+        envKeystorePassword != null && envKeyAlias != null && envKeyPassword != null
+
+// Project.file() resolves relative paths from android/app/, but CI passes
+// KEYSTORE_PATH relative to the repo root (android/upload-keystore.jks).
+// rootProject.file() resolves from android/, which lines up with the decode
+// step. Absolute paths pass through unchanged.
+def resolveKeystoreFile = { String path ->
+    def candidate = new File(path)
+    return candidate.isAbsolute() ? candidate : rootProject.file(path)
+}
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
@@ -44,10 +53,7 @@ if (keystorePropertiesFile.exists()) {
     }
 }
 def hasFileKeystore = !hasEnvKeystore &&
-        keystoreProperties.getProperty('storeFile') != null &&
-        file(keystoreProperties.getProperty('storeFile')).exists()
-
-def hasReleaseKeystore = hasEnvKeystore || hasFileKeystore
+        keystoreProperties.getProperty('storeFile') != null
 
 android {
     namespace "com.fiyatradar"
@@ -81,28 +87,62 @@ android {
     signingConfigs {
         if (hasEnvKeystore) {
             release {
-                storeFile file(envKeystorePath)
+                def keystoreFile = resolveKeystoreFile(envKeystorePath)
+                if (!keystoreFile.exists()) {
+                    throw new GradleException(
+                            "KEYSTORE_PATH set to '${envKeystorePath}' but resolved file " +
+                                    "does not exist: ${keystoreFile.absolutePath}")
+                }
+                storeFile keystoreFile
                 storePassword envKeystorePassword
                 keyAlias envKeyAlias
                 keyPassword envKeyPassword
             }
         } else if (hasFileKeystore) {
             release {
+                def storeFileProp = keystoreProperties.getProperty('storeFile')
+                def keystoreFile = file(storeFileProp)
+                if (!keystoreFile.exists()) {
+                    throw new GradleException(
+                            "android/key.properties storeFile '${storeFileProp}' resolves to " +
+                                    "${keystoreFile.absolutePath} which does not exist")
+                }
+                storeFile keystoreFile
+                storePassword keystoreProperties.getProperty('storePassword')
                 keyAlias keystoreProperties.getProperty('keyAlias')
                 keyPassword keystoreProperties.getProperty('keyPassword')
-                storeFile file(keystoreProperties.getProperty('storeFile'))
-                storePassword keystoreProperties.getProperty('storePassword')
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig hasReleaseKeystore ? signingConfigs.getByName('release') : signingConfigs.debug
+            // No silent fallback to debug. If signingConfigs.release wasn't
+            // created (neither env nor key.properties), this stays null and the
+            // taskGraph guard below throws before any release task runs.
+            signingConfig signingConfigs.findByName('release')
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+}
+
+// Fail loudly when a release task is requested without real signing config.
+// Deferred to taskGraph so local debug builds (flutter run) still work without
+// any keystore configured.
+gradle.taskGraph.whenReady { taskGraph ->
+    def needsRelease = taskGraph.allTasks.any { task ->
+        def name = task.name.toLowerCase()
+        name.contains('release') && (
+                name.contains('assemble') || name.contains('bundle') || name.contains('package'))
+    }
+    if (needsRelease && !hasEnvKeystore && !hasFileKeystore) {
+        throw new GradleException(
+                "Release build requested but no signing config available. Set " +
+                        "KEYSTORE_PATH / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD env " +
+                        "vars (CI) or create android/key.properties (local). Refusing to " +
+                        "silently fall back to debug signing.")
     }
 }
 

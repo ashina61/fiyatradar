@@ -101,6 +101,16 @@ edip workflow input olarak versionName almak).
 - **CI'da `KEYSTORE_BASE64 secret is empty`** — secret'ı eklemeyi
   unutmuşsun veya yanlış adla eklemişsin (`KEYSTORE_BASE64` tam
   bu şekilde olmalı).
-- **Local'de imza atılmıyor, debug imzasıyla derleniyor** — ne env
-  değişkenleri ne `android/key.properties` mevcut. `key.properties`
-  dosyasını doğrula veya CI değişkenlerini local shell'e export et.
+- **`Release build requested but no signing config available`** — release
+  build için ne env değişkenleri ne `android/key.properties` mevcut.
+  Eskiden bu durumda sessizce debug imzasına düşülüyor ve AAB Play
+  Console'a yüklendiğinde "debug signed" hatasıyla reddediliyordu; artık
+  build erken patlar. `key.properties` dosyasını doğrula veya CI
+  değişkenlerini local shell'e export et. `flutter run` (debug build)
+  her iki kaynak da yoksa bile çalışmaya devam eder.
+- **`KEYSTORE_PATH set to '…' but resolved file does not exist`** —
+  env değişkeni doğru tanımlı ama keystore dosyası gösterilen konumda
+  yok. CI'da bu, decode adımının atlanmasını veya çalışma dizininin
+  beklenmedik olmasını gösterir; local'de KEYSTORE_PATH'i absolute
+  path olarak ver veya repo köküne göre relatif yaz (örn.
+  `android/upload-keystore.jks`).
