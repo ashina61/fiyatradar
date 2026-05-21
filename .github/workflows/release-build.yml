@@ -63,11 +63,50 @@ jobs:
 
       - name: Build signed release AAB
         env:
-          KEYSTORE_PATH: android/upload-keystore.jks
+          # Absolute path: avoids any ambiguity about Gradle's file() resolution
+          # (which would otherwise resolve relative paths from android/app/, not
+          # the repo root — that mismatch is what previously caused silent
+          # debug signing).
+          KEYSTORE_PATH: ${{ github.workspace }}/android/upload-keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: upload
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: flutter build appbundle --release
+
+      - name: Verify AAB is release-signed (not debug)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          aab=build/app/outputs/bundle/release/app-release.aab
+          if [ ! -f "$aab" ]; then
+            echo "::error::AAB not produced at $aab"
+            exit 1
+          fi
+          # AABs are JAR-signed (apksigner verify doesn't apply). Read the
+          # signer cert with keytool and compare its SHA-256 fingerprint
+          # against the upload keystore. If the AAB ended up debug-signed,
+          # the fingerprints won't match and the job fails.
+          aab_cert_block=$(keytool -printcert -jarfile "$aab")
+          echo "--- AAB signer cert ---"
+          echo "$aab_cert_block"
+          ks_cert_block=$(keytool -list -v -keystore android/upload-keystore.jks \
+            -storepass "$KEYSTORE_PASSWORD" -alias upload)
+          echo "--- Upload keystore cert ---"
+          echo "$ks_cert_block"
+          aab_fp=$(printf '%s\n' "$aab_cert_block" \
+            | awk -F'SHA256:[[:space:]]*' '/SHA256:/ { print $2; exit }')
+          ks_fp=$(printf '%s\n' "$ks_cert_block" \
+            | awk -F'SHA256:[[:space:]]*' '/SHA256:/ { print $2; exit }')
+          if [ -z "$aab_fp" ] || [ -z "$ks_fp" ]; then
+            echo "::error::Could not extract SHA-256 fingerprint from one of the certs"
+            exit 1
+          fi
+          if [ "$aab_fp" != "$ks_fp" ]; then
+            echo "::error::AAB signer SHA-256 ($aab_fp) does not match upload keystore ($ks_fp)"
+            exit 1
+          fi
+          echo "AAB is release-signed with the upload keystore (SHA-256: $aab_fp)."
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
