@@ -728,6 +728,41 @@ class ReleaseNotesScreen extends StatelessWidget {
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
+        version: 'v1.0.3',
+        date: '21 Mayıs 2026',
+        items: [
+          'Banner reklamlar artık gerçek AdMob hesabıyla servis ediliyor: '
+              'release build\'lerde test reklamı yerine production banner '
+              'unit\'i (`ca-app-pub-7857385959432819`) yükleniyor. Debug '
+              'build\'ler hesabı koruma adına yine Google resmi test id\'sine '
+              'düşüyor — gerçek impression sayılmıyor.',
+          'UMP (User Messaging Platform) consent akışı eklendi: AB / GDPR '
+              'bölgesinden açılan kullanıcılar MobileAds başlamadan önce '
+              'kişiselleştirilmiş reklam onayı için form görüyor, "kabul / '
+              'reddet" seçimi cihaza yazılıyor. Form gerekmiyorsa (Türkiye '
+              'gibi non-EEA bölgeler) akış sessizce geçiliyor. Pro '
+              'kullanıcılar zaten reklam görmediği için form yine atlanıyor.',
+          'Paywall ekranı baştan kurgulandı: 5 maddelik yeni Pro avantaj '
+              'listesi (sepet AI önerisi, geçmiş fiyat grafikleri, sınırsız '
+              'akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim), '
+              'aylık/yıllık radio yerine üst kısımda segment toggle, yıllık '
+              'planda "%50 tasarruf" rozeti, hero kartın tepesinde "7 gün '
+              'ücretsiz dene" pill\'i. CTA metni yıllıkta "7 gün ücretsiz '
+              'başla", aylıkta "Pro\'ya geç" olarak otomatik değişiyor.',
+          'Play Store yayın hattı kuruldu: imzalı release AAB artık GitHub '
+              'Actions üzerinden üretiliyor, build sonunda signer '
+              'sertifikasının SHA-256 fingerprint\'i upload keystore ile '
+              'karşılaştırılıyor — yapı sessizce debug imzasına düşerse iş '
+              'fail oluyor. (Önceki sürümde release AAB\'nin debug '
+              'sertifikasıyla imzalanma riski vardı, kapandı.)',
+          'İç temizlik: `AppState` ile `google_mobile_ads` arasındaki tip '
+              'çakışması (import collision) çözüldü, AndroidManifest\'teki '
+              'XML yorum parse hatası giderildi — kullanıcıya yansıyan '
+              'davranış değişikliği yok, sadece release build\'in temiz '
+              'derlenmesi için.',
+        ],
+      ),
+      (
         version: 'v1.0.2',
         date: '14 Mayıs 2026',
         items: [
