@@ -71,7 +71,16 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: upload
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: flutter build appbundle --release --build-number=${{ github.run_number }}
+        # Play Store already accepted versionCodes up to 5 on the internal track.
+        # github.run_number alone collided with that range, so we offset by 100
+        # to guarantee every future CI build is strictly above any previously
+        # uploaded versionCode. Bump VERSION_CODE_OFFSET again if Play ever
+        # catches up.
+        run: |
+          VERSION_CODE_OFFSET=100
+          BUILD_NUMBER=$((VERSION_CODE_OFFSET + ${{ github.run_number }}))
+          echo "Using versionCode=$BUILD_NUMBER (offset=$VERSION_CODE_OFFSET, run=${{ github.run_number }})"
+          flutter build appbundle --release --build-number="$BUILD_NUMBER"
 
       - name: Verify AAB is release-signed (not debug)
         env:
