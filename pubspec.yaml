@@ -2,9 +2,11 @@ name: fiyatradar
 description: FiyatRadar - Fiyat karşılaştırma ve takip uygulaması
 publish_to: 'none'
 # Beta-1 sürümü: ilk Play Store internal track yüklemesi için.
-# Gelecek release'ler için patch artışı versionCode'u +1, versionName'i
-# hedeflenen kullanıcıya göre bump edin (örn. 1.0.1+2).
-version: 1.0.1+4
+# CI versionCode'u `release-build.yml` içinde
+# `VERSION_CODE_OFFSET (=100) + github.run_number` ile override eder; bu
+# satırdaki +N yalnızca local build'ler için fallback'tir. Play'e versionCode
+# 5'e kadar yüklendiğinden local fallback 101'den başlatıldı.
+version: 1.0.1+101
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

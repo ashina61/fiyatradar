@@ -76,18 +76,30 @@ döndürmek (Play App Signing key rotation) gerekecek.
 `pubspec.yaml` içinde:
 
 ```yaml
-version: 1.0.1+3
+version: 1.0.1+101
 ```
 
 - Soldaki `1.0.1` → Play Console'da görünen **versionName**.
-- `+` sonrası `3` → **versionCode**. Play Store her yüklemede *önceki
+- `+` sonrası `101` → **versionCode**. Play Store her yüklemede *önceki
   versionCode'dan büyük* bir değer ister.
 
-Her release çıkmadan önce versionCode'u manuel +1 artırın
-(`1.0.1+3` → `1.0.1+4`). Patch/minor/major bump yapıyorsanız versionName
-de güncellenmeli (`1.0.1` → `1.0.2`). İleride bunu CI'da otomatize
-edebiliriz (örn. `${{ github.run_number }}` ile versionCode override
-edip workflow input olarak versionName almak).
+CI (`release-build.yml`) versionCode'u
+`VERSION_CODE_OFFSET (=100) + github.run_number` formülüyle override eder
+(`--build-number=...`). Yani her workflow run'ı kendiliğinden monoton
+artan bir versionCode üretir; pubspec'teki `+N` yalnızca local
+`flutter build appbundle` için fallback'tir.
+
+Play Console hâlâ "X sürüm kodu daha önce kullanıldı" hatası verirse:
+
+1. `release-build.yml` içindeki `VERSION_CODE_OFFSET` değerini Play'de
+   en yüksek görülen versionCode'un üstüne (örn. 200, 500) çıkarın.
+2. Aynı değeri `pubspec.yaml`'daki `version: 1.0.1+<offset+1>`'e yansıtın
+   (local build'lerde de Play'i geçmek için).
+3. Commit'leyip main'e push edin; sonraki workflow run'ı yeni
+   versionCode'la AAB üretir.
+
+Patch/minor/major bump yapıyorsanız `versionName`'i (sol taraf) de
+güncellemeyi unutmayın (`1.0.1` → `1.0.2`).
 
 ## 4. Sorun giderme
 
