@@ -21,4 +21,14 @@ class AdHelper {
       defaultValue: 'ca-app-pub-7857385959432819/3388882563',
     );
   }
+
+  static String get interstitialAdUnitId {
+    if (kDebugMode) {
+      return 'ca-app-pub-3940256099942544/1033173712'; // Google resmi interstitial test ID
+    }
+    return const String.fromEnvironment(
+      'ADMOB_INTERSTITIAL_ANDROID',
+      defaultValue: 'ca-app-pub-7857385959432819/7954051796',
+    );
+  }
 }
