@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -12,11 +11,10 @@ import '../core/ads/ad_helper.dart';
 ///   • Pro kullanıcı asla reklam görmez — gating widget seviyesinde
 ///     (`FRAdSlot.isPremium`, `FRInlineBannerAd.isPremium`). Service yine
 ///     de Pro durumdan habersiz; çağrı noktası check ediyor.
-///   • Banner ad unit id `AdHelper.bannerAdUnitId` üzerinden çözülüyor:
-///     debug → resmi test id, release → `--dart-define=ADMOB_BANNER_ANDROID`
+///   • Banner ve interstitial ad unit id'leri tek noktadan `AdHelper`
+///     üzerinden çözülüyor: debug → Google resmi test id, release →
+///     `--dart-define=ADMOB_BANNER_ANDROID` / `ADMOB_INTERSTITIAL_ANDROID`
 ///     ile override + production fallback.
-///   • Interstitial henüz production'a açılmadı — debug/release fark
-///     etmeksizin Google test id'siyle yükleniyor.
 ///   • Init sırası `main.dart`'ta: Firebase → ConsentManager (UMP) →
 ///     MobileAds.initialize → runApp. Bu service `init()` tekrar
 ///     `MobileAds.initialize()` çağrısı yapsa da SDK idempotent.
@@ -27,22 +25,9 @@ class AdsService {
   bool _initialized = false;
   bool get initialized => _initialized;
 
-  // ─── Ad unit id tablosu ──────────────────────────────────────────────
-  // Banner id'leri tek noktadan AdHelper çözüyor (debug → test, release →
-  // --dart-define override + production fallback). Interstitial henüz
-  // production'a açılmadığı için lokal test id'leriyle çalışıyor.
-  // https://developers.google.com/admob/android/test-ads
-  static const String _testAndroidInterstitial =
-      'ca-app-pub-3940256099942544/1033173712';
-  static const String _testIosInterstitial =
-      'ca-app-pub-3940256099942544/4411468910';
-
   String get bannerAdUnitId => AdHelper.bannerAdUnitId;
 
-  String get interstitialAdUnitId {
-    if (Platform.isIOS) return _testIosInterstitial;
-    return _testAndroidInterstitial;
-  }
+  String get interstitialAdUnitId => AdHelper.interstitialAdUnitId;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -52,7 +37,8 @@ class AdsService {
       if (kDebugMode) {
         debugPrint(
           'AdsService: MobileAds initialized '
-          '(banner=${AdHelper.bannerAdUnitId}).',
+          '(banner=${AdHelper.bannerAdUnitId}, '
+          'interstitial=${AdHelper.interstitialAdUnitId}).',
         );
       }
       unawaited(preloadInterstitial());
