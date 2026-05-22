@@ -647,9 +647,9 @@ class _ComparePanelState extends State<_ComparePanel> {
                   isWinner: i == 0,
                 ),
               ),
-            // Sepet AI önerisi — Pro özelliği. Pro değilse upsell kartı
+            // Akıllı sepet önerisi — Pro özelliği. Pro değilse upsell kartı
             // gösteriyoruz ki kullanıcı sebebini görsün; aksi halde
-            // kullanıcı "AI önerim niye yok?" diye düşünür.
+            // kullanıcı "öneri niye yok?" diye düşünür.
             if (smart != null) ...[
               const SizedBox(height: 6),
               if (state.premium.isActive)
@@ -1363,7 +1363,7 @@ class _CompareMixedLockedCard extends StatelessWidget {
   }
 }
 
-/// Pro'ya yükseltme CTA'sı — sepet AI gibi Pro feature'larında non-Pro
+/// Pro'ya yükseltme CTA'sı — akıllı sepet gibi Pro feature'larında non-Pro
 /// kullanıcılara gösterilir. Tap → Paywall.
 class _ProUpsellBanner extends StatelessWidget {
   const _ProUpsellBanner({required this.title, required this.body});

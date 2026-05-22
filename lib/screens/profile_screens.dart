@@ -743,7 +743,7 @@ class ReleaseNotesScreen extends StatelessWidget {
               'gibi non-EEA bölgeler) akış sessizce geçiliyor. Pro '
               'kullanıcılar zaten reklam görmediği için form yine atlanıyor.',
           'Paywall ekranı baştan kurgulandı: 5 maddelik yeni Pro avantaj '
-              'listesi (sepet AI önerisi, geçmiş fiyat grafikleri, sınırsız '
+              'listesi (akıllı sepet önerisi, geçmiş fiyat grafikleri, sınırsız '
               'akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim), '
               'aylık/yıllık radio yerine üst kısımda segment toggle, yıllık '
               'planda "%50 tasarruf" rozeti, hero kartın tepesinde "7 gün '
