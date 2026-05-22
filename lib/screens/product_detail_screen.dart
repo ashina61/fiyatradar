@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
+import 'paywall_screen.dart';
 import 'widgets/product_comments_section.dart';
 import 'widgets/product_visual.dart';
 
@@ -212,6 +213,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Alarm ayarlandı: ₺${res.toStringAsFixed(2)}')),
+        );
+      } on AlertLimitExceededException catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            action: SnackBarAction(
+              label: 'Pro\'ya geç',
+              textColor: FR.gold,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              ),
+            ),
+          ),
         );
       } on StateError catch (e) {
         if (!context.mounted) return;

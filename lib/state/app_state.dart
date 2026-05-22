@@ -88,6 +88,19 @@ enum _ContribKind { report, verify }
 /// `false`'a çekilecek.
 const bool kEnableLegacyPriceHistoryMirror = true;
 
+/// Free planın aktif fiyat alarmı sayısı limitine takıldığında atılır.
+/// UI bunu yakalayıp paywall'a yönlendirici bir SnackBar gösterir;
+/// `Exception` yerine `Implements Exception` interface ile teşhis edilir.
+class AlertLimitExceededException implements Exception {
+  const AlertLimitExceededException(this.limit);
+  final int limit;
+
+  @override
+  String toString() =>
+      'Free hesabınla maksimum $limit alarm kurabilirsin. '
+      'Sınırsız alarm için Pro\'ya geç.';
+}
+
 /// Result of a community verification vote.
 class VoteResult {
   final PriceStatus newStatus;
@@ -2903,6 +2916,11 @@ class AppState extends ChangeNotifier {
 
   ProductAlert? alertForProduct(String productId) => productAlerts[productId];
 
+  /// Free planın tek seferde tutabileceği maksimum aktif alarm sayısı.
+  /// Pro limitsizdir. Mevcut Free kullanıcıların >3 alarmı varsa grandfather:
+  /// listede kalır, yenisi eklenemez (silebilirler).
+  static const int kFreeProductAlertLimit = 3;
+
   Future<void> setProductAlert({
     required String productId,
     required double targetPrice,
@@ -2912,6 +2930,12 @@ class AppState extends ChangeNotifier {
     // bunu açamasın (rules de aynı kısıtı uyguluyor).
     _ensureEmailVerified('Fiyat alarmı oluşturmak');
     final existing = productAlerts[productId];
+    // Free planın 3 alarm cap'i. Mevcut bir alarmı güncelliyorsa
+    // engellemiyoruz, sadece yeni alarmları kısıtlıyoruz.
+    if (existing == null && !premium.isActive &&
+        productAlerts.length >= kFreeProductAlertLimit) {
+      throw const AlertLimitExceededException(kFreeProductAlertLimit);
+    }
     await _svc.userProductAlerts(user!.uid).doc(productId).set({
       // `productId` alanını da yazıyoruz: Cloud Function (`onProductPriceDrop`)
       // collectionGroup('productAlerts').where('productId', '==', id) ile

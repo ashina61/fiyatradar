@@ -470,6 +470,90 @@ exports.verifyPurchase = onDocumentCreated(
 );
 
 /**
+ * Free hesabın aktif alarm limiti (Pro launch product split).
+ *
+ * Client `AppState.setProductAlert` zaten istemci tarafında bu cap'i
+ * uygular ama firestore rules `productAlerts` koleksiyonu için sayım
+ * tabanlı bir kısıt yazmıyor (her doc bağımsız değerlendiriliyor).
+ * Bu trigger backstop: yeni bir alarm dokümanı yaratıldığında kullanıcının
+ * `users/{uid}.isPremium` flag'ine bakar, Pro değilse ve aktif alarm
+ * sayısı sınırı aşıyorsa yeni eklenen doc'u siler. UI tarafı eklemeyi
+ * onaylamış görünebilir; bu yüzden ek olarak per-user notification
+ * koleksiyonuna kısa bir uyarı bırakıyoruz.
+ */
+const kFreeProductAlertLimit = 3;
+
+exports.enforceFreeAlertLimit = onDocumentCreated(
+  'users/{uid}/productAlerts/{productId}',
+  async (event) => {
+    const uid = event.params.uid;
+    const productId = event.params.productId;
+    if (!uid) return;
+    let isPremium = false;
+    try {
+      const snap = await db.collection('users').doc(uid).get();
+      const m = snap.data() || {};
+      const premiumUntilRaw = m.premiumUntil;
+      const premiumUntil = premiumUntilRaw && premiumUntilRaw.toDate
+        ? premiumUntilRaw.toDate()
+        : (premiumUntilRaw ? new Date(premiumUntilRaw) : null);
+      isPremium = m.isPremium === true &&
+        (!premiumUntil || premiumUntil > new Date());
+    } catch (e) {
+      logger.warn('enforceFreeAlertLimit user lookup failed', {
+        uid,
+        error: e.message,
+      });
+      return;
+    }
+    if (isPremium) return;
+
+    let activeCount = 0;
+    try {
+      const alertsSnap = await db
+        .collection('users')
+        .doc(uid)
+        .collection('productAlerts')
+        .get();
+      activeCount = alertsSnap.size;
+    } catch (e) {
+      logger.warn('enforceFreeAlertLimit count failed', {
+        uid,
+        error: e.message,
+      });
+      return;
+    }
+
+    if (activeCount <= kFreeProductAlertLimit) return;
+
+    try {
+      await event.data.ref.delete();
+      logger.info('Free alert limit enforced, deleted newest alert', {
+        uid,
+        productId,
+        activeCount,
+      });
+      await db
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .add({
+          type: 'alert_limit_reached',
+          title: 'Alarm limiti aşıldı',
+          body: `Free hesabınla en fazla ${kFreeProductAlertLimit} alarm kurabilirsin. Sınırsız alarm için Pro'ya geç.`,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    } catch (e) {
+      logger.error('enforceFreeAlertLimit delete failed', {
+        uid,
+        productId,
+        error: e.message,
+      });
+    }
+  },
+);
+
+/**
  * Haftalık özet bildirimi.
  *
  * Her Pazartesi 09:00 Europe/Istanbul'da çalışır. Aktif kullanıcılara
