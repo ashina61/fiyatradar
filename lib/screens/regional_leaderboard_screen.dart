@@ -300,12 +300,24 @@ class _BoardRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                isMe ? 'Sen · ${score.userDisplayName}' : score.userDisplayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: frText(13, FontWeight.w800,
-                    color: isMe ? FR.gold : FR.ink),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      isMe
+                          ? 'Sen · ${score.userDisplayName}'
+                          : score.userDisplayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: frText(13, FontWeight.w800,
+                          color: isMe ? FR.gold : FR.ink),
+                    ),
+                  ),
+                  if (score.isPro) ...[
+                    const SizedBox(width: 6),
+                    const FRProBadge(compact: true),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
               Text(

@@ -694,10 +694,12 @@ service cloud.firestore {
         'sourceType', 'locationSource',
         'distanceToBranchMeters', 'gpsAccuracyMeters',
         'location', 'photoUrl', 'note', 'barcode',
-        'userId', 'userDisplayName',
+        'userId', 'userDisplayName', 'reporterIsPro',
         'createdAt', 'updatedAt',
         'localDateKey', 'status', 'reviewReason', 'dedupeKey', 'groupId'
       ]) &&
+      (!('reporterIsPro' in request.resource.data) ||
+        request.resource.data.reporterIsPro is bool) &&
       request.resource.data.productId is string &&
       request.resource.data.chainId is string &&
       request.resource.data.cityId is string &&

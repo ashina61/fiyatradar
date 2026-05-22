@@ -89,6 +89,7 @@ class PriceReportService {
     String? photoUrl,
     String? barcode,
     bool requiresReview = false,
+    bool reporterIsPro = false,
     Future<void Function(Transaction tx, String reportId)> Function(Transaction tx)?
         prepareLegacyMirror,
   }) async {
@@ -179,6 +180,7 @@ class PriceReportService {
         'barcode': barcode,
         'userId': userId,
         'userDisplayName': userDisplayName,
+        'reporterIsPro': reporterIsPro,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'localDateKey': dateKey,

@@ -1503,6 +1503,7 @@ class AppState extends ChangeNotifier {
       photoUrl: proofImageUrl,
       barcode: barcode,
       requiresReview: requiresPhotoReview,
+      reporterIsPro: reporterIsPro,
       // Legacy mirror writes — `kEnableLegacyPriceHistoryMirror` flag'i
       // `false` olduğunda atlanır. Yeni omurga (priceReports +
       // priceGroups) zaten tüm UX yollarına bağlı; mirror sadece eski
@@ -1814,6 +1815,7 @@ class AppState extends ChangeNotifier {
       final created = ts is Timestamp ? ts.toDate() : null;
       final hasPhoto =
           (m['photoUrl'] as String?)?.trim().isNotEmpty == true;
+      final reporterIsPro = (m['reporterIsPro'] as bool?) == true;
       final existing = byUser[uid];
       byUser[uid] = RegionalContributorScore(
         userId: uid,
@@ -1830,6 +1832,10 @@ class AppState extends ChangeNotifier {
               ? created
               : existing.lastReportedAt;
         }(),
+        // Pro rozeti sticky: kullanıcının pencere içindeki raporlarından
+        // herhangi biri Pro aktifken yazıldıysa Pro say. Tek bir non-Pro
+        // raporun rozeti düşürmemesi için ||= mantığı.
+        isPro: (existing?.isPro ?? false) || reporterIsPro,
       );
     }
     final list = byUser.values.toList()
