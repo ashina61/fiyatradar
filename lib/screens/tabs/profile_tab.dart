@@ -918,7 +918,7 @@ class _PremiumCta extends StatelessWidget {
                       ? (remaining == null
                           ? 'Aktif abonelik'
                           : 'Yenilemeye ${remaining.inDays} gün')
-                      : 'Bayat-fiyat alarmı, leaderboard top-100, reklamsız',
+                      : 'Akıllı sepet, 12 ay grafik, sınırsız alarm, reklamsız',
                   style: frText(11, FontWeight.w700,
                       color: active ? FR.ink3 : FR.onGold.withOpacity(.85)),
                 ),
