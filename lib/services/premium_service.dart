@@ -21,7 +21,10 @@ import 'firebase_service.dart';
 /// İstemci ASLA `users/{uid}.isPremium`'u kendisi yazmaz — Firestore rules
 /// `immutable('isPremium')` ile bunu zorlar (firestore.rules:147+). Tek
 /// otorite Cloud Function (admin SDK).
-class PremiumService {
+///
+/// `ChangeNotifier` — paywall ekranı ürün yükleme durumu değiştikçe
+/// (loading → loaded / error) reactive olarak rebuild eder.
+class PremiumService extends ChangeNotifier {
   PremiumService._();
   static final PremiumService instance = PremiumService._();
 
@@ -47,31 +50,63 @@ class PremiumService {
   bool _available = false;
   bool get available => _available;
 
+  /// Ürün listesi şu an Play Billing'ten yükleniyor mu.
+  bool _loadingProducts = false;
+  bool get loadingProducts => _loadingProducts;
+
+  /// Sonuncu ürün yükleme denemesi tamamlandı mı (başarılı veya başarısız).
+  /// `false` → daha hiç denenmedi (init henüz çağrılmadı / çalışıyor).
+  bool _productsQueried = false;
+  bool get productsQueried => _productsQueried;
+
+  /// Ürün yükleme hatası (kullanıcıya gösterilebilir Türkçe mesaj). `null`
+  /// → hata yok. Mağaza mevcut değilse de bu set edilir.
+  String? _productsError;
+  String? get productsError => _productsError;
+
+  /// Aylık plan için Play Console'dan dönen ProductDetails, varsa.
+  ProductDetails? get monthlyProduct {
+    for (final p in _availableProducts) {
+      if (p.id == monthlySku) return p;
+    }
+    return null;
+  }
+
+  /// Yıllık plan için Play Console'dan dönen ProductDetails, varsa.
+  ProductDetails? get yearlyProduct {
+    for (final p in _availableProducts) {
+      if (p.id == yearlySku) return p;
+    }
+    return null;
+  }
+
+  /// Satın alınabilir en az bir SKU var mı (CTA enable/disable için).
+  bool get hasPurchasableProducts =>
+      _available && _availableProducts.isNotEmpty;
+
   /// IAP altyapısını ayağa kaldır + ürün listesini çek + purchase stream'i
   /// dinle. Idempotent — birden fazla `init()` çağrısı no-op.
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
+    _loadingProducts = true;
+    notifyListeners();
     try {
       _available = await _iap.isAvailable();
     } catch (e) {
       debugPrint('PremiumService.isAvailable failed: $e');
       _available = false;
     }
-    if (!_available) return;
-
-    try {
-      final resp = await _iap.queryProductDetails(kProductIds);
-      _availableProducts = resp.productDetails;
-      if (resp.error != null) {
-        debugPrint('PremiumService queryProductDetails error: ${resp.error}');
-      }
-      if (resp.notFoundIDs.isNotEmpty) {
-        debugPrint('Premium SKU bulunamadı: ${resp.notFoundIDs}');
-      }
-    } catch (e) {
-      debugPrint('PremiumService.queryProductDetails failed: $e');
+    if (!_available) {
+      _loadingProducts = false;
+      _productsQueried = true;
+      _productsError =
+          'Mağaza bağlantısı kullanılamıyor. Play Store hesabını kontrol et.';
+      notifyListeners();
+      return;
     }
+
+    await _queryProducts();
 
     _purchaseSub = _iap.purchaseStream.listen(
       _handlePurchaseUpdates,
@@ -79,6 +114,60 @@ class PremiumService {
       onError: (Object e) =>
           debugPrint('PremiumService purchaseStream error: $e'),
     );
+  }
+
+  /// Ürün listesini yeniden Play Billing'ten çeker. Paywall ekranındaki
+  /// "Tekrar dene" butonu bunu çağırır.
+  Future<void> reloadProducts() async {
+    if (!_initialized) {
+      await init();
+      return;
+    }
+    if (_loadingProducts) return;
+    try {
+      _available = await _iap.isAvailable();
+    } catch (e) {
+      debugPrint('PremiumService.isAvailable failed: $e');
+      _available = false;
+    }
+    if (!_available) {
+      _productsQueried = true;
+      _productsError =
+          'Mağaza bağlantısı kullanılamıyor. Play Store hesabını kontrol et.';
+      notifyListeners();
+      return;
+    }
+    await _queryProducts();
+  }
+
+  Future<void> _queryProducts() async {
+    _loadingProducts = true;
+    _productsError = null;
+    notifyListeners();
+    try {
+      final resp = await _iap.queryProductDetails(kProductIds);
+      _availableProducts = resp.productDetails;
+      if (resp.error != null) {
+        debugPrint('PremiumService queryProductDetails error: ${resp.error}');
+        _productsError =
+            'Ürünler yüklenemedi: ${resp.error!.message}. İnternet bağlantını kontrol et.';
+      } else if (resp.notFoundIDs.isNotEmpty &&
+          _availableProducts.isEmpty) {
+        debugPrint('Premium SKU bulunamadı: ${resp.notFoundIDs}');
+        _productsError =
+            'Abonelik ürünleri Play Store\'da henüz yayında değil. Birkaç dakika sonra tekrar dene.';
+      } else if (resp.notFoundIDs.isNotEmpty) {
+        debugPrint('Premium SKU kısmen bulunamadı: ${resp.notFoundIDs}');
+      }
+    } catch (e) {
+      debugPrint('PremiumService.queryProductDetails failed: $e');
+      _productsError =
+          'Ürünler yüklenemedi, internet bağlantını kontrol et.';
+    } finally {
+      _loadingProducts = false;
+      _productsQueried = true;
+      notifyListeners();
+    }
   }
 
   /// Aylık veya yıllık satın alma başlat. Auto-renewing subscription olarak
@@ -166,10 +255,12 @@ class PremiumService {
     }
   }
 
+  @override
   Future<void> dispose() async {
     await _purchaseSub?.cancel();
     _purchaseSub = null;
     _initialized = false;
+    super.dispose();
   }
 }
 
