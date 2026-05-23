@@ -728,6 +728,41 @@ class ReleaseNotesScreen extends StatelessWidget {
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
+        version: 'v1.0.4',
+        date: '23 Mayıs 2026',
+        items: [
+          'Pro satın alımları artık sunucu tarafında doğrulanıyor: yeni '
+              '`verifyPurchase` Cloud Function, Google Play Developer API '
+              '(`subscriptionsv2.get`) üzerinden satın alma token\'ının '
+              'gerçekten aktif olduğunu kontrol edip Pro statüsünü '
+              'düşürüyor. İptal edilen / iade edilen abonelikler artık '
+              'cihazda zorla "Pro" kalmıyor — kullanıcı için davranış '
+              'aynı, dolandırılma riski kalmadı.',
+          'Free planda fiyat geçmişi 7 gün, Pro\'da 12 ay: ürün detay '
+              'sayfasındaki grafik artık plan'
+              'ına göre pencereleniyor. Free kullanıcı grafik altında '
+              '"12 aylık grafik ve trend için Pro" upsell pill\'i '
+              'görüyor, tek dokunuşla paywall\'a gidiyor.',
+          'Free planda aktif akıllı alarm tavanı 3 ile sınırlandı: '
+              'yeni `enforceFreeAlertLimit` Firestore trigger\'ı 4. ve '
+              'sonraki alarmı sunucu tarafında pasifleştirip nedeni '
+              '"Free planda en fazla 3 aktif alarm" olarak doc\'a '
+              'yazıyor. Pro\'da limit yok. Daha önce client tarafında '
+              'açık olan tüm alarmlar Pro değilse ilk 3\'ün dışındakiler '
+              'sessizce pasife düşer.',
+          'Bölgesel fiyat lider tablosunda yazarın Pro rozeti satır '
+              'üstünde görünüyor — kim aktif Pro üye, listeyi açtığında '
+              'bir bakışta belli oluyor.',
+          'Sepet sekmesinde Pro pitch sadeleşti: "Sepet AI" adı tüm '
+              'ekranlarda "Akıllı sepet" olarak yenilendi, Pro değilse '
+              'karışık market dağılımı (Mixed) kartı paywall arkasına '
+              'alındı — sayısal sonuçlar (kaç market, ne kadar tasarruf) '
+              'leak etmiyor, sadece "ne kazanırsın" hissi gösteriliyor. '
+              'Profil kartındaki Pro upsell tagline\'ı da yeni '
+              'avantajlarla güncellendi.',
+        ],
+      ),
+      (
         version: 'v1.0.3',
         date: '21 Mayıs 2026',
         items: [

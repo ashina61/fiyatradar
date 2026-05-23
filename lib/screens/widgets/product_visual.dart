@@ -5,7 +5,6 @@ import '../../features/admin/illustration_picker/illustration_manifest_service.d
 import '../../features/admin/models/illustration_asset.dart';
 import '../../models/product.dart';
 import '../../ui/components.dart';
-import '../../ui/tokens.dart';
 
 /// Resolves the right visual for a product in a single place:
 ///   1. `product.imageUrl` (Storage / OpenFoodFacts CDN) if present

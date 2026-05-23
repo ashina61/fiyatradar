@@ -212,7 +212,7 @@ class _IllustrationPickerScreenState extends State<IllustrationPickerScreen> {
             ],
           ),
         ),
-        Padding(
+        const Padding(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
           child: FRPageHeader(
             overline: 'KÜTÜPHANE',

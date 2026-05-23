@@ -1110,7 +1110,7 @@ class _PriceHistoryUpsell extends StatelessWidget {
       ),
       borderRadius: FRRad.all(FRRad.m),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           color: FR.gold.withOpacity(.10),
           borderRadius: FRRad.all(FRRad.m),

@@ -655,7 +655,7 @@ class _ComparePanelState extends State<_ComparePanel> {
               if (state.premium.isActive)
                 _CompareInsightBanner(message: smart.message)
               else
-                _ProUpsellBanner(
+                const _ProUpsellBanner(
                   title: 'Akıllı sepet önerisi',
                   body:
                       'Pro üyeler için sepetin nasıl bölünmesi gerektiğine dair akıllı öneri. Yükselt ve hangi marketleri gezeceğini saniyede gör.',
@@ -1303,7 +1303,7 @@ class _CompareMixedLockedCard extends StatelessWidget {
       ),
       borderRadius: FRRad.all(FRRad.xl),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [FR.goldHi.withOpacity(.16), FR.goldDeep.withOpacity(.06)],

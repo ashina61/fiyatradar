@@ -422,7 +422,7 @@ class _UserEditSheetState extends State<_UserEditSheet> {
     text: (widget.initialData['banReason'] ?? '').toString(),
   );
 
-  late Map<String, dynamic> _data = Map<String, dynamic>.from(widget.initialData);
+  late final Map<String, dynamic> _data = Map<String, dynamic>.from(widget.initialData);
   bool _saving = false;
   bool _roleSaving = false;
   bool _banSaving = false;
