@@ -599,6 +599,7 @@ class _AdminStoreManagementScreenState
                 'Zinciri silersen bu şubeler orphan kalır (üzerlerinde "Sil" '
                 'aksiyonunu kullanman gerekir). Devam etmek istiyor musun?';
 
+    if (!mounted) return;
     final ok = await showAdminConfirmDeleteDialog(
       context,
       title: 'Zinciri sil',

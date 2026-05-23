@@ -5,7 +5,9 @@ const {
   onDocumentWritten,
 } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions');
+const { google } = require('googleapis');
 
 admin.initializeApp();
 
@@ -385,20 +387,64 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
  * FiyatRadar Pro satın alma doğrulayıcı.
  *
  * `purchaseQueue/{uid_productId_purchaseId}` doc create edildiğinde devreye
- * girer. Üretimde Google Play Developer API
- * (`androidpublisher.purchases.subscriptionsv2.get`) ile token doğrulanır
- * ve subscription metadata (`expiryTimeMillis`, `autoRenewing`) okunur.
- * Bu iskelet **stub** — gerçek Play Developer client setup'ı için service
- * account key Cloud Functions config'ine eklenmesi gerek
- * (`firebase functions:config:set play.serviceaccount=...`).
+ * girer. Google Play Developer API
+ * (`androidpublisher.purchases.subscriptionsv2.get`) ile purchase token
+ * doğrulanır ve subscription metadata'sı (lineItems[0].expiryTime,
+ * subscriptionState) okunur. Doğrulama başarısızsa `users/{uid}.isPremium`
+ * KESİNLİKLE true'ya çekilmez — purchaseQueue dokümanına verifyFailed
+ * işaretlenir ki UI tarafı durumu görsün.
  *
- * Stub davranışı: gelen verificationData boş değilse purchase'ı
- * "geçerli" kabul eder ve subscription productId'ye göre 30 / 365 gün
- * eklenir; üretimde Play API döndüğü gerçek expiry kullanılır.
+ * Auth: Firebase Functions default service account
+ * (`...@appspot.gserviceaccount.com`) bu projeyle birlikte hazır gelir;
+ * `androidpublisher` scope'unu kapsaması için Google Play Console →
+ * API Access → Service accounts tarafında bu hesaba "Finance" rolü
+ * verilmesi yeterli (release manager düzeyinde değil, sadece read).
+ *
+ * Test/staging: ortamda `FR_PLAY_PACKAGE_NAME` env override edilebilir.
+ * Default `com.fiyatradar` (android/app/build.gradle.kts applicationId).
  *
  * `users/{uid}` rules `immutable('isPremium')` koyduğu için bu function
  * admin SDK kullanmak zorunda — istemci aynı write'ı yapamaz.
  */
+const FR_PLAY_PACKAGE_NAME =
+  process.env.FR_PLAY_PACKAGE_NAME || 'com.fiyatradar';
+const FR_KNOWN_SUB_PRODUCT_IDS = new Set([
+  'fr_pro_monthly',
+  'fr_pro_yearly',
+]);
+
+let _androidpublisherClient = null;
+async function getAndroidPublisherClient() {
+  if (_androidpublisherClient) return _androidpublisherClient;
+  const auth = new google.auth.GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+  });
+  _androidpublisherClient = google.androidpublisher({
+    version: 'v3',
+    auth,
+  });
+  return _androidpublisherClient;
+}
+
+function parsePlayExpiryTime(rawIso) {
+  if (!rawIso) return null;
+  const ms = Date.parse(rawIso);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms);
+}
+
+// Play subscriptionsv2 SubscriptionState'leri: ACTIVE & IN_GRACE_PERIOD
+// erişimi açık tutar. CANCELED henüz bitmediği için de pratikte expiry
+// kontrolü yapacağız — kullanıcı süresini doldurana kadar premium kalır.
+// ON_HOLD, PAUSED, EXPIRED → premium kapalı.
+const PLAY_ACTIVE_STATES = new Set([
+  'SUBSCRIPTION_STATE_ACTIVE',
+  'SUBSCRIPTION_STATE_IN_GRACE_PERIOD',
+]);
+const PLAY_GRACEFUL_END_STATES = new Set([
+  'SUBSCRIPTION_STATE_CANCELED',
+]);
+
 exports.verifyPurchase = onDocumentCreated(
   'purchaseQueue/{purchaseDoc}',
   async (event) => {
@@ -406,38 +452,124 @@ exports.verifyPurchase = onDocumentCreated(
     if (!data) return;
     if (data.consumed === true) return;
     const userId = (data.userId || '').toString();
-    if (!userId) return;
+    if (!userId) {
+      throw new HttpsError(
+        'invalid-argument',
+        'purchaseQueue doc missing userId',
+      );
+    }
     const productId = (data.productId || '').toString();
-    const verificationData = (data.verificationData || '').toString();
-    if (!verificationData) {
+    const purchaseToken = (data.verificationData || '').toString();
+    if (!purchaseToken) {
       logger.warn('verifyPurchase: empty verificationData', {
         purchaseDoc: event.params.purchaseDoc,
+        userId,
       });
+      await event.data.ref.set(
+        {
+          verifyFailed: true,
+          verifyFailedReason: 'missing_verification_data',
+          verifyFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return;
+    }
+    if (!FR_KNOWN_SUB_PRODUCT_IDS.has(productId)) {
+      logger.warn('verifyPurchase: unknown productId', {
+        productId,
+        userId,
+      });
+      await event.data.ref.set(
+        {
+          verifyFailed: true,
+          verifyFailedReason: 'unknown_product_id',
+          verifyFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
       return;
     }
 
-    // TODO(prod): Play Developer API çağrısı — şu an stub.
-    // const auth = new google.auth.GoogleAuth({
-    //   scopes: ['https://www.googleapis.com/auth/androidpublisher'],
-    // });
-    // const sub = await androidpublisher.purchases.subscriptionsv2.get({
-    //   packageName: 'com.fiyatradar', token: verificationData,
-    // });
-    // const expiryMs = Number(sub.data.lineItems[0].expiryTime);
-    // const autoRenew = sub.data.lineItems[0].autoRenewingPlan != null;
-
-    // Stub: productId'ye göre süre.
-    const now = Date.now();
-    const days = productId === 'fr_pro_yearly'
-      ? 365
-      : productId === 'fr_pro_monthly'
-      ? 30
-      : 0;
-    if (days <= 0) {
-      logger.warn('verifyPurchase: unknown productId', { productId });
+    let subscription;
+    try {
+      const androidpublisher = await getAndroidPublisherClient();
+      const res = await androidpublisher.purchases.subscriptionsv2.get({
+        packageName: FR_PLAY_PACKAGE_NAME,
+        token: purchaseToken,
+      });
+      subscription = res.data;
+    } catch (e) {
+      logger.error('verifyPurchase: subscriptionsv2.get failed', {
+        userId,
+        productId,
+        purchaseDoc: event.params.purchaseDoc,
+        error: e.message,
+        code: e.code,
+      });
+      await event.data.ref.set(
+        {
+          verifyFailed: true,
+          verifyFailedReason: 'play_api_error',
+          verifyFailedDetail: (e.message || '').slice(0, 500),
+          verifyFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
       return;
     }
-    const expiry = new Date(now + days * 24 * 60 * 60 * 1000);
+
+    const state = subscription?.subscriptionState || '';
+    const lineItem =
+      Array.isArray(subscription?.lineItems) && subscription.lineItems.length > 0
+        ? subscription.lineItems[0]
+        : null;
+    const expiry = parsePlayExpiryTime(lineItem?.expiryTime);
+
+    if (!expiry) {
+      logger.warn('verifyPurchase: missing expiryTime', {
+        userId,
+        productId,
+        subscriptionState: state,
+      });
+      await event.data.ref.set(
+        {
+          verifyFailed: true,
+          verifyFailedReason: 'missing_expiry',
+          verifyFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return;
+    }
+
+    const now = new Date();
+    const isActive =
+      PLAY_ACTIVE_STATES.has(state) ||
+      (PLAY_GRACEFUL_END_STATES.has(state) && expiry > now);
+
+    if (!isActive) {
+      logger.info('verifyPurchase: subscription inactive', {
+        userId,
+        productId,
+        subscriptionState: state,
+        expiry: expiry.toISOString(),
+      });
+      // Kullanıcının daha önce premium olduğu durum (yenileme reddi vs.)
+      // weeklyPremiumExpiryCheck zaten süreyi kullanarak hesap düşürür;
+      // burada zorla `isPremium=false` yazmıyoruz, sadece queue'yu kapat.
+      await event.data.ref.set(
+        {
+          consumed: true,
+          verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          verifyFailed: true,
+          verifyFailedReason: 'inactive_state',
+          subscriptionState: state,
+        },
+        { merge: true },
+      );
+      return;
+    }
 
     try {
       await db.collection('users').doc(userId).set(
@@ -446,6 +578,7 @@ exports.verifyPurchase = onDocumentCreated(
           premiumUntil: admin.firestore.Timestamp.fromDate(expiry),
           premiumPlan: productId,
           premiumProductId: productId,
+          premiumSubscriptionState: state,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -454,17 +587,107 @@ exports.verifyPurchase = onDocumentCreated(
         {
           consumed: true,
           verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-          stub: true,
+          subscriptionState: state,
+          expiryTime: lineItem?.expiryTime || null,
         },
         { merge: true },
       );
-      logger.info('Premium aktivasyon (stub)', {
+      logger.info('Premium aktivasyon doğrulandı', {
         userId,
         productId,
+        subscriptionState: state,
         expiresAt: expiry.toISOString(),
       });
     } catch (e) {
-      logger.error('verifyPurchase write failed', { error: e.message });
+      logger.error('verifyPurchase write failed', {
+        userId,
+        productId,
+        error: e.message,
+      });
+    }
+  },
+);
+
+/**
+ * Free hesabın aktif alarm limiti (Pro launch product split).
+ *
+ * Client `AppState.setProductAlert` zaten istemci tarafında bu cap'i
+ * uygular ama firestore rules `productAlerts` koleksiyonu için sayım
+ * tabanlı bir kısıt yazmıyor (her doc bağımsız değerlendiriliyor).
+ * Bu trigger backstop: yeni bir alarm dokümanı yaratıldığında kullanıcının
+ * `users/{uid}.isPremium` flag'ine bakar, Pro değilse ve aktif alarm
+ * sayısı sınırı aşıyorsa yeni eklenen doc'u siler. UI tarafı eklemeyi
+ * onaylamış görünebilir; bu yüzden ek olarak per-user notification
+ * koleksiyonuna kısa bir uyarı bırakıyoruz.
+ */
+const kFreeProductAlertLimit = 3;
+
+exports.enforceFreeAlertLimit = onDocumentCreated(
+  'users/{uid}/productAlerts/{productId}',
+  async (event) => {
+    const uid = event.params.uid;
+    const productId = event.params.productId;
+    if (!uid) return;
+    let isPremium = false;
+    try {
+      const snap = await db.collection('users').doc(uid).get();
+      const m = snap.data() || {};
+      const premiumUntilRaw = m.premiumUntil;
+      const premiumUntil = premiumUntilRaw && premiumUntilRaw.toDate
+        ? premiumUntilRaw.toDate()
+        : (premiumUntilRaw ? new Date(premiumUntilRaw) : null);
+      isPremium = m.isPremium === true &&
+        (!premiumUntil || premiumUntil > new Date());
+    } catch (e) {
+      logger.warn('enforceFreeAlertLimit user lookup failed', {
+        uid,
+        error: e.message,
+      });
+      return;
+    }
+    if (isPremium) return;
+
+    let activeCount = 0;
+    try {
+      const alertsSnap = await db
+        .collection('users')
+        .doc(uid)
+        .collection('productAlerts')
+        .get();
+      activeCount = alertsSnap.size;
+    } catch (e) {
+      logger.warn('enforceFreeAlertLimit count failed', {
+        uid,
+        error: e.message,
+      });
+      return;
+    }
+
+    if (activeCount <= kFreeProductAlertLimit) return;
+
+    try {
+      await event.data.ref.delete();
+      logger.info('Free alert limit enforced, deleted newest alert', {
+        uid,
+        productId,
+        activeCount,
+      });
+      await db
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .add({
+          type: 'alert_limit_reached',
+          title: 'Alarm limiti aşıldı',
+          body: `Free hesabınla en fazla ${kFreeProductAlertLimit} alarm kurabilirsin. Sınırsız alarm için Pro'ya geç.`,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    } catch (e) {
+      logger.error('enforceFreeAlertLimit delete failed', {
+        uid,
+        productId,
+        error: e.message,
+      });
     }
   },
 );

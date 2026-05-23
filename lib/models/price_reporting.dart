@@ -186,6 +186,10 @@ class RegionalContributorScore {
   final int reportCount;
   final int photoCount;
   final DateTime? lastReportedAt;
+  // FiyatRadar Pro rozeti — kullanıcının raporlarından en az biri Pro
+  // aktifken yazıldıysa true. `priceReports.reporterIsPro`'dan
+  // ||= mantığıyla aggregate edilir (bkz. AppState._aggregateContributors).
+  final bool isPro;
 
   const RegionalContributorScore({
     required this.userId,
@@ -193,6 +197,7 @@ class RegionalContributorScore {
     required this.reportCount,
     required this.photoCount,
     required this.lastReportedAt,
+    this.isPro = false,
   });
 
   /// Sıralama skoru: rapor sayısı + fotoğraf bonusu (her foto +0.5).

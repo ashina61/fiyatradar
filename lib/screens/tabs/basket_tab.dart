@@ -609,14 +609,17 @@ class _ComparePanelState extends State<_ComparePanel> {
               onAddMissing: () => _routeToAddMissing(context, winner, state),
             ),
             const SizedBox(height: 16),
-            if (mixed != null && mixedSavingVsWinner > 0)
-              _CompareMixedCard(
-                mixed: mixed,
-                saving: mixedSavingVsWinner,
-                bestSingle: winner.chainName,
-              ),
-            if (mixed != null && mixedSavingVsWinner > 0)
+            if (mixed != null && mixedSavingVsWinner > 0) ...[
+              if (state.premium.isActive)
+                _CompareMixedCard(
+                  mixed: mixed,
+                  saving: mixedSavingVsWinner,
+                  bestSingle: winner.chainName,
+                )
+              else
+                const _CompareMixedLockedCard(),
               const SizedBox(height: 16),
+            ],
             FRSectionHead(
               eyebrow: 'TEK MARKET SIRALAMASI',
               title: 'Tahmini toplamlar',
@@ -644,15 +647,15 @@ class _ComparePanelState extends State<_ComparePanel> {
                   isWinner: i == 0,
                 ),
               ),
-            // Sepet AI önerisi — Pro özelliği. Pro değilse upsell kartı
+            // Akıllı sepet önerisi — Pro özelliği. Pro değilse upsell kartı
             // gösteriyoruz ki kullanıcı sebebini görsün; aksi halde
-            // kullanıcı "AI önerim niye yok?" diye düşünür.
+            // kullanıcı "öneri niye yok?" diye düşünür.
             if (smart != null) ...[
               const SizedBox(height: 6),
               if (state.premium.isActive)
                 _CompareInsightBanner(message: smart.message)
               else
-                _ProUpsellBanner(
+                const _ProUpsellBanner(
                   title: 'Akıllı sepet önerisi',
                   body:
                       'Pro üyeler için sepetin nasıl bölünmesi gerektiğine dair akıllı öneri. Yükselt ve hangi marketleri gezeceğini saniyede gör.',
@@ -1283,7 +1286,84 @@ class _CompareMixedCard extends StatelessWidget {
   }
 }
 
-/// Pro'ya yükseltme CTA'sı — sepet AI gibi Pro feature'larında non-Pro
+/// Free kullanıcıya Mixed sepet kartının kilitli önizlemesi. Gerçek
+/// dağılım sonuçları (market sayısı, kazanç, kapsama) Pro pitch'inin
+/// ana satış metni; Free kullanıcıya leak ederse paywall kıymetsiz
+/// kalır. Bu kart sayısal sonuçları gizler, sadece "ne kazanırsın"
+/// hissini verir ve tıklanınca paywall'a götürür.
+class _CompareMixedLockedCard extends StatelessWidget {
+  const _CompareMixedLockedCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.xl),
+      child: Container(
+        padding: const EdgeInsets.all(16), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [FR.goldHi.withOpacity(.16), FR.goldDeep.withOpacity(.06)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: FRRad.all(FRRad.xl),
+          border: Border.all(color: FR.goldDeep.withOpacity(.45)),
+          boxShadow: frGoldGlow(opacity: .14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.18),
+                borderRadius: FRRad.all(14),
+                border: Border.all(color: FR.gold.withOpacity(.45)),
+              ),
+              child: Icon(Icons.lock_outline_rounded, color: FR.gold, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('AKILLI DAĞILIM',
+                          style: frOverline(color: FR.gold, size: 9.5)),
+                      const SizedBox(width: 6),
+                      const FRProBadge(compact: true),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Sepetini birden fazla markete bölerek ortalama %15-25 tasarruf et.',
+                    style: frText(13, FontWeight.w800, height: 1.35),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Pro\'ya geç ve hangi marketten ne alacağını saniyede gör.',
+                    style: frText(11.5, FontWeight.w700,
+                        color: FR.ink3, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.arrow_forward_rounded, size: 18, color: FR.gold),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pro'ya yükseltme CTA'sı — akıllı sepet gibi Pro feature'larında non-Pro
 /// kullanıcılara gösterilir. Tap → Paywall.
 class _ProUpsellBanner extends StatelessWidget {
   const _ProUpsellBanner({required this.title, required this.body});

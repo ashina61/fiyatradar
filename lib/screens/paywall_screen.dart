@@ -19,7 +19,7 @@ import '../ui/tokens.dart';
 ///   3. AppState premium.isActive true olduğunda paywall otomatik
 ///      "Tebrikler" durumuna geçer (StreamBuilder ile).
 ///
-/// Premium feature listesi: Sepet AI önerisi, geçmiş fiyat grafikleri,
+/// Premium feature listesi: Akıllı sepet önerisi, geçmiş fiyat grafikleri,
 /// sınırsız akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim.
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -289,7 +289,7 @@ class _ActiveCard extends StatelessWidget {
                 style: frText(12, FontWeight.w700, color: FR.ink3)),
           const SizedBox(height: 12),
           Text(
-            'Premium özellikler: sepet AI önerisi, geçmiş fiyat grafikleri, '
+            'Premium özellikler: akıllı sepet önerisi, geçmiş fiyat grafikleri, '
             'sınırsız akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim.',
             style: frText(12, FontWeight.w600,
                 color: FR.ink2, height: 1.5),
@@ -308,8 +308,8 @@ class _BenefitList extends StatelessWidget {
     const items = [
       (
         '🧠',
-        'Sepet AI önerisi',
-        'AI ile sepetini optimize et, ortalama %15-25 tasarruf et.'
+        'Akıllı sepet önerisi',
+        'Sepetini birden fazla markete bölerek ortalama %15-25 tasarruf et.'
       ),
       (
         '📊',

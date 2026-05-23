@@ -438,6 +438,27 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Community-submitted product photos. Users upload one pending doc
+    // referencing their Storage object; only admins can flip status or
+    // touch the promoted image URL/path fields. Submitters can read
+    // their own doc to track status; admins can read everything.
+    match /product_image_submissions/{submissionId} {
+      allow read: if isAdmin() ||
+        (signedIn() && resource.data.submittedByUid == request.auth.uid);
+      allow create: if isVerified() &&
+        request.resource.data.submittedByUid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.productId is string &&
+        request.resource.data.imageUrl is string &&
+        request.resource.data.imagePath is string &&
+        (!('decidedAt' in request.resource.data)) &&
+        (!('rejectionReason' in request.resource.data)) &&
+        (!('promotedImageUrl' in request.resource.data)) &&
+        (!('promotedImagePath' in request.resource.data));
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /stores/{storeId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -673,10 +694,12 @@ service cloud.firestore {
         'sourceType', 'locationSource',
         'distanceToBranchMeters', 'gpsAccuracyMeters',
         'location', 'photoUrl', 'note', 'barcode',
-        'userId', 'userDisplayName',
+        'userId', 'userDisplayName', 'reporterIsPro',
         'createdAt', 'updatedAt',
         'localDateKey', 'status', 'reviewReason', 'dedupeKey', 'groupId'
       ]) &&
+      (!('reporterIsPro' in request.resource.data) ||
+        request.resource.data.reporterIsPro is bool) &&
       request.resource.data.productId is string &&
       request.resource.data.chainId is string &&
       request.resource.data.cityId is string &&

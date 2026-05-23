@@ -212,8 +212,8 @@ class _IllustrationPickerScreenState extends State<IllustrationPickerScreen> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, 0), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
           child: FRPageHeader(
             overline: 'KÜTÜPHANE',
             title: 'Görsel',

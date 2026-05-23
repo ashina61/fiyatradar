@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'main_screen.dart';
+import 'paywall_screen.dart';
 import 'widgets/product_comments_section.dart';
 import 'widgets/product_visual.dart';
 
@@ -88,14 +89,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     const SizedBox(height: 24),
                     _RegionalPriceSections(
                         product: product, state: state, legacyBest: best),
-                  if (product.validEntries.length >= 2) ...[
-                    const SizedBox(height: 24),
-                    const FRSectionHead(
-                        eyebrow: 'FİYAT GEÇMİŞİ',
-                        title: 'Son 30 gün'),
-                    const SizedBox(height: 12),
-                    _PriceHistoryCard(product: product),
-                  ],
+                  // Free planda son 7 gün, Pro'da son 12 ay (365 gün)
+                  // fiyat geçmişi gösterilir. Daha önce eyebrow "Son 30
+                  // gün" diyordu ama kod aslında tüm validEntries'i
+                  // kullanıyordu — hem yalancı hem gate'siz. Şimdi metin
+                  // ve veri tutarlı.
+                  _PriceHistorySection(product: product, state: state),
                   const SizedBox(height: 24),
                   const FRSectionHead(
                       eyebrow: 'TOPLULUK DOĞRULAMASI',
@@ -212,6 +211,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Alarm ayarlandı: ₺${res.toStringAsFixed(2)}')),
+        );
+      } on AlertLimitExceededException catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            action: SnackBarAction(
+              label: 'Pro\'ya geç',
+              textColor: FR.gold,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              ),
+            ),
+          ),
         );
       } on StateError catch (e) {
         if (!context.mounted) return;
@@ -982,14 +996,49 @@ class _TinyAction extends StatelessWidget {
   }
 }
 
-class _PriceHistoryCard extends StatelessWidget {
-  const _PriceHistoryCard({required this.product});
+/// Ürün detayında "Fiyat geçmişi" bölümü. Pencere genişliği plana bağlı:
+/// Free → son 7 gün, Pro → son 12 ay. Pencerede en az iki veri noktası
+/// yoksa hiçbir şey çizmiyoruz (sparkline tek noktayla anlamlı değil).
+class _PriceHistorySection extends StatelessWidget {
+  const _PriceHistorySection({required this.product, required this.state});
   final Product product;
+  final AppState state;
 
   @override
   Widget build(BuildContext context) {
-    final sorted = [...product.validEntries]
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final isPro = state.premium.isActive;
+    final windowDays = isPro ? 365 : 7;
+    final cutoff = DateTime.now().subtract(Duration(days: windowDays));
+    final windowEntries = product.validEntries
+        .where((e) => e.date.isAfter(cutoff))
+        .toList();
+    if (windowEntries.length < 2) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 24),
+        FRSectionHead(
+          eyebrow: 'FİYAT GEÇMİŞİ',
+          title: isPro ? 'Son 12 ay' : 'Son 7 gün',
+        ),
+        const SizedBox(height: 12),
+        _PriceHistoryCard(entries: windowEntries),
+        if (!isPro) ...[
+          const SizedBox(height: 10),
+          _PriceHistoryUpsell(),
+        ],
+      ],
+    );
+  }
+}
+
+class _PriceHistoryCard extends StatelessWidget {
+  const _PriceHistoryCard({required this.entries});
+  final List<PriceEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...entries]..sort((a, b) => a.date.compareTo(b.date));
     final values = sorted.map((e) => e.price).toList();
     final high = values.reduce((a, b) => a > b ? a : b);
     final low = values.reduce((a, b) => a < b ? a : b);
@@ -1047,6 +1096,42 @@ class _PriceHistoryCard extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Free kullanıcıya 7 günlük geçmiş kartının altında gösterilen tek-satırlık
+/// upsell. Pro'da 12 ay penceresi ve trend açılır.
+class _PriceHistoryUpsell extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.m),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+        decoration: BoxDecoration(
+          color: FR.gold.withOpacity(.10),
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.gold.withOpacity(.4)),
+        ),
+        child: Row(children: [
+          Icon(Icons.show_chart_rounded, size: 16, color: FR.gold),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '12 aylık grafik ve trend için Pro',
+              style: frText(12, FontWeight.w800, color: FR.ink, height: 1.3),
+            ),
+          ),
+          const FRProBadge(compact: true),
+          const SizedBox(width: 6),
+          Icon(Icons.arrow_forward_rounded, size: 14, color: FR.gold),
+        ]),
+      ),
+    );
+  }
 }
 
 class _ContributionRow extends StatefulWidget {
