@@ -50,6 +50,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _purchase(ProductDetails p) async {
+    debugPrint('🟢 PAYWALL TAP: _purchase(${p.id}) at ${DateTime.now()}');
     if (_purchasing) return;
     setState(() => _purchasing = true);
     try {
@@ -79,6 +80,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _onCtaTap() async {
+    debugPrint('🟢 PAYWALL TAP: cta (Pro\'ya geç) at ${DateTime.now()}');
     final svc = PremiumService.instance;
     if (!svc.hasPurchasableProducts) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -97,8 +99,21 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _restore() async {
+    debugPrint('🟢 PAYWALL TAP: restore at ${DateTime.now()}');
+    final svc = PremiumService.instance;
+    // Mağaza bağlantısı kurulamadıysa kullanıcıya görünür feedback ver —
+    // sessizce no-op olmasın (kullanıcı "buton dead" sanır).
+    if (!svc.available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(svc.productsError ??
+              'Mağaza bağlantısı yok. Play Store hesabını kontrol et.'),
+        ),
+      );
+      return;
+    }
     try {
-      await PremiumService.instance.restore();
+      await svc.restore();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -138,7 +153,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   child: Row(children: [
                     FRIconChip(
                       icon: Icons.arrow_back_rounded,
-                      onTap: () => Navigator.pop(context),
+                      onTap: () {
+                        debugPrint(
+                            '🟢 PAYWALL TAP: back at ${DateTime.now()}');
+                        Navigator.pop(context);
+                      },
                     ),
                     const Spacer(),
                     TextButton(
@@ -153,6 +172,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
                     children: [
+                      if (kDebugMode) ...[
+                        _DebugStatePanel(svc: svc),
+                        const SizedBox(height: 14),
+                      ],
                       _Hero(active: premium.isActive),
                       if (premium.isActive) ...[
                         const SizedBox(height: 20),
@@ -176,15 +199,22 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           _ProductsLoadError(
                             message: svc.productsError ??
                                 'Mağaza bağlantısı şu an kullanılamıyor.',
-                            onRetry: () =>
-                                unawaited(svc.reloadProducts()),
+                            onRetry: () {
+                              debugPrint(
+                                  '🟢 PAYWALL TAP: products retry at ${DateTime.now()}');
+                              unawaited(svc.reloadProducts());
+                            },
                           ),
                         ],
                         const SizedBox(height: 18),
                         FRCta(
                           label: _ctaLabel(svc),
                           icon: Icons.workspace_premium_rounded,
-                          onTap: _ctaEnabled(svc) ? _onCtaTap : null,
+                          // TEMP debug, revert before merge: CTA'yı her durumda
+                          // aktif tut ki disable mantığı bug'lı mı yoksa daha
+                          // derin bir tap-eating overlay mi var anlayalım.
+                          // _onCtaTap içindeki guard yine snackbar gösterecek.
+                          onTap: _onCtaTap,
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -455,7 +485,11 @@ class _PlanToggle extends StatelessWidget {
               price: monthly?.price,
               loading: loading && monthly == null,
               subtitle: 'Her ay yenilenir',
-              onTap: () => onSelect(PremiumService.monthlySku),
+              onTap: () {
+                debugPrint(
+                    '🟢 PAYWALL TAP: plan=monthly at ${DateTime.now()}');
+                onSelect(PremiumService.monthlySku);
+              },
             ),
           ),
           const SizedBox(width: 6),
@@ -467,7 +501,11 @@ class _PlanToggle extends StatelessWidget {
               loading: loading && yearly == null,
               subtitle: '7 gün ücretsiz',
               badge: '%50 tasarruf',
-              onTap: () => onSelect(PremiumService.yearlySku),
+              onTap: () {
+                debugPrint(
+                    '🟢 PAYWALL TAP: plan=yearly at ${DateTime.now()}');
+                onSelect(PremiumService.yearlySku);
+              },
             ),
           ),
         ],
@@ -627,6 +665,8 @@ class _DebugFakePurchase extends StatelessWidget {
             _DebugButton(
               label: 'Fake Pro kapat',
               onTap: () {
+                debugPrint(
+                    '🟢 PAYWALL TAP: debug fake-pro OFF at ${DateTime.now()}');
                 state.setMockPremium(active: false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -647,6 +687,8 @@ class _DebugFakePurchase extends StatelessWidget {
     required String plan,
     required String label,
   }) {
+    debugPrint(
+        '🟢 PAYWALL TAP: debug fake-pro ON plan=$plan at ${DateTime.now()}');
     state.setMockPremium(
       active: true,
       until: DateTime.now().add(duration),
@@ -678,6 +720,52 @@ class _DebugButton extends StatelessWidget {
         ),
         child: Text(label,
             style: frText(12, FontWeight.w800, color: FR.ink)),
+      ),
+    );
+  }
+}
+
+/// Debug-only canlı state paneli. Paywall ekranındaki "buton dead" şüphelerini
+/// hızla doğrulamak için PremiumService'in mevcut yükleme/error/SKU
+/// snapshot'ını ekranın tepesinde gösterir. Release build'de hiç render
+/// edilmez (kDebugMode guard).
+class _DebugStatePanel extends StatelessWidget {
+  const _DebugStatePanel({required this.svc});
+  final PremiumService svc;
+
+  @override
+  Widget build(BuildContext context) {
+    final monthly = svc.monthlyProduct?.price;
+    final yearly = svc.yearlyProduct?.price;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: FR.surfaceLo,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.gold.withOpacity(.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('🧪 DEBUG · paywall live state',
+              style: frText(10, FontWeight.w800,
+                  color: FR.gold, letter: 0.4)),
+          const SizedBox(height: 6),
+          Text('available: ${svc.available}',
+              style: frText(11, FontWeight.w600, color: FR.ink2)),
+          Text('loading: ${svc.loadingProducts}',
+              style: frText(11, FontWeight.w600, color: FR.ink2)),
+          Text('queried: ${svc.productsQueried}',
+              style: frText(11, FontWeight.w600, color: FR.ink2)),
+          Text('hasProducts: ${svc.hasPurchasableProducts}',
+              style: frText(11, FontWeight.w600, color: FR.ink2)),
+          Text('monthly: ${monthly ?? "null"}',
+              style: frText(11, FontWeight.w600, color: FR.ink2)),
+          Text('yearly: ${yearly ?? "null"}',
+              style: frText(11, FontWeight.w600, color: FR.ink2)),
+          Text('error: ${svc.productsError ?? "none"}',
+              style: frText(11, FontWeight.w600, color: FR.ink2)),
+        ],
       ),
     );
   }
