@@ -195,6 +195,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           style: frText(11, FontWeight.w600,
                               color: FR.ink3, height: 1.5),
                         ),
+                        if (kDebugMode) ...[
+                          const SizedBox(height: 24),
+                          _DebugFakePurchase(state: state),
+                        ],
                       ],
                     ],
                   ),
@@ -550,6 +554,130 @@ class _PlanSegment extends StatelessWidget {
                 style: frText(10.5, FontWeight.w600, color: FR.ink3)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Debug-only fake purchase paneli. Release build'de tamamen render
+/// edilmez (`kDebugMode` guard). In-memory `AppState.setMockPremium`
+/// çağırır — Firestore'a yazılmaz, app restart'ında premium durumu
+/// kaybolur. Cloud Function tabanlı gerçek doğrulama akışını bypass
+/// etmek için sadece UI / gating testleri amacıyla kullanılır.
+class _DebugFakePurchase extends StatelessWidget {
+  const _DebugFakePurchase({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-09-30
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Text('🧪', style: TextStyle(fontSize: 14)),
+            const SizedBox(width: 8),
+            Text('DEBUG · in-memory test',
+                style: frText(11, FontWeight.w800,
+                    color: FR.ink2, letter: 0.4)),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            'Sadece debug build\'de görünür. Premium durumu hafızada açılır, '
+            'Firestore\'a yazılmaz, uygulama restart\'ında kaybolur.',
+            style: frText(10.5, FontWeight.w600,
+                color: FR.ink3, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _DebugButton(
+                  label: 'Fake Pro · 1 ay',
+                  onTap: () => _grant(
+                    context,
+                    duration: const Duration(days: 30),
+                    plan: PremiumService.monthlySku,
+                    label: 'Aylık',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: 'Fake Pro · 1 yıl',
+                  onTap: () => _grant(
+                    context,
+                    duration: const Duration(days: 365),
+                    plan: PremiumService.yearlySku,
+                    label: 'Yıllık',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (state.premium.isActive) ...[
+            const SizedBox(height: 8),
+            _DebugButton(
+              label: 'Fake Pro kapat',
+              onTap: () {
+                state.setMockPremium(active: false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content:
+                          Text('🧪 Fake Pro kapatıldı (in-memory).')),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _grant(
+    BuildContext context, {
+    required Duration duration,
+    required String plan,
+    required String label,
+  }) {
+    state.setMockPremium(
+      active: true,
+      until: DateTime.now().add(duration),
+      plan: plan,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('🧪 Fake Pro · $label açıldı (in-memory).')),
+    );
+  }
+}
+
+class _DebugButton extends StatelessWidget {
+  const _DebugButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.m),
+      child: Container(
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: FR.bg,
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Text(label,
+            style: frText(12, FontWeight.w800, color: FR.ink)),
       ),
     );
   }

@@ -362,6 +362,25 @@ class AppState extends ChangeNotifier {
         plan: _premiumPlan,
       );
 
+  /// DEBUG-ONLY: in-memory'de premium durumunu aç/kapa. Asıl satın alma
+  /// hâlâ Cloud Function üzerinden yazılıyor; bu setter sadece geliştirme
+  /// sırasında gating davranışını test etmek için. Firestore'a yazmaz,
+  /// app restart'ında kaybolur. Release build'de çağrılırsa assertion
+  /// hatası verir — kullanım yerlerinin `kDebugMode` arkasında olması
+  /// zorunlu.
+  void setMockPremium({
+    required bool active,
+    DateTime? until,
+    String? plan,
+  }) {
+    assert(kDebugMode,
+        'setMockPremium release build\'de çağrılamaz. kDebugMode guard ekle.');
+    _isPremium = active;
+    _premiumUntil = active ? until : null;
+    _premiumPlan = active ? plan : null;
+    notifyListeners();
+  }
+
   /// Birleşik gamification snapshot — UI'nın kullanması için tek nokta.
   GamificationSnapshot get gamification => GamificationSnapshot(
         points: points,
