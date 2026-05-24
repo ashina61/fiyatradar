@@ -54,6 +54,12 @@ dependencies:
   # ortak abstraction. Cloud Function tarafı Google Play Developer API
   # üzerinden purchase doğrular ve user.isPremium / premiumUntil yazar.
   in_app_purchase: ^3.2.0
+  # Play Billing'e özel ProductDetails (GooglePlayProductDetails →
+  # subscriptionOfferDetails → pricingPhases). Abonelik kartında deneme
+  # fazı değil YİNELENEN fiyatı göstermek için gerekli; in_app_purchase
+  # zaten transitive çekiyor ama platform tipine erişmek için doğrudan
+  # bağımlılık şart (depend_on_referenced_packages lint).
+  in_app_purchase_android: '>=0.3.0 <0.5.0'
 
   # AdMob banner + interstitial. AdsService bu paketi sarıyor; Pro
   # kullanıcılar (state.premium.isActive) hiç reklam görmez. Production
