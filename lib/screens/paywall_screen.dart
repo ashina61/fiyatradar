@@ -82,7 +82,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Future<void> _onCtaTap() async {
     debugPrint('🟢 PAYWALL TAP: cta (Pro\'ya geç) at ${DateTime.now()}');
     final svc = PremiumService.instance;
-    if (!svc.hasPurchasableProducts) {
+    // Mirror _ctaEnabled: proceed as long as there is a real product to buy.
+    // Don't bail on hasPurchasableProducts (stale `_available`) — that would
+    // make an enabled CTA snackbar-error instead of starting checkout.
+    if (svc.availableProducts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(svc.productsError ??
@@ -247,8 +250,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
   bool _ctaEnabled(PremiumService svc) {
     if (_purchasing) return false;
     if (svc.loadingProducts) return false;
-    if (!svc.hasPurchasableProducts) return false;
-    return true;
+    // Gate on the SAME source the plan toggle renders (recurring prices), not
+    // hasPurchasableProducts: the latter ANDs in `_available`, which a reload
+    // can leave stale-false while products + prices are still present, wrongly
+    // killing the CTA even though the user can see real prices.
+    return svc.monthlyRecurringPrice != null &&
+        svc.yearlyRecurringPrice != null;
   }
 }
 
