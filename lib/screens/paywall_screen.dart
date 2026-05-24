@@ -38,6 +38,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   bool get _isYearly => _selectedSku == PremiumService.yearlySku;
 
+  // TEMP diagnosis (production debug panel) — revert with the panel commit.
+  // _pointerDowns counts every pointer-down anywhere on the paywall; _buttonTaps
+  // only counts when a real button handler fires. If a tap bumps _pointerDowns
+  // but not _buttonTaps, taps reach the screen but the button is dead/disabled;
+  // if neither moves, something above the paywall is eating the pointer.
+  int _pointerDowns = 0;
+  int _buttonTaps = 0;
+  String _lastTap = '—';
+
+  void _recordTap(String label) {
+    if (!mounted) return;
+    setState(() {
+      _buttonTaps++;
+      _lastTap = label;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -81,8 +98,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Future<void> _onCtaTap() async {
     debugPrint('🟢 PAYWALL TAP: cta (Pro\'ya geç) at ${DateTime.now()}');
+    _recordTap('cta'); // TEMP diagnosis
     final svc = PremiumService.instance;
-    if (!svc.hasPurchasableProducts) {
+    // Mirror _ctaEnabled: proceed as long as there is a real product to buy.
+    // Don't bail on hasPurchasableProducts (stale `_available`) — that would
+    // make an enabled CTA snackbar-error instead of starting checkout.
+    if (svc.availableProducts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(svc.productsError ??
@@ -100,6 +121,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Future<void> _restore() async {
     debugPrint('🟢 PAYWALL TAP: restore at ${DateTime.now()}');
+    _recordTap('restore'); // TEMP diagnosis
     final svc = PremiumService.instance;
     // Mağaza bağlantısı kurulamadıysa kullanıcıya görünür feedback ver —
     // sessizce no-op olmasın (kullanıcı "buton dead" sanır).
@@ -136,9 +158,17 @@ class _PaywallScreenState extends State<PaywallScreen> {
     return Scaffold(
       backgroundColor: FR.bg,
       body: SafeArea(
-        child: AnimatedBuilder(
-          animation: svc,
-          builder: (context, _) {
+        // TEMP diagnosis: count every pointer-down on the paywall, even if no
+        // button handles it, so a release build can tell "taps reach the
+        // screen" from "taps are eaten before they get here".
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            if (mounted) setState(() => _pointerDowns++);
+          },
+          child: AnimatedBuilder(
+            animation: svc,
+            builder: (context, _) {
             if (kDebugMode) {
               debugPrint(
                   'Paywall build: loading=${svc.loadingProducts} queried=${svc.productsQueried} '
@@ -172,10 +202,16 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
                     children: [
-                      if (kDebugMode) ...[
-                        _DebugStatePanel(svc: svc),
-                        const SizedBox(height: 14),
-                      ],
+                      // TEMP diagnosis: render unconditionally (NOT behind
+                      // kDebugMode) so a release AAB shows live state + tap
+                      // counters on-device. Revert with the panel commit.
+                      _DebugStatePanel(
+                        svc: svc,
+                        pointerDowns: _pointerDowns,
+                        buttonTaps: _buttonTaps,
+                        lastTap: _lastTap,
+                      ),
+                      const SizedBox(height: 14),
                       _Hero(active: premium.isActive),
                       if (premium.isActive) ...[
                         const SizedBox(height: 20),
@@ -189,8 +225,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           monthlyPrice: svc.monthlyRecurringPrice,
                           yearlyPrice: svc.yearlyRecurringPrice,
                           loading: svc.loadingProducts,
-                          onSelect: (sku) =>
-                              setState(() => _selectedSku = sku),
+                          onSelect: (sku) {
+                            _recordTap('plan=$sku'); // TEMP diagnosis
+                            setState(() => _selectedSku = sku);
+                          },
                         ),
                         if (svc.productsQueried &&
                             !svc.loadingProducts &&
@@ -232,6 +270,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               ],
             );
           },
+          ),
         ),
       ),
     );
@@ -247,8 +286,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
   bool _ctaEnabled(PremiumService svc) {
     if (_purchasing) return false;
     if (svc.loadingProducts) return false;
-    if (!svc.hasPurchasableProducts) return false;
-    return true;
+    // Gate on the SAME source the plan toggle renders (recurring prices), not
+    // hasPurchasableProducts: the latter ANDs in `_available`, which a reload
+    // can leave stale-false while products + prices are still present, wrongly
+    // killing the CTA even though the user can see real prices.
+    return svc.monthlyRecurringPrice != null &&
+        svc.yearlyRecurringPrice != null;
   }
 }
 
@@ -725,13 +768,28 @@ class _DebugButton extends StatelessWidget {
   }
 }
 
-/// Debug-only canlı state paneli. Paywall ekranındaki "buton dead" şüphelerini
-/// hızla doğrulamak için PremiumService'in mevcut yükleme/error/SKU
-/// snapshot'ını ekranın tepesinde gösterir. Release build'de hiç render
-/// edilmez (kDebugMode guard).
+/// TEMP production diagnosis paneli. Paywall ekranındaki "buton dead"
+/// şüphelerini RELEASE build'de bile doğrulamak için PremiumService'in
+/// yükleme/error/SKU snapshot'ını + tap sayaçlarını ekranın tepesinde gösterir.
+/// kDebugMode guard'ı KASTEN kaldırıldı — teşhis bittikten sonra panelle
+/// birlikte revert edilecek.
+///
+/// Tap sayaçlarının yorumu:
+///   • pointerDowns artıyor ama buttonTaps artmıyorsa → dokunuş ekrana
+///     ulaşıyor fakat buton ölü/disabled (mantık sorunu, overlay değil).
+///   • ikisi de sabitse → dokunuş paywall'a hiç ulaşmıyor; üstte bir
+///     tap-eating overlay/route var.
 class _DebugStatePanel extends StatelessWidget {
-  const _DebugStatePanel({required this.svc});
+  const _DebugStatePanel({
+    required this.svc,
+    required this.pointerDowns,
+    required this.buttonTaps,
+    required this.lastTap,
+  });
   final PremiumService svc;
+  final int pointerDowns;
+  final int buttonTaps;
+  final String lastTap;
 
   @override
   Widget build(BuildContext context) {
@@ -753,6 +811,11 @@ class _DebugStatePanel extends StatelessWidget {
               style: frText(10, FontWeight.w800,
                   color: FR.gold, letter: 0.4)),
           const SizedBox(height: 6),
+          Text('pointerDowns: $pointerDowns   buttonTaps: $buttonTaps',
+              style: frText(11, FontWeight.w800, color: FR.gold)),
+          Text('lastTap: $lastTap',
+              style: frText(11, FontWeight.w800, color: FR.gold)),
+          const SizedBox(height: 4),
           Text('available: ${svc.available}',
               style: frText(11, FontWeight.w600, color: FR.ink2)),
           Text('loading: ${svc.loadingProducts}',
