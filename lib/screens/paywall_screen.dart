@@ -186,8 +186,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         const SizedBox(height: 24),
                         _PlanToggle(
                           selectedSku: _selectedSku,
-                          monthly: svc.monthlyProduct,
-                          yearly: svc.yearlyProduct,
+                          monthlyPrice: svc.monthlyRecurringPrice,
+                          yearlyPrice: svc.yearlyRecurringPrice,
                           loading: svc.loadingProducts,
                           onSelect: (sku) =>
                               setState(() => _selectedSku = sku),
@@ -210,11 +210,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         FRCta(
                           label: _ctaLabel(svc),
                           icon: Icons.workspace_premium_rounded,
-                          // TEMP debug, revert before merge: CTA'yı her durumda
-                          // aktif tut ki disable mantığı bug'lı mı yoksa daha
-                          // derin bir tap-eating overlay mi var anlayalım.
-                          // _onCtaTap içindeki guard yine snackbar gösterecek.
-                          onTap: _onCtaTap,
+                          onTap: _ctaEnabled(svc) ? _onCtaTap : null,
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -450,20 +446,23 @@ class _BenefitList extends StatelessWidget {
 }
 
 /// İki segmentli plan toggle'ı. Fiyatlar Play Console / App Store
-/// Connect'ten gelen `ProductDetails.price` üzerinden lokalize gelir
-/// (örn. "₺49,99", "$4.99", "€4,99"). Ürün henüz yüklenmediyse skeleton
-/// gösterilir — sahte hard-coded fiyat KOYULMAZ.
+/// Connect'ten gelen YİNELENEN (deneme sonrası) ücret üzerinden lokalize
+/// gelir (örn. "₺49,99", "$4.99", "€4,99") — `PremiumService.*RecurringPrice`
+/// pricing phase'in son fazından çeker, böylece deneme süresi olan planlarda
+/// "Ücretsiz" / "₺0,00" yerine asıl abonelik fiyatı görünür. Deneme bilgisi
+/// segment subtitle'ında ("7 gün ücretsiz") ayrıca gösterilir. Ürün henüz
+/// yüklenmediyse skeleton gösterilir — sahte hard-coded fiyat KOYULMAZ.
 class _PlanToggle extends StatelessWidget {
   const _PlanToggle({
     required this.selectedSku,
-    required this.monthly,
-    required this.yearly,
+    required this.monthlyPrice,
+    required this.yearlyPrice,
     required this.loading,
     required this.onSelect,
   });
   final String selectedSku;
-  final ProductDetails? monthly;
-  final ProductDetails? yearly;
+  final String? monthlyPrice;
+  final String? yearlyPrice;
   final bool loading;
   final ValueChanged<String> onSelect;
 
@@ -482,8 +481,8 @@ class _PlanToggle extends StatelessWidget {
             child: _PlanSegment(
               selected: selectedSku == PremiumService.monthlySku,
               title: 'Aylık',
-              price: monthly?.price,
-              loading: loading && monthly == null,
+              price: monthlyPrice,
+              loading: loading && monthlyPrice == null,
               subtitle: 'Her ay yenilenir',
               onTap: () {
                 debugPrint(
@@ -497,8 +496,8 @@ class _PlanToggle extends StatelessWidget {
             child: _PlanSegment(
               selected: selectedSku == PremiumService.yearlySku,
               title: 'Yıllık',
-              price: yearly?.price,
-              loading: loading && yearly == null,
+              price: yearlyPrice,
+              loading: loading && yearlyPrice == null,
               subtitle: '7 gün ücretsiz',
               badge: '%50 tasarruf',
               onTap: () {
@@ -527,8 +526,9 @@ class _PlanSegment extends StatelessWidget {
   final bool selected;
   final String title;
 
-  /// `ProductDetails.price` (lokalize). `null` ise loading skeleton veya
-  /// "—" placeholder gösterilir; sahte hard-coded fiyat KULLANILMAZ.
+  /// Yinelenen abonelik fiyatı, lokalize (örn. "₺49,99"). `null` ise loading
+  /// skeleton veya "—" placeholder gösterilir; sahte hard-coded fiyat
+  /// KULLANILMAZ.
   final String? price;
   final bool loading;
   final String subtitle;
@@ -737,6 +737,8 @@ class _DebugStatePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final monthly = svc.monthlyProduct?.price;
     final yearly = svc.yearlyProduct?.price;
+    final monthlyRecurring = svc.monthlyRecurringPrice;
+    final yearlyRecurring = svc.yearlyRecurringPrice;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -759,9 +761,11 @@ class _DebugStatePanel extends StatelessWidget {
               style: frText(11, FontWeight.w600, color: FR.ink2)),
           Text('hasProducts: ${svc.hasPurchasableProducts}',
               style: frText(11, FontWeight.w600, color: FR.ink2)),
-          Text('monthly: ${monthly ?? "null"}',
+          Text('monthly raw/recurring: '
+              '${monthly ?? "null"} / ${monthlyRecurring ?? "null"}',
               style: frText(11, FontWeight.w600, color: FR.ink2)),
-          Text('yearly: ${yearly ?? "null"}',
+          Text('yearly raw/recurring: '
+              '${yearly ?? "null"} / ${yearlyRecurring ?? "null"}',
               style: frText(11, FontWeight.w600, color: FR.ink2)),
           Text('error: ${svc.productsError ?? "none"}',
               style: frText(11, FontWeight.w600, color: FR.ink2)),

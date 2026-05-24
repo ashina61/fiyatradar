@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import 'firebase_service.dart';
 
@@ -78,6 +79,36 @@ class PremiumService extends ChangeNotifier {
       if (p.id == yearlySku) return p;
     }
     return null;
+  }
+
+  /// Aylık planın YİNELENEN (deneme sonrası) fiyatı, lokalize string.
+  String? get monthlyRecurringPrice => _recurringPrice(monthlyProduct);
+
+  /// Yıllık planın YİNELENEN (deneme sonrası) fiyatı, lokalize string.
+  String? get yearlyRecurringPrice => _recurringPrice(yearlyProduct);
+
+  /// Abonelik için gösterilecek gerçek yinelenen fiyatı çıkarır.
+  ///
+  /// Android'de `ProductDetails.price`, teklifin ilk pricing phase'ini
+  /// döndürür; ücretsiz deneme veya intro fiyatı varsa bu "₺0,00" / "Ücretsiz"
+  /// olur ve kullanıcıyı yanıltır. Play Billing teklifinin pricing phase'leri
+  /// sıralıdır ve sonuncusu daima sonsuz yinelenen (asıl abonelik) ücretidir;
+  /// bu yüzden `subscriptionOfferDetails → pricingPhases → son phase` alınır.
+  /// iOS / StoreKit'te intro offer ayrı tutulduğu için `.price` zaten yinelenen
+  /// fiyattır → fallback.
+  String? _recurringPrice(ProductDetails? product) {
+    if (product == null) return null;
+    if (product is! GooglePlayProductDetails) return product.price;
+    final offers = product.productDetails.subscriptionOfferDetails;
+    if (offers == null || offers.isEmpty) return product.price;
+    final index = product.subscriptionIndex;
+    final offer = (index != null && index >= 0 && index < offers.length)
+        ? offers[index]
+        : offers.first;
+    final phases = offer.pricingPhases;
+    if (phases.isEmpty) return product.price;
+    final formatted = phases.last.formattedPrice;
+    return formatted.trim().isEmpty ? product.price : formatted;
   }
 
   /// Satın alınabilir en az bir SKU var mı (CTA enable/disable için).
