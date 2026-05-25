@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -119,7 +118,7 @@ class VoteResult {
 class AppState extends ChangeNotifier {
   AppState();
 
-  final FirebaseService _svc = FirebaseService.instance;
+  late final FirebaseService _svc = FirebaseService.instance;
   late final PriceReportService _priceReportService = PriceReportService(_svc);
   final BasketPricingService _basketPricingService = const BasketPricingService();
   static const int _bannerVersionSeed = 1000003;

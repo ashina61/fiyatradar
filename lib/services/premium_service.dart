@@ -29,6 +29,13 @@ class PremiumService extends ChangeNotifier {
   PremiumService._();
   static final PremiumService instance = PremiumService._();
 
+  /// Test-only seam: lets a fake subclass exist without touching Play Billing
+  /// or Firebase. The plugin/Firebase handles below are `late` precisely so a
+  /// subclass that overrides every public member never triggers their
+  /// initializers.
+  @visibleForTesting
+  PremiumService.protected();
+
   /// Play Console + App Store Connect'te oluşturulan SKU id'leri.
   /// `fr_pro_monthly` aylık, `fr_pro_yearly` yıllık. Üretimde Console'da
   /// aynı id'lerle ürünleri tanımlamak gerek; SKU değişirse buradaki
@@ -37,8 +44,8 @@ class PremiumService extends ChangeNotifier {
   static const String yearlySku = 'fr_pro_yearly';
   static const Set<String> kProductIds = {monthlySku, yearlySku};
 
-  final InAppPurchase _iap = InAppPurchase.instance;
-  final FirebaseService _svc = FirebaseService.instance;
+  late final InAppPurchase _iap = InAppPurchase.instance;
+  late final FirebaseService _svc = FirebaseService.instance;
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
   bool _initialized = false;
@@ -112,8 +119,13 @@ class PremiumService extends ChangeNotifier {
   }
 
   /// Satın alınabilir en az bir SKU var mı (CTA enable/disable için).
-  bool get hasPurchasableProducts =>
-      _available && _availableProducts.isNotEmpty;
+  ///
+  /// `_available`'a AND'lemez: `reloadProducts` sırasında `isAvailable()`
+  /// geçici olarak `false` dönerse (veya throw ederse) bu flag stale-false
+  /// kalır ama daha önce yüklenmiş `_availableProducts` listesi durur. O
+  /// durumda kullanıcı gerçek fiyatları görürken CTA'yı "Mağaza hazır değil"e
+  /// düşürmek yanlış olur — gerçek sinyal ürünün yüklü olmasıdır.
+  bool get hasPurchasableProducts => _availableProducts.isNotEmpty;
 
   /// IAP altyapısını ayağa kaldır + ürün listesini çek + purchase stream'i
   /// dinle. Idempotent — birden fazla `init()` çağrısı no-op.
@@ -205,7 +217,12 @@ class PremiumService extends ChangeNotifier {
   /// yapılandırıldığı için `buyNonConsumable` kullanıyoruz; consumable
   /// olsaydı Play Billing acknowledge yapmazdı.
   Future<bool> purchase(ProductDetails product) async {
-    if (!_available) return false;
+    // Gate on a loaded product, not the `_available` flag. Products only load
+    // when the store was reachable; a later transient `isAvailable()` false
+    // (reload race) must not block a checkout the user can see priced. Play
+    // Billing surfaces its own error if the store is genuinely gone, and the
+    // caller already try/catches.
+    if (_availableProducts.isEmpty) return false;
     final purchaseParam = PurchaseParam(productDetails: product);
     return _iap.buyNonConsumable(purchaseParam: purchaseParam);
   }
@@ -214,7 +231,11 @@ class PremiumService extends ChangeNotifier {
   /// abonelik geçmişini geri yükler. Cloud Function aynı doğrulama
   /// pipeline'ında çalışacağı için sonuç user doc'a yansır.
   Future<void> restore() async {
-    if (!_available) return;
+    // Same rationale as purchase(): don't trust a possibly-stale `_available`.
+    // If the store ever loaded products it is reachable; attempt the restore
+    // and let restorePurchases surface any real failure. Only bail when there
+    // is genuinely no store and nothing cached.
+    if (!_available && _availableProducts.isEmpty) return;
     await _iap.restorePurchases();
   }
 
