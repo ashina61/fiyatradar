@@ -149,11 +149,24 @@ class PremiumService extends ChangeNotifier {
       return;
     }
 
+    // Listener'ı ürün sorgusundan ÖNCE bağla: kullanıcı satın aldığında sonuç
+    // bu stream'den gelir; query gecikse/başarısız olsa bile dinleniyor olmalı.
+    _ensurePurchaseListener();
     await _queryProducts();
+  }
 
+  /// purchaseStream listener'ını idempotent bağlar. `init()` ilk denemede
+  /// mağazayı erişilemez bulup erken dönerse listener kurulmaz; sonradan
+  /// `reloadProducts()` ürünleri yükleyebildiğinde bu çağrı listener'ı
+  /// telafi eder — aksi halde satın alma tamamlanır ama uygulama duymaz.
+  void _ensurePurchaseListener() {
+    if (_purchaseSub != null) return;
     _purchaseSub = _iap.purchaseStream.listen(
       _handlePurchaseUpdates,
-      onDone: () => _purchaseSub?.cancel(),
+      onDone: () {
+        _purchaseSub?.cancel();
+        _purchaseSub = null;
+      },
       onError: (Object e) =>
           debugPrint('PremiumService purchaseStream error: $e'),
     );
@@ -180,6 +193,8 @@ class PremiumService extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    // Mağaza artık erişilebilir; init erken dönmüş olsa bile listener'ı bağla.
+    _ensurePurchaseListener();
     await _queryProducts();
   }
 
@@ -190,6 +205,10 @@ class PremiumService extends ChangeNotifier {
     try {
       final resp = await _iap.queryProductDetails(kProductIds);
       _availableProducts = resp.productDetails;
+      debugPrint('🛍️ PAYWALL_QUERY: '
+          'productDetails=${resp.productDetails.map((p) => "${p.id}=${p.price}").toList()} '
+          'notFoundIDs=${resp.notFoundIDs} '
+          'error=${resp.error}');
       if (resp.error != null) {
         debugPrint('PremiumService queryProductDetails error: ${resp.error}');
         _productsError =
