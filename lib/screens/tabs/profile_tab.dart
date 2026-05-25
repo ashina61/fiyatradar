@@ -258,6 +258,7 @@ class _IdentityCard extends StatelessWidget {
           ),
           borderRadius: FRRad.all(24),
           border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+          boxShadow: frShadow(blur: 30, y: 16, opacity: .14),
         ),
         child: Row(
           children: [
@@ -306,11 +307,18 @@ class _IdentityCard extends StatelessWidget {
                       style: frText(12, FontWeight.w700, color: FR.ink3)),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                     decoration: BoxDecoration(
-                      color: FR.gold.withOpacity(.16),
+                      gradient: LinearGradient(
+                        colors: [
+                          FR.gold.withOpacity(.22),
+                          FR.goldDeep.withOpacity(.12),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: FRRad.all(999),
-                      border: Border.all(color: FR.gold.withOpacity(.35)),
+                      border: Border.all(color: FR.gold.withOpacity(.4)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -366,6 +374,7 @@ class _ProgressCard extends StatelessWidget {
         ),
         borderRadius: FRRad.all(FRRad.l),
         border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+        boxShadow: frShadow(blur: 24, y: 12, opacity: .12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +445,12 @@ class _ListGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: frSurface(radius: FRRad.l),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+        boxShadow: frShadow(blur: 18, y: 9, opacity: .07),
+      ),
       child: Column(
         children: [
           for (var i = 0; i < items.length; i++) ...[
@@ -515,6 +529,7 @@ class _AdminCta extends StatelessWidget {
           color: FR.surfaceHi,
           borderRadius: FRRad.all(FRRad.l),
           border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+          boxShadow: frShadow(blur: 18, y: 9, opacity: .08),
         ),
         child: Row(
           children: [
@@ -553,7 +568,12 @@ class _TrustCard extends StatelessWidget {
             : FR.bad;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: frSurface(radius: FRRad.l),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+        boxShadow: frShadow(blur: 20, y: 10, opacity: .08),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -572,7 +592,7 @@ class _TrustCard extends StatelessWidget {
             borderRadius: FRRad.all(999),
             child: LinearProgressIndicator(
               value: (pct / 100).clamp(0, 1).toDouble(),
-              minHeight: 6,
+              minHeight: 8,
               color: c,
               backgroundColor: FR.bgElev,
             ),
@@ -818,6 +838,7 @@ class _RegionalRankCta extends StatelessWidget {
           color: FR.surface,
           borderRadius: FRRad.all(FRRad.l),
           border: Border.all(color: FR.gold.withOpacity(.45)),
+          boxShadow: frShadow(blur: 18, y: 9, opacity: .08),
         ),
         child: Row(children: [
           Container(
