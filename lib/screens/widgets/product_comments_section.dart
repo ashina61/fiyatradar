@@ -22,6 +22,22 @@ class _ProductCommentsSectionState extends State<ProductCommentsSection> {
   bool _showAllComments = false;
   String? _error;
 
+  // Yorum stream'ini productId'ye göre cache'le. Ekran `AppStateScope`
+  // (InheritedNotifier) dinlediği için her oy/yorum/Firestore güncellemesinde
+  // build yeniden çalışır; stream inline kurulursa her seferinde YENİ stream
+  // üretir, StreamBuilder yükleme spinner'ına düşüp tekrar listeye döner ve bu
+  // yükseklik salınımı ana scroll'u zıplatır. Stream tek kez kurulur.
+  Stream<List<ProductComment>>? _commentsStream;
+  String? _commentsKey;
+
+  Stream<List<ProductComment>> _commentsFor(AppState state, String productId) {
+    if (_commentsKey != productId || _commentsStream == null) {
+      _commentsKey = productId;
+      _commentsStream = state.watchProductComments(productId);
+    }
+    return _commentsStream!;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -66,7 +82,7 @@ class _ProductCommentsSectionState extends State<ProductCommentsSection> {
         ),
         const SizedBox(height: 12),
         StreamBuilder<List<ProductComment>>(
-          stream: state.watchProductComments(widget.productId),
+          stream: _commentsFor(state, widget.productId),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting &&
                 !snap.hasData) {
