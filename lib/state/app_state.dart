@@ -381,6 +381,36 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Satın alma tamamlandıktan sonra premium entitlement'ı Firestore'dan bir
+  /// kez okuyup state'i tazeler. Realtime `_userSub` listener'ı zaten otomatik
+  /// günceller; bu, satın alma akışının explicit "provider refresh" adımıdır
+  /// (PremiumService.onEntitlementChanged buna bağlanır).
+  Future<void> refreshPremiumEntitlement() async {
+    final uid = user?.uid;
+    if (uid == null) {
+      debugPrint('PREMIUM_PROVIDER_REFRESHED: atlandı — uid yok');
+      return;
+    }
+    try {
+      final snap = await _svc.userDoc(uid).get();
+      final m = snap.data() ?? <String, dynamic>{};
+      _isPremium = (m['isPremium'] as bool?) == true;
+      final premiumUntilTs = m['premiumUntil'];
+      _premiumUntil = premiumUntilTs is Timestamp
+          ? premiumUntilTs.toDate()
+          : (premiumUntilTs is String
+              ? DateTime.tryParse(premiumUntilTs)
+              : null);
+      _premiumPlan = (m['premiumPlan'] as String?)?.trim().isNotEmpty == true
+          ? (m['premiumPlan'] as String)
+          : null;
+      notifyListeners();
+      debugPrint('PREMIUM_PROVIDER_REFRESHED: uid=$uid isPremium=$_isPremium');
+    } catch (e) {
+      debugPrint('PREMIUM_PROVIDER_REFRESHED: başarısız → $e');
+    }
+  }
+
   /// Birleşik gamification snapshot — UI'nın kullanması için tek nokta.
   GamificationSnapshot get gamification => GamificationSnapshot(
         points: points,

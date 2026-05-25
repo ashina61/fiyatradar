@@ -171,6 +171,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final state = AppStateScope.of(context);
     final premium = state.premium;
     final svc = _svc;
+    debugPrint('PAYWALL_PREMIUM_STATE: ${premium.isActive}');
 
     return Scaffold(
       backgroundColor: FR.bg,
@@ -389,9 +390,12 @@ class _ActiveCard extends StatelessWidget {
           Row(children: [
             Icon(Icons.verified_rounded, color: FR.good, size: 18),
             const SizedBox(width: 8),
-            Text(premium.planLabel,
+            Text('Zaten Premium üyesin',
                 style: frText(14, FontWeight.w800, color: FR.good)),
           ]),
+          const SizedBox(height: 6),
+          Text(premium.planLabel,
+              style: frText(12, FontWeight.w700, color: FR.ink3)),
           const SizedBox(height: 10),
           if (daysLeft != null)
             Text('Yenileme: $daysLeft gün',
