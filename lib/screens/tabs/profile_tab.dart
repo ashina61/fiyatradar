@@ -318,7 +318,8 @@ class _IdentityCard extends StatelessWidget {
                         Icon(Icons.auto_awesome_rounded,
                             color: FR.gold, size: 13),
                         const SizedBox(width: 5),
-                        Text('Elit Radar · ${state.points} PT',
+                        Text(
+                            '${FRLevels.forPoints(state.points).name} · ${state.points} PT',
                             style: frText(11, FontWeight.w800, color: FR.gold)),
                       ],
                     ),
