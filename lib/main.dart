@@ -84,6 +84,11 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
     // FCM + IAP wiring is best-effort — bir başlatma hatası splash'ı
     // bloklamasın. PremiumService Play Billing yoksa silently no-op olur.
     unawaited(MessagingService.instance.init());
+    // Satın alma/restore sonrası premium entitlement yazıldığında AppState'i
+    // explicit tazele (Firestore listener zaten otomatik günceller; bu, akışın
+    // görünür refresh adımı).
+    PremiumService.instance.onEntitlementChanged =
+        _state.refreshPremiumEntitlement;
     unawaited(PremiumService.instance.init());
     unawaited(AdsService.instance.init());
     final prefs = await SharedPreferences.getInstance();

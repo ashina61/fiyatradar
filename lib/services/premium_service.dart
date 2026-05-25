@@ -44,6 +44,24 @@ class PremiumService extends ChangeNotifier {
   static const String yearlySku = 'fr_pro_yearly';
   static const Set<String> kProductIds = {monthlySku, yearlySku};
 
+  /// Play Console'daki gerçek abonelik ürün id'si. Satın alma stream'i bu id
+  /// (veya legacy aylık/yıllık SKU'lar) ile geldiğinde entitlement açılır.
+  static const String premiumSku = 'fiyatradar_premium';
+
+  /// `users/{uid}.isPremium = true` yazımını tetikleyen tanınan ürün id'leri.
+  /// purchaseStream bu set'ten biriyle gelen `purchased`/`restored` event'inde
+  /// premium açılır; başka bir productID gelirse entitlement YAZILMAZ.
+  static const Set<String> kEntitlementProductIds = {
+    premiumSku,
+    monthlySku,
+    yearlySku,
+  };
+
+  /// Entitlement yazıldıktan sonra çağrılan opsiyonel kanca. `main.dart` bunu
+  /// `AppState.refreshPremiumEntitlement`'a bağlar; Firestore user-doc
+  /// listener'ı zaten otomatik günceller, bu explicit refresh + log içindir.
+  Future<void> Function()? onEntitlementChanged;
+
   late final InAppPurchase _iap = InAppPurchase.instance;
   late final FirebaseService _svc = FirebaseService.instance;
 
@@ -254,38 +272,100 @@ class PremiumService extends ChangeNotifier {
     // If the store ever loaded products it is reachable; attempt the restore
     // and let restorePurchases surface any real failure. Only bail when there
     // is genuinely no store and nothing cached.
-    if (!_available && _availableProducts.isEmpty) return;
+    if (!_available && _availableProducts.isEmpty) {
+      debugPrint('PURCHASE_STREAM_EVENT: restore atlandı — mağaza yok ve '
+          'önbellekte ürün yok');
+      return;
+    }
+    debugPrint('PURCHASE_STREAM_EVENT: restorePurchases çağrıldı — mevcut '
+        'abonelik stream üzerinden yeniden teslim edilecek');
     await _iap.restorePurchases();
   }
 
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
     for (final p in purchases) {
+      debugPrint('PURCHASE_STREAM_EVENT: status=${p.status.name} '
+          'productID=${p.productID} '
+          'pendingCompletePurchase=${p.pendingCompletePurchase}');
+      if (uid == null) {
+        // Oturum yoksa entitlement yazılamaz. Purchase'ı complete ETME —
+        // pending kalsın ki oturum açıldığında stream tekrar teslim etsin.
+        debugPrint('PURCHASE_STREAM_EVENT: signed-in uid yok, entitlement '
+            'yazılamadı (${p.productID}) — purchase pending bırakıldı');
+        continue;
+      }
       switch (p.status) {
         case PurchaseStatus.pending:
-          // Pending → kullanıcıya UI'da "doğrulanıyor" gösterilebilir.
-          // Veri yine queue'ya yazılmaz; finalize'e kadar bekleyelim.
+          // Pending → premium AÇMA. Doğrulama bekleniyor.
+          debugPrint('PURCHASE_STREAM_EVENT: pending → premium açılmadı '
+              '(${p.productID})');
           break;
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           await _enqueueForServerVerification(uid, p);
+          await _grantPremiumEntitlement(uid, p);
           if (p.pendingCompletePurchase) {
             await _iap.completePurchase(p);
           }
           break;
         case PurchaseStatus.error:
-          debugPrint('Premium purchase error: ${p.error}');
+          // Hata → premium AÇMA.
+          debugPrint('PURCHASE_STREAM_EVENT: error → premium açılmadı '
+              '${p.error} (${p.productID})');
           if (p.pendingCompletePurchase) {
             await _iap.completePurchase(p);
           }
           break;
         case PurchaseStatus.canceled:
+          // İptal → premium AÇMA.
+          debugPrint('PURCHASE_STREAM_EVENT: canceled → premium açılmadı '
+              '(${p.productID})');
           if (p.pendingCompletePurchase) {
             await _iap.completePurchase(p);
           }
           break;
       }
+    }
+  }
+
+  /// İstemci tarafı premium entitlement yazımı. `purchased`/`restored` event'i
+  /// tanınan bir abonelik ürünü için geldiğinde `users/{uid}` dokümanına
+  /// premium alanlarını merge eder. Firestore rules `hasSafePremiumMutation`
+  /// ile bu alanların tip güvenliğini zorlar.
+  ///
+  /// NOT: Bu, sunucu tarafı (Cloud Function) doğrulamanın yerine geçen geçici
+  /// minimum istemci-taraflı entitlement'tır.
+  Future<void> _grantPremiumEntitlement(String uid, PurchaseDetails p) async {
+    final productId = p.productID;
+    if (!kEntitlementProductIds.contains(productId)) {
+      debugPrint('PREMIUM_ENTITLEMENT_WRITING: atlandı — productID=$productId '
+          'tanınan premium ürünü değil (uid=$uid)');
+      return;
+    }
+    debugPrint('PREMIUM_ENTITLEMENT_WRITING: uid=$uid productID=$productId');
+    try {
+      await _svc.userDoc(uid).set({
+        'isPremium': true,
+        'premiumSource': 'google_play',
+        'premiumProductId': productId,
+        'premiumPurchaseId': p.purchaseID ?? '',
+        'premiumPurchaseToken': p.verificationData.serverVerificationData,
+        'premiumUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('PREMIUM_ENTITLEMENT_WRITTEN: uid=$uid productID=$productId');
+    } catch (e) {
+      debugPrint('PREMIUM_ENTITLEMENT_WRITE_FAILED: uid=$uid '
+          'productID=$productId error=$e');
+      return;
+    }
+    // Premium provider'ı tazele. Firestore user-doc listener zaten otomatik
+    // günceller; bu explicit refresh + log (sessiz return yok).
+    try {
+      await onEntitlementChanged?.call();
+      debugPrint('PREMIUM_PROVIDER_REFRESHED: uid=$uid');
+    } catch (e) {
+      debugPrint('PREMIUM_PROVIDER_REFRESHED: başarısız → $e');
     }
   }
 
