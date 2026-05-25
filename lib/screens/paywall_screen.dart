@@ -55,8 +55,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _purchase(ProductDetails p) async {
-    debugPrint('🟢 PAYWALL TAP: _purchase(${p.id}) at ${DateTime.now()}');
     if (_purchasing) return;
+    debugPrint('🛒 START_PURCHASE: ${p.id}');
     setState(() => _purchasing = true);
     try {
       final ok = await _svc.purchase(p);
@@ -85,12 +85,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _onCtaTap() async {
-    debugPrint('🟢 PAYWALL TAP: cta (Pro\'ya geç) at ${DateTime.now()}');
+    debugPrint('🔥 PAYWALL_BUTTON_TAPPED: $_selectedSku');
+    if (_purchasing) return;
     final svc = _svc;
-    // Mirror _ctaEnabled: proceed as long as there is a real product to buy.
-    // Don't bail on hasPurchasableProducts (stale `_available`) — that would
-    // make an enabled CTA snackbar-error instead of starting checkout.
+
+    // Ürünler hâlâ yükleniyorsa kullanıcıyı sessiz bırakma — görünür feedback.
+    if (svc.loadingProducts) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ürünler yükleniyor, birkaç saniye bekle.'),
+        ),
+      );
+      return;
+    }
+
+    // Hiç satın alınabilir ürün yoksa görünür hata göster (sessiz return yok).
     if (svc.availableProducts.isEmpty) {
+      debugPrint('⚠️ PAYWALL: availableProducts empty, error=${svc.productsError}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(svc.productsError ??
@@ -99,10 +110,27 @@ class _PaywallScreenState extends State<PaywallScreen> {
       );
       return;
     }
-    final selected = svc.availableProducts.firstWhere(
-      (p) => p.id == _selectedSku,
-      orElse: () => svc.availableProducts.first,
-    );
+
+    // Seçili plana ait ProductDetails bul. Bulunamazsa sessizce farklı bir
+    // plan satın almak yerine görünür hata göster (yanlış plan satın alınmasın).
+    ProductDetails? selected;
+    for (final p in svc.availableProducts) {
+      if (p.id == _selectedSku) {
+        selected = p;
+        break;
+      }
+    }
+    if (selected == null) {
+      debugPrint('⚠️ PAYWALL: selected SKU $_selectedSku not in '
+          '${svc.availableProducts.map((p) => p.id).toList()}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Seçilen abonelik şu an satın alınamıyor. Tekrar dene.'),
+        ),
+      );
+      return;
+    }
     await _purchase(selected);
   }
 
@@ -221,7 +249,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         FRCta(
                           label: _ctaLabel(svc),
                           icon: Icons.workspace_premium_rounded,
-                          onTap: _ctaEnabled(svc) ? _onCtaTap : null,
+                          // CTA her zaman tıklanabilir kalır: satın alma
+                          // başlatılamayan durumlarda (yükleniyor / ürün yok /
+                          // seçili SKU bulunamadı) sessizce ölmek yerine
+                          // _onCtaTap görünür bir SnackBar gösterir.
+                          onTap: _onCtaTap,
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -253,17 +285,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
     if (svc.loadingProducts) return 'Yükleniyor…';
     if (!svc.hasPurchasableProducts) return 'Mağaza hazır değil';
     return _isYearly ? '7 gün ücretsiz başla' : 'Pro\'ya geç';
-  }
-
-  bool _ctaEnabled(PremiumService svc) {
-    if (_purchasing) return false;
-    if (svc.loadingProducts) return false;
-    // Gate on the SAME source the plan toggle renders (recurring prices), not
-    // hasPurchasableProducts: the latter ANDs in `_available`, which a reload
-    // can leave stale-false while products + prices are still present, wrongly
-    // killing the CTA even though the user can see real prices.
-    return svc.monthlyRecurringPrice != null &&
-        svc.yearlyRecurringPrice != null;
   }
 }
 
@@ -501,7 +522,7 @@ class _PlanToggle extends StatelessWidget {
               subtitle: 'Her ay yenilenir',
               onTap: () {
                 debugPrint(
-                    '🟢 PAYWALL TAP: plan=monthly at ${DateTime.now()}');
+                    '🔥 PAYWALL_BUTTON_TAPPED: ${PremiumService.monthlySku}');
                 onSelect(PremiumService.monthlySku);
               },
             ),
@@ -517,7 +538,7 @@ class _PlanToggle extends StatelessWidget {
               badge: '%50 tasarruf',
               onTap: () {
                 debugPrint(
-                    '🟢 PAYWALL TAP: plan=yearly at ${DateTime.now()}');
+                    '🔥 PAYWALL_BUTTON_TAPPED: ${PremiumService.yearlySku}');
                 onSelect(PremiumService.yearlySku);
               },
             ),

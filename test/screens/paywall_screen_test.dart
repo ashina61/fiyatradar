@@ -206,12 +206,20 @@ void main() {
       ..fMonthlyRecurring = null
       ..fYearlyRecurring = null;
 
-    testWidgets('CTA is disabled but still rendered', (tester) async {
+    testWidgets('CTA stays tappable while loading and gives visible feedback',
+        (tester) async {
       final fake = loading();
       await pumpPaywall(tester, fake);
 
       expect(find.byType(FRCta), findsOneWidget);
-      expect(ctaEnabled(tester), isFalse);
+      // No silent dead button: the CTA always has a handler.
+      expect(ctaEnabled(tester), isTrue);
+
+      await tapCta(tester);
+      // Loading → no purchase started, but the user sees a SnackBar.
+      expect(fake.purchaseCalls, 0);
+      expect(
+          find.text('Ürünler yükleniyor, birkaç saniye bekle.'), findsOneWidget);
     });
 
     testWidgets('plan toggle stays interactive while loading', (tester) async {
@@ -243,12 +251,16 @@ void main() {
       ..fMonthlyRecurring = null
       ..fYearlyRecurring = null;
 
-    testWidgets('CTA disabled and retry button is shown and tappable',
+    testWidgets('CTA tappable; surfaces error, does not purchase; retry works',
         (tester) async {
       final fake = errored();
       await pumpPaywall(tester, fake);
 
-      expect(ctaEnabled(tester), isFalse);
+      // No silent dead button: tapping shows the error instead of nothing.
+      expect(ctaEnabled(tester), isTrue);
+      await tapCta(tester);
+      expect(fake.purchaseCalls, 0);
+      expect(find.text(fake.fError!), findsWidgets);
 
       final retry = find.text('Tekrar dene');
       expect(retry, findsOneWidget);
@@ -270,13 +282,19 @@ void main() {
       ..fMonthlyRecurring = null
       ..fYearlyRecurring = null;
 
-    testWidgets('CTA disabled and error/retry state shown', (tester) async {
+    testWidgets('CTA tappable; shows store error and store-not-ready label',
+        (tester) async {
       final fake = empty();
       await pumpPaywall(tester, fake);
 
-      expect(ctaEnabled(tester), isFalse);
+      // No silent dead button even when the store is unavailable.
+      expect(ctaEnabled(tester), isTrue);
       expect(find.text('Tekrar dene'), findsOneWidget);
       expect(find.text('Mağaza hazır değil'), findsOneWidget);
+
+      await tapCta(tester);
+      expect(fake.purchaseCalls, 0);
+      expect(find.text(fake.fError!), findsWidgets);
     });
 
     testWidgets('Restore bails (no store, nothing cached) without calling restore',
