@@ -38,6 +38,7 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _purchasing = false;
+  bool _restoring = false;
   String _selectedSku = PremiumService.yearlySku;
 
   bool get _isYearly => _selectedSku == PremiumService.yearlySku;
@@ -135,8 +136,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _restore() async {
-    debugPrint('🟢 PAYWALL TAP: restore at ${DateTime.now()}');
+    debugPrint('🔄 RESTORE_PURCHASES_TAPPED');
+    if (_restoring) return;
     final svc = _svc;
+    final alreadyPremium = AppStateScope.of(context).premium.isActive;
     // Mağaza bağlantısı kurulamadıysa kullanıcıya görünür feedback ver —
     // sessizce no-op olmasın (kullanıcı "buton dead" sanır). Ama `available`
     // tek başına stale olabilir (reload race): ürünler önbellekteyken mağaza
@@ -151,18 +154,32 @@ class _PaywallScreenState extends State<PaywallScreen> {
       );
       return;
     }
+    setState(() => _restoring = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Satın alımlar kontrol ediliyor...')),
+    );
     try {
-      await svc.restore();
+      final restored = await svc.restore();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Geri yükleme başlatıldı. Birkaç saniye bekle.')),
-      );
+      messenger.hideCurrentSnackBar();
+      final String msg;
+      if (restored) {
+        msg = 'Premium üyeliğin geri yüklendi.';
+      } else if (alreadyPremium) {
+        msg = 'Premium üyeliğin zaten aktif.';
+      } else {
+        msg = 'Geri yüklenecek aktif abonelik bulunamadı.';
+      }
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(content: Text('Geri yükleme hatası: $e')),
       );
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 
@@ -201,8 +218,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: _restore,
-                      child: Text('Restore',
+                      onPressed: _restoring ? null : _restore,
+                      child: Text('Satın alımı geri yükle',
                           style: frText(12, FontWeight.w800,
                               color: FR.gold)),
                     ),
@@ -220,6 +237,15 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       if (premium.isActive) ...[
                         const SizedBox(height: 20),
                         _ActiveCard(premium: premium),
+                        const SizedBox(height: 16),
+                        FRCta(
+                          label: _restoring
+                              ? 'Kontrol ediliyor…'
+                              : 'Satın alımı tekrar kontrol et',
+                          icon: Icons.refresh_rounded,
+                          filled: false,
+                          onTap: _restoring ? null : _restore,
+                        ),
                       ] else ...[
                         const SizedBox(height: 24),
                         const _BenefitList(),
@@ -405,8 +431,7 @@ class _ActiveCard extends StatelessWidget {
                 style: frText(12, FontWeight.w700, color: FR.ink3)),
           const SizedBox(height: 12),
           Text(
-            'Premium özellikler: akıllı sepet önerisi, geçmiş fiyat grafikleri, '
-            'sınırsız akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim.',
+            'Tüm Pro özelliklere erişimin aktif.',
             style: frText(12, FontWeight.w600,
                 color: FR.ink2, height: 1.5),
           ),

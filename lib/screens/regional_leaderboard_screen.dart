@@ -165,6 +165,7 @@ class _RegionalLeaderboardScreenState
                                   rank: i + 1,
                                   score: visible[i],
                                   isMe: visible[i].userId == myUid,
+                                  meIsPremium: isPro,
                                 ),
                               ),
                           ],
@@ -266,14 +267,27 @@ class _BoardRow extends StatelessWidget {
     required this.rank,
     required this.score,
     required this.isMe,
+    required this.meIsPremium,
   });
   final int rank;
   final RegionalContributorScore score;
   final bool isMe;
 
+  /// Oturum açmış kullanıcının canlı premium durumu. Kendi satırında, eski
+  /// raporlarda `reporterIsPro` yazılmamış olsa bile yeni yükseltilmiş Pro
+  /// rozetinin anında görünmesi için `score.isPro` ile OR'lanır.
+  final bool meIsPremium;
+
   @override
   Widget build(BuildContext context) {
     final medal = rank == 1 ? '🥇' : rank == 2 ? '🥈' : rank == 3 ? '🥉' : '';
+    // Mevcut FiyatRadar Pro rozeti (FRProBadge) — yeni rozet TASARLANMAZ,
+    // uygulamadaki mevcut bileşen reuse edilir. Sıralamayı etkilemez; yalnız
+    // kullanıcı adının yanında görsel işaret.
+    final showPro = score.isPro || (isMe && meIsPremium);
+    if (showPro) {
+      debugPrint('LEADERBOARD_EXISTING_PRO_BADGE_RENDERED: ${score.userId}');
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -313,7 +327,7 @@ class _BoardRow extends StatelessWidget {
                           color: isMe ? FR.gold : FR.ink),
                     ),
                   ),
-                  if (score.isPro) ...[
+                  if (showPro) ...[
                     const SizedBox(width: 6),
                     const FRProBadge(compact: true),
                   ],
