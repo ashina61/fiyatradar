@@ -728,6 +728,36 @@ class ReleaseNotesScreen extends StatelessWidget {
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
+        version: 'v1.0.5',
+        date: '25 Mayıs 2026',
+        items: [
+          'Satın alım geri yükleme artık gerçekten çalışıyor: paywall\'daki '
+              '"Satın alımı geri yükle" butonuna basınca "Satın alımlar '
+              'kontrol ediliyor…" görünüyor; aktif abonelik bulunursa '
+              '"Premium üyeliğin geri yüklendi.", bulunamazsa "Geri '
+              'yüklenecek aktif abonelik bulunamadı." mesajı çıkıyor. Eskiden '
+              'buton sessizce hiçbir şey yapmıyordu.',
+          'Zaten Pro üyeyken paywall artık satış ekranı yerine "Zaten '
+              'Premium üyesin" durumunu gösteriyor: "Tüm Pro özelliklere '
+              'erişimin aktif." açıklaması ve aboneliğini yeniden eşitlemek '
+              'için "Satın alımı tekrar kontrol et" butonu var.',
+          'Satın alma / abonelik ekranlarındaki tüm metinler Türkçeleştirildi '
+              '("Restore" → "Satın alımı geri yükle" gibi).',
+          'Bölgesel katkı sıralaması hatası giderildi: İlçe / Şehir sekmesine '
+              'basınca liste anlık görünüp kayboluyordu, artık sabit kalıyor. '
+              'Sıralama getirilemezse boş ekran yerine görünür "Sıralama '
+              'yüklenemedi · Tekrar dene" kartı çıkıyor — sorun sessizce '
+              'yutulmuyor.',
+          'Lider tablosunda aktif Pro üyelerin rozeti kullanıcı adının yanında '
+              'doğru görünüyor; yeni Pro olduysan kendi rozetin de anında '
+              'yansıyor.',
+          'Profildeki çift seviye isimlendirmesi tek sisteme indirildi: '
+              'başlıktaki sabit "Elit Radar" etiketi kaldırıldı, üst çip artık '
+              'gerçek seviyenle aynı ünvanı gösteriyor (örn. "Mahalle Gözcüsü '
+              '· 241 PT") ve alttaki SEVİYE kartıyla birebir uyumlu.',
+        ],
+      ),
+      (
         version: 'v1.0.4',
         date: '23 Mayıs 2026',
         items: [
