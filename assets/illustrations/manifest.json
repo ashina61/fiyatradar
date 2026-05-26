@@ -1075,6 +1075,182 @@
         "varsayılan"
       ],
       "createdAt": "2026-05-19"
+    },
+    {
+      "id": "meyve-armut",
+      "fileName": "meyve-armut.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Armut",
+      "tags": [
+        "armut"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "meyve-kiraz",
+      "fileName": "meyve-kiraz.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Kiraz",
+      "tags": [
+        "kiraz",
+        "vişne"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "meyve-nar",
+      "fileName": "meyve-nar.svg",
+      "category": "meyve",
+      "categoryLabel": "Meyve",
+      "label": "Nar",
+      "tags": [
+        "nar"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "sebze-havuc",
+      "fileName": "sebze-havuc.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Havuç",
+      "tags": [
+        "havuç"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "sebze-brokoli",
+      "fileName": "sebze-brokoli.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Brokoli",
+      "tags": [
+        "brokoli",
+        "karnabahar"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "sebze-misir",
+      "fileName": "sebze-misir.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Mısır",
+      "tags": [
+        "mısır",
+        "koçan",
+        "taze mısır"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "sebze-mantar",
+      "fileName": "sebze-mantar.svg",
+      "category": "sebze",
+      "categoryLabel": "Sebze",
+      "label": "Mantar",
+      "tags": [
+        "mantar",
+        "kültür mantarı"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "et-sucuk",
+      "fileName": "et-sucuk.svg",
+      "category": "et",
+      "categoryLabel": "Et & Balık",
+      "label": "Sucuk",
+      "tags": [
+        "sucuk",
+        "sosis",
+        "salam",
+        "jambon"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "gida-salca",
+      "fileName": "gida-salca.svg",
+      "category": "gida",
+      "categoryLabel": "Temel Gıda",
+      "label": "Salça",
+      "tags": [
+        "salça",
+        "domates salçası",
+        "biber salçası"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "kahvalti-misir-gevregi",
+      "fileName": "kahvalti-misir-gevregi.svg",
+      "category": "kahvalti",
+      "categoryLabel": "Kahvaltılık",
+      "label": "Mısır Gevreği",
+      "tags": [
+        "mısır gevreği",
+        "gevrek",
+        "kahvaltılık gevrek",
+        "granola"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "atistirmalik-patlamis-misir",
+      "fileName": "atistirmalik-patlamis-misir.svg",
+      "category": "atistirmalik",
+      "categoryLabel": "Atıştırmalık",
+      "label": "Patlamış Mısır",
+      "tags": [
+        "patlamış mısır",
+        "popcorn",
+        "mısır cipsi"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "temizlik-cop-poseti",
+      "fileName": "temizlik-cop-poseti.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Çöp Poşeti",
+      "tags": [
+        "çöp poşeti",
+        "çöp torbası",
+        "poşet"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "temizlik-islak-mendil",
+      "fileName": "temizlik-islak-mendil.svg",
+      "category": "temizlik",
+      "categoryLabel": "Temizlik",
+      "label": "Islak Mendil",
+      "tags": [
+        "ıslak mendil",
+        "ıslak havlu",
+        "mendil",
+        "havlu"
+      ],
+      "createdAt": "2026-05-26"
+    },
+    {
+      "id": "diger-pil",
+      "fileName": "diger-pil.svg",
+      "category": "diger",
+      "categoryLabel": "Diğer",
+      "label": "Pil",
+      "tags": [
+        "pil",
+        "kalem pil",
+        "batarya"
+      ],
+      "createdAt": "2026-05-26"
     }
   ],
   "categories": [

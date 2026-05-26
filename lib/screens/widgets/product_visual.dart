@@ -120,9 +120,12 @@ const Map<String, String> _categoryToManifestId = {
 
 /// Resolves the best brand-agnostic illustration for a product:
 ///   1. Explicit `assignedIllustrationId` match
-///   2. First illustration matching the product's category
-///   3. `diger-genel` fallback
-///   4. First illustration in the manifest
+///   2. Within the product's category: the illustration whose label/tags best
+///      match the product name (e.g. "Muz" → meyve-muz, "Kola" → karbonatlı)
+///   3. Within the category: a deterministic spread by product so different
+///      products don't all collapse onto the same artwork
+///   4. `diger-genel` fallback
+///   5. First illustration in the manifest
 /// Always returns a non-null asset when the manifest has any entries —
 /// callers can render the result directly without an icon fallback.
 IllustrationAsset? resolveProductIllustration(
@@ -133,16 +136,124 @@ IllustrationAsset? resolveProductIllustration(
       if (a.id == id) return a;
     }
   }
+
   final manifestCat = _categoryToManifestId[product.category];
   if (manifestCat != null) {
-    for (final a in manifest.illustrations) {
-      if (a.category == manifestCat) return a;
+    final inCat = manifest.illustrations
+        .where((a) => a.category == manifestCat)
+        .toList(growable: false);
+    if (inCat.isNotEmpty) {
+      // Ürün adıyla en iyi eşleşen (etiket + tag) görseli seç; bulunamazsa
+      // kategori içinde ürüne göre deterministik dağıt — böylece aynı
+      // kategorideki ürünler tek bir görsele yığılmaz.
+      final matched = _bestNameMatch(inCat, product);
+      if (matched != null) return matched;
+      return inCat[_stableHash(product.id.isNotEmpty ? product.id : product.name) % inCat.length];
     }
   }
+
   for (final a in manifest.illustrations) {
     if (a.id == 'diger-genel') return a;
   }
   return manifest.illustrations.isNotEmpty
       ? manifest.illustrations.first
       : null;
+}
+
+/// Ürün adını, kategori içindeki illüstrasyonların `label` + `tags`
+/// kelimeleriyle karşılaştırır. En uzun (en spesifik) tam-kelime eşleşmesi
+/// kazanır; eşleşme yoksa `null`.
+IllustrationAsset? _bestNameMatch(
+    List<IllustrationAsset> inCat, Product product) {
+  final name = _foldTr(product.name);
+  if (name.trim().isEmpty) return null;
+  IllustrationAsset? best;
+  var bestScore = 0;
+  for (final a in inCat) {
+    var score = 0;
+    for (final candidate in <String>[a.label, ...a.tags]) {
+      final key = _foldTr(candidate).trim();
+      if (key.length < 2) continue;
+      if (key.length > score && _containsWord(name, key)) {
+        score = key.length;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = a;
+    }
+  }
+  return best;
+}
+
+/// `needle`'ı `haystack` içinde KELİME sınırında arar (alt-dize yanlış
+/// eşleşmelerini önler: "su" → "sucuk" eşleşmesin).
+bool _containsWord(String haystack, String needle) {
+  var start = 0;
+  while (true) {
+    final i = haystack.indexOf(needle, start);
+    if (i < 0) return false;
+    final before = i == 0 ? '' : haystack[i - 1];
+    final endIdx = i + needle.length;
+    final after = endIdx >= haystack.length ? '' : haystack[endIdx];
+    if (!_isWordChar(before) && !_isWordChar(after)) return true;
+    start = i + 1;
+  }
+}
+
+bool _isWordChar(String c) {
+  if (c.isEmpty) return false;
+  final u = c.codeUnitAt(0);
+  return (u >= 97 && u <= 122) || (u >= 48 && u <= 57); // a-z, 0-9
+}
+
+/// Türkçe karakterleri ASCII'ye katlayıp küçük harfe çevirir; eşleştirmeyi
+/// büyük/küçük harf ve aksandan bağımsız yapar.
+String _foldTr(String s) {
+  final buf = StringBuffer();
+  for (final ch in s.split('')) {
+    switch (ch) {
+      case 'ç':
+      case 'Ç':
+        buf.write('c');
+        break;
+      case 'ğ':
+      case 'Ğ':
+        buf.write('g');
+        break;
+      case 'ı':
+      case 'I':
+        buf.write('i');
+        break;
+      case 'i':
+      case 'İ':
+        buf.write('i');
+        break;
+      case 'ö':
+      case 'Ö':
+        buf.write('o');
+        break;
+      case 'ş':
+      case 'Ş':
+        buf.write('s');
+        break;
+      case 'ü':
+      case 'Ü':
+        buf.write('u');
+        break;
+      default:
+        buf.write(ch.toLowerCase());
+    }
+  }
+  return buf.toString();
+}
+
+/// Platform/oturumdan bağımsız deterministik hash — görsel atamasının her
+/// açılışta aynı kalması için `String.hashCode` yerine kullanılır.
+int _stableHash(String s) {
+  var h = 0;
+  for (final c in s.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return h;
 }

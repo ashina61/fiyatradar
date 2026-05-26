@@ -28,6 +28,10 @@ class FakePremiumService extends PremiumService {
   int restoreCalls = 0;
   int reloadCalls = 0;
 
+  /// Restore akışının "aktif abonelik bulundu mu" sonucu. Gerçek serviste 10 sn
+  /// stream beklemesinin yerine testte deterministik dönüş.
+  bool fRestoreResult = false;
+
   @override
   bool get available => fAvailable;
   @override
@@ -64,8 +68,9 @@ class FakePremiumService extends PremiumService {
   }
 
   @override
-  Future<void> restore() async {
+  Future<bool> restore() async {
     restoreCalls++;
+    return fRestoreResult;
   }
 
   @override
@@ -190,7 +195,7 @@ void main() {
       final fake = loaded();
       await pumpPaywall(tester, fake);
 
-      await tester.tap(find.text('Restore'));
+      await tester.tap(find.text('Satın alımı geri yükle'));
       await tester.pump();
 
       expect(fake.restoreCalls, 1);
@@ -235,7 +240,7 @@ void main() {
       final fake = loading();
       await pumpPaywall(tester, fake);
 
-      await tester.tap(find.text('Restore'));
+      await tester.tap(find.text('Satın alımı geri yükle'));
       await tester.pump();
       expect(fake.restoreCalls, 1);
     });
@@ -302,7 +307,7 @@ void main() {
       final fake = empty();
       await pumpPaywall(tester, fake);
 
-      await tester.tap(find.text('Restore'));
+      await tester.tap(find.text('Satın alımı geri yükle'));
       await tester.pump();
       expect(fake.restoreCalls, 0);
     });
@@ -358,7 +363,69 @@ void main() {
       final fake = cached();
       await pumpPaywall(tester, fake);
 
-      await tester.tap(find.text('Restore'));
+      await tester.tap(find.text('Satın alımı geri yükle'));
+      await tester.pump();
+
+      expect(fake.restoreCalls, 1);
+    });
+  });
+
+  // Kullanıcı zaten Premium ise paywall satış ekranı yerine "aktif" durum
+  // gösterir: başlık + açıklama + ikincil "tekrar kontrol et" butonu.
+  group('PaywallScreen — already premium', () {
+    FakePremiumService loaded() => FakePremiumService()
+      ..fAvailable = true
+      ..fProducts = [
+        _product(PremiumService.monthlySku, '₺49,99'),
+        _product(PremiumService.yearlySku, '₺299,99'),
+      ]
+      ..fMonthlyRecurring = '₺49,99'
+      ..fYearlyRecurring = '₺299,99';
+
+    Future<void> pumpPremium(
+      WidgetTester tester,
+      FakePremiumService fake,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 6000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final state = AppState()
+        ..setMockPremium(
+          active: true,
+          until: DateTime.now().add(const Duration(days: 30)),
+          plan: PremiumService.yearlySku,
+        );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppStateScope(
+            state: state,
+            child: PaywallScreen(service: fake),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('shows active state + secondary recheck button, no plan toggle',
+        (tester) async {
+      final fake = loaded();
+      await pumpPremium(tester, fake);
+
+      expect(find.text('Zaten Premium üyesin'), findsOneWidget);
+      expect(find.text('Tüm Pro özelliklere erişimin aktif.'), findsOneWidget);
+      expect(find.text('Satın alımı tekrar kontrol et'), findsOneWidget);
+      // Satış toggle'ı gösterilmez.
+      expect(find.text('Aylık'), findsNothing);
+      expect(find.text('Yıllık'), findsNothing);
+    });
+
+    testWidgets('recheck button invokes restore()', (tester) async {
+      final fake = loaded();
+      await pumpPremium(tester, fake);
+
+      await tester.tap(find.byType(FRCta), warnIfMissed: false);
       await tester.pump();
 
       expect(fake.restoreCalls, 1);

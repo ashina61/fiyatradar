@@ -38,6 +38,7 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _purchasing = false;
+  bool _restoring = false;
   String _selectedSku = PremiumService.yearlySku;
 
   bool get _isYearly => _selectedSku == PremiumService.yearlySku;
@@ -135,8 +136,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 
   Future<void> _restore() async {
-    debugPrint('🟢 PAYWALL TAP: restore at ${DateTime.now()}');
+    debugPrint('🔄 RESTORE_PURCHASES_TAPPED');
+    if (_restoring) return;
     final svc = _svc;
+    final alreadyPremium = AppStateScope.of(context).premium.isActive;
     // Mağaza bağlantısı kurulamadıysa kullanıcıya görünür feedback ver —
     // sessizce no-op olmasın (kullanıcı "buton dead" sanır). Ama `available`
     // tek başına stale olabilir (reload race): ürünler önbellekteyken mağaza
@@ -151,18 +154,32 @@ class _PaywallScreenState extends State<PaywallScreen> {
       );
       return;
     }
+    setState(() => _restoring = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Satın alımlar kontrol ediliyor...')),
+    );
     try {
-      await svc.restore();
+      final restored = await svc.restore();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Geri yükleme başlatıldı. Birkaç saniye bekle.')),
-      );
+      messenger.hideCurrentSnackBar();
+      final String msg;
+      if (restored) {
+        msg = 'Premium üyeliğin geri yüklendi.';
+      } else if (alreadyPremium) {
+        msg = 'Premium üyeliğin zaten aktif.';
+      } else {
+        msg = 'Geri yüklenecek aktif abonelik bulunamadı.';
+      }
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(content: Text('Geri yükleme hatası: $e')),
       );
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 
@@ -201,8 +218,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: _restore,
-                      child: Text('Restore',
+                      onPressed: _restoring ? null : _restore,
+                      child: Text('Satın alımı geri yükle',
                           style: frText(12, FontWeight.w800,
                               color: FR.gold)),
                     ),
@@ -220,6 +237,24 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       if (premium.isActive) ...[
                         const SizedBox(height: 20),
                         _ActiveCard(premium: premium),
+                        const SizedBox(height: 18),
+                        const _UnlockedBenefits(),
+                        const SizedBox(height: 20),
+                        FRCta(
+                          label: _restoring
+                              ? 'Kontrol ediliyor…'
+                              : 'Satın alımı tekrar kontrol et',
+                          icon: Icons.refresh_rounded,
+                          filled: false,
+                          onTap: _restoring ? null : _restore,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Aboneliğin Play Store\'da yönetilir. İstediğin zaman iptal edebilirsin.',
+                          textAlign: TextAlign.center,
+                          style: frText(11, FontWeight.w600,
+                              color: FR.ink3, height: 1.5),
+                        ),
                       ] else ...[
                         const SizedBox(height: 24),
                         const _BenefitList(),
@@ -304,13 +339,16 @@ class _Hero extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: FRRad.all(FRRad.xxl),
-        border: Border.all(color: FR.goldDeep.withOpacity(.45)),
-        boxShadow: frGoldGlow(opacity: .14),
+        border: Border.all(color: FR.goldDeep.withOpacity(active ? .6 : .45)),
+        boxShadow: frGoldGlow(opacity: active ? .22 : .14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!active) ...[
+          if (active) ...[
+            const _ActiveBadge(),
+            const SizedBox(height: 14),
+          ] else ...[
             const _FreeTrialBadge(),
             const SizedBox(height: 14),
           ],
@@ -373,6 +411,36 @@ class _FreeTrialBadge extends StatelessWidget {
   }
 }
 
+/// "Üyeliğin aktif" yeşil rozeti — aktif hero'nun tepesinde, satın alma sonrası
+/// kutlamacı bir onay verir.
+class _ActiveBadge extends StatelessWidget {
+  const _ActiveBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: FR.good.withOpacity(.14),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: FR.good.withOpacity(.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified_rounded, size: 14, color: FR.good),
+          const SizedBox(width: 6),
+          Text('ÜYELİĞİN AKTİF',
+              style: frText(10.5, FontWeight.w800,
+                  color: FR.good, letter: 0.8)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Premium üyelik kartı. Satın alma sonrası "elimde değerli bir şey var"
+/// hissi için altın gradient + madalyon + plan / yenileme pill'leri.
 class _ActiveCard extends StatelessWidget {
   const _ActiveCard({required this.premium});
   final PremiumStatus premium;
@@ -383,33 +451,159 @@ class _ActiveCard extends StatelessWidget {
     final daysLeft = remaining?.inDays;
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: frSurface(radius: FRRad.l),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            FR.gold.withOpacity(.18),
+            FR.goldDeep.withOpacity(.10),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.gold.withOpacity(.45)),
+        boxShadow: frGoldGlow(opacity: .12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.verified_rounded, color: FR.good, size: 18),
-            const SizedBox(width: 8),
-            Text('Zaten Premium üyesin',
-                style: frText(14, FontWeight.w800, color: FR.good)),
-          ]),
-          const SizedBox(height: 6),
-          Text(premium.planLabel,
-              style: frText(12, FontWeight.w700, color: FR.ink3)),
-          const SizedBox(height: 10),
-          if (daysLeft != null)
-            Text('Yenileme: $daysLeft gün',
-                style: frText(12, FontWeight.w700, color: FR.ink3))
-          else
-            Text('Aktif abonelik',
-                style: frText(12, FontWeight.w700, color: FR.ink3)),
-          const SizedBox(height: 12),
-          Text(
-            'Premium özellikler: akıllı sepet önerisi, geçmiş fiyat grafikleri, '
-            'sınırsız akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim.',
-            style: frText(12, FontWeight.w600,
-                color: FR.ink2, height: 1.5),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [FR.goldHi, FR.goldDeep],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: FRRad.all(14),
+                  boxShadow: frGoldGlow(opacity: .25),
+                ),
+                child: Icon(Icons.verified_rounded,
+                    color: FR.onGold, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Zaten Premium üyesin',
+                        style: frText(14.5, FontWeight.w800)),
+                    const SizedBox(height: 3),
+                    Text('Tüm Pro özelliklere erişimin aktif.',
+                        style: frText(11.5, FontWeight.w600,
+                            color: FR.ink3, height: 1.4)),
+                  ],
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusPill(
+                icon: Icons.workspace_premium_rounded,
+                label: premium.planLabel,
+              ),
+              _StatusPill(
+                icon: Icons.event_available_rounded,
+                label: daysLeft != null
+                    ? 'Yenilemeye $daysLeft gün'
+                    : 'Aktif abonelik',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Üyelik kartındaki küçük durum kapsülü (plan, yenileme vb.).
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: FR.bg.withOpacity(.55),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: FR.gold.withOpacity(.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: FR.gold),
+          const SizedBox(width: 5),
+          Text(label, style: frText(11, FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Aktif üyeye "neye sahip olduğunu" gösteren ayrıcalık checklist'i. Satış
+/// ekranındaki `_BenefitList`'in aksine bu, altın onay işaretli kısa bir
+/// "elindekiler" listesidir — satın alma sonrası tatmin hissi verir.
+class _UnlockedBenefits extends StatelessWidget {
+  const _UnlockedBenefits();
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      'Akıllı sepet önerisi',
+      'Geçmiş fiyat grafikleri · 12 ay',
+      'Sınırsız akıllı alarm',
+      'Reklamsız deneyim',
+      'Pro rozeti + erken erişim',
+    ];
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+        boxShadow: frShadow(blur: 20, y: 10, opacity: .08),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('PRO AYRICALIKLARIN',
+              style: frOverline(color: FR.gold, size: 9.5)),
+          const SizedBox(height: 14),
+          for (var i = 0; i < items.length; i++) ...[
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: FR.gold.withOpacity(.16),
+                    borderRadius: FRRad.all(999),
+                    border: Border.all(color: FR.gold.withOpacity(.4)),
+                  ),
+                  child: Icon(Icons.check_rounded, size: 14, color: FR.gold),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(items[i],
+                      style: frText(12.5, FontWeight.w700)),
+                ),
+              ],
+            ),
+            if (i < items.length - 1) const SizedBox(height: 12),
+          ],
         ],
       ),
     );

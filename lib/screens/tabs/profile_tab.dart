@@ -172,11 +172,45 @@ void _showBadgesSheet(BuildContext context, GamificationSnapshot snap) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: FR.bg,
+    isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => SafeArea(
-      child: Padding(
+    builder: (_) => _BadgesSheet(snap: snap),
+  );
+}
+
+/// Rozet listesi + seçili rozetin "nasıl kazanılır" detayını sheet'in
+/// İÇİNDE gösteren panel. Eskiden bir rozete basınca açıklama SnackBar ile
+/// ekranın altında çıkıyordu ama sheet açıkken o alan görünmüyordu; artık
+/// seçilen rozetin detayı chip'lerin hemen altında inline açılıyor.
+class _BadgesSheet extends StatefulWidget {
+  const _BadgesSheet({required this.snap});
+  final GamificationSnapshot snap;
+
+  @override
+  State<_BadgesSheet> createState() => _BadgesSheetState();
+}
+
+class _BadgesSheetState extends State<_BadgesSheet> {
+  late FRBadge _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    // Varsayılan seçim: ilk kazanılmış rozet, yoksa listenin ilki.
+    _selected = FRBadges.all.firstWhere(
+      (b) => widget.snap.badges.contains(b.id),
+      orElse: () => FRBadges.all.first,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final snap = widget.snap;
+    final earnedSelected = snap.badges.contains(_selected.id);
+    return SafeArea(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -188,19 +222,134 @@ void _showBadgesSheet(BuildContext context, GamificationSnapshot snap) {
               '${snap.badges.length} / ${FRBadges.all.length} rozet kazandın',
               style: frText(12, FontWeight.w600, color: FR.ink3),
             ),
+            const SizedBox(height: 6),
+            Text(
+              'Bir rozete dokun, nasıl kazanıldığını gör.',
+              style: frText(11.5, FontWeight.w600, color: FR.ink3),
+            ),
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: FRBadges.all
-                  .map((b) => _BadgeChip(badge: b, earned: snap.badges.contains(b.id)))
+                  .map((b) => _BadgeChip(
+                        badge: b,
+                        earned: snap.badges.contains(b.id),
+                        selected: b.id == _selected.id,
+                        onTap: () => setState(() => _selected = b),
+                      ))
                   .toList(),
+            ),
+            const SizedBox(height: 16),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: _BadgeDetail(badge: _selected, earned: earnedSelected),
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+/// Seçili rozetin detay kartı: emoji, ad, kazanım durumu, ödül puanı ve
+/// "nasıl kazanılır" açıklaması.
+class _BadgeDetail extends StatelessWidget {
+  const _BadgeDetail({required this.badge, required this.earned});
+  final FRBadge badge;
+  final bool earned;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey(badge.id),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [FR.surfaceHi, FR.surfaceLo],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(
+          color: earned ? FR.gold.withOpacity(.45) : FR.hairline,
+        ),
+        boxShadow: earned
+            ? frGoldGlow(opacity: .12)
+            : frShadow(blur: 18, y: 9, opacity: .07),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: earned ? FR.gold.withOpacity(.16) : FR.bgElev,
+                  borderRadius: FRRad.all(14),
+                  border: Border.all(
+                    color: earned ? FR.gold.withOpacity(.45) : FR.hairline,
+                  ),
+                ),
+                child: Text(badge.emoji, style: const TextStyle(fontSize: 24)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(badge.name, style: frText(15, FontWeight.w800)),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(
+                          earned
+                              ? Icons.verified_rounded
+                              : Icons.lock_outline_rounded,
+                          size: 13,
+                          color: earned ? FR.good : FR.ink3,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          earned ? 'Kazanıldı' : 'Henüz kazanılmadı',
+                          style: frText(11, FontWeight.w800,
+                              color: earned ? FR.good : FR.ink3),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: FR.gold.withOpacity(.16),
+                  borderRadius: FRRad.all(999),
+                  border: Border.all(color: FR.gold.withOpacity(.4)),
+                ),
+                child: Text('+${badge.rewardPoints} PT',
+                    style: frText(11, FontWeight.w800, color: FR.gold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text('NASIL KAZANILIR', style: frOverline(color: FR.ink3, size: 9.5)),
+          const SizedBox(height: 5),
+          Text(
+            badge.description,
+            style: frText(12.5, FontWeight.w600, color: FR.ink2, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Confirms a logout request before tearing down the session, so a stray
@@ -258,6 +407,7 @@ class _IdentityCard extends StatelessWidget {
           ),
           borderRadius: FRRad.all(24),
           border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+          boxShadow: frShadow(blur: 30, y: 16, opacity: .14),
         ),
         child: Row(
           children: [
@@ -306,11 +456,18 @@ class _IdentityCard extends StatelessWidget {
                       style: frText(12, FontWeight.w700, color: FR.ink3)),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                     decoration: BoxDecoration(
-                      color: FR.gold.withOpacity(.16),
+                      gradient: LinearGradient(
+                        colors: [
+                          FR.gold.withOpacity(.22),
+                          FR.goldDeep.withOpacity(.12),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: FRRad.all(999),
-                      border: Border.all(color: FR.gold.withOpacity(.35)),
+                      border: Border.all(color: FR.gold.withOpacity(.4)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -318,7 +475,8 @@ class _IdentityCard extends StatelessWidget {
                         Icon(Icons.auto_awesome_rounded,
                             color: FR.gold, size: 13),
                         const SizedBox(width: 5),
-                        Text('Elit Radar · ${state.points} PT',
+                        Text(
+                            '${FRLevels.forPoints(state.points).name} · ${state.points} PT',
                             style: frText(11, FontWeight.w800, color: FR.gold)),
                       ],
                     ),
@@ -365,6 +523,7 @@ class _ProgressCard extends StatelessWidget {
         ),
         borderRadius: FRRad.all(FRRad.l),
         border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+        boxShadow: frShadow(blur: 24, y: 12, opacity: .12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,7 +594,12 @@ class _ListGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: frSurface(radius: FRRad.l),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+        boxShadow: frShadow(blur: 18, y: 9, opacity: .07),
+      ),
       child: Column(
         children: [
           for (var i = 0; i < items.length; i++) ...[
@@ -514,6 +678,7 @@ class _AdminCta extends StatelessWidget {
           color: FR.surfaceHi,
           borderRadius: FRRad.all(FRRad.l),
           border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+          boxShadow: frShadow(blur: 18, y: 9, opacity: .08),
         ),
         child: Row(
           children: [
@@ -552,7 +717,12 @@ class _TrustCard extends StatelessWidget {
             : FR.bad;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: frSurface(radius: FRRad.l),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.hairline),
+        boxShadow: frShadow(blur: 20, y: 10, opacity: .08),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -571,7 +741,7 @@ class _TrustCard extends StatelessWidget {
             borderRadius: FRRad.all(999),
             child: LinearProgressIndicator(
               value: (pct / 100).clamp(0, 1).toDouble(),
-              minHeight: 6,
+              minHeight: 8,
               color: c,
               backgroundColor: FR.bgElev,
             ),
@@ -747,32 +917,38 @@ class _ThemeListItemState extends State<_ThemeListItem> {
 }
 
 class _BadgeChip extends StatelessWidget {
-  const _BadgeChip({required this.badge, required this.earned});
+  const _BadgeChip({
+    required this.badge,
+    required this.earned,
+    required this.selected,
+    required this.onTap,
+  });
   final FRBadge badge;
   final bool earned;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${badge.emoji} ${badge.name} · ${badge.description} · +${badge.rewardPoints} PT',
-            ),
-          ),
-        );
-      },
+      onTap: onTap,
       borderRadius: FRRad.all(999),
       child: Opacity(
-        opacity: earned ? 1 : 0.45,
-        child: Container(
+        opacity: earned ? 1 : 0.5,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: earned ? FR.gold.withOpacity(.12) : FR.bgElev,
+            color: selected
+                ? FR.gold.withOpacity(.24)
+                : (earned ? FR.gold.withOpacity(.12) : FR.bgElev),
             borderRadius: FRRad.all(999),
             border: Border.all(
-              color: earned ? FR.gold.withOpacity(.45) : FR.hairline,
+              color: selected
+                  ? FR.gold
+                  : (earned ? FR.gold.withOpacity(.45) : FR.hairline),
+              width: selected ? 1.4 : 1.0,
             ),
           ),
           child: Row(
@@ -817,6 +993,7 @@ class _RegionalRankCta extends StatelessWidget {
           color: FR.surface,
           borderRadius: FRRad.all(FRRad.l),
           border: Border.all(color: FR.gold.withOpacity(.45)),
+          boxShadow: frShadow(blur: 18, y: 9, opacity: .08),
         ),
         child: Row(children: [
           Container(

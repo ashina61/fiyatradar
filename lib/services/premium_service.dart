@@ -66,6 +66,14 @@ class PremiumService extends ChangeNotifier {
   late final FirebaseService _svc = FirebaseService.instance;
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
+
+  /// `restore()` çağrısı sırasında tanınan bir abonelik event'i (restored /
+  /// purchased) gelene kadar bekleyen completer. Event geldiğinde
+  /// `activatePremiumForUser` bunu `true` ile tamamlar; 10 sn içinde hiçbir
+  /// event gelmezse `restore()` `false` döner ve UI "aktif abonelik
+  /// bulunamadı" gösterir. Restore akışı dışında `null`.
+  Completer<bool>? _restoreCompleter;
+
   bool _initialized = false;
   List<ProductDetails> _availableProducts = const [];
   List<ProductDetails> get availableProducts => _availableProducts;
@@ -267,7 +275,13 @@ class PremiumService extends ChangeNotifier {
   /// Yeni cihaz / yeniden kurulum sonrası kullanıcının var olan
   /// abonelik geçmişini geri yükler. Cloud Function aynı doğrulama
   /// pipeline'ında çalışacağı için sonuç user doc'a yansır.
-  Future<void> restore() async {
+  ///
+  /// Dönüş: 10 sn içinde tanınan bir abonelik event'i (restored / purchased)
+  /// gelip premium açıldıysa `true`, gelmediyse `false`. UI bu değere göre
+  /// "geri yüklendi" veya "aktif abonelik bulunamadı" mesajını gösterir
+  /// (sessiz return yok).
+  Future<bool> restore() async {
+    debugPrint('🔄 RESTORE_PURCHASES_CALLED');
     // Same rationale as purchase(): don't trust a possibly-stale `_available`.
     // If the store ever loaded products it is reachable; attempt the restore
     // and let restorePurchases surface any real failure. Only bail when there
@@ -275,11 +289,27 @@ class PremiumService extends ChangeNotifier {
     if (!_available && _availableProducts.isEmpty) {
       debugPrint('PURCHASE_STREAM_EVENT: restore atlandı — mağaza yok ve '
           'önbellekte ürün yok');
-      return;
+      return false;
     }
+    // Listener restorePurchases çağrılmadan ÖNCE aktif olmalı: restored
+    // event'leri bu stream'den gelir. init erken dönmüş olabilir, telafi et.
+    _ensurePurchaseListener();
+    final completer = Completer<bool>();
+    _restoreCompleter = completer;
     debugPrint('PURCHASE_STREAM_EVENT: restorePurchases çağrıldı — mevcut '
         'abonelik stream üzerinden yeniden teslim edilecek');
-    await _iap.restorePurchases();
+    try {
+      await _iap.restorePurchases();
+    } catch (e) {
+      debugPrint('RESTORE_PURCHASES_CALLED: restorePurchases hata → $e');
+    }
+    // 10 sn içinde tanınan bir abonelik event'i gelmezse false dön.
+    final restored = await Future.any<bool>([
+      completer.future,
+      Future<bool>.delayed(const Duration(seconds: 10), () => false),
+    ]);
+    if (identical(_restoreCompleter, completer)) _restoreCompleter = null;
+    return restored;
   }
 
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
@@ -303,8 +333,12 @@ class PremiumService extends ChangeNotifier {
           break;
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
+          if (p.status == PurchaseStatus.restored) {
+            debugPrint('RESTORED_PURCHASE_FOUND: productID=${p.productID} '
+                'purchaseID=${p.purchaseID}');
+          }
           await _enqueueForServerVerification(uid, p);
-          await _grantPremiumEntitlement(uid, p);
+          await activatePremiumForUser(uid, p);
           if (p.pendingCompletePurchase) {
             await _iap.completePurchase(p);
           }
@@ -329,19 +363,30 @@ class PremiumService extends ChangeNotifier {
     }
   }
 
-  /// İstemci tarafı premium entitlement yazımı. `purchased`/`restored` event'i
-  /// tanınan bir abonelik ürünü için geldiğinde `users/{uid}` dokümanına
-  /// premium alanlarını merge eder. Firestore rules `hasSafePremiumMutation`
-  /// ile bu alanların tip güvenliğini zorlar.
+  /// İstemci tarafı premium entitlement yazımı — `purchased` VE `restored`
+  /// event'leri için tek merkezi giriş noktası. Tanınan bir abonelik ürünü
+  /// için geldiğinde `users/{uid}` dokümanına premium alanlarını merge eder.
+  /// Firestore rules `hasSafePremiumMutation` ile bu alanların tip güvenliğini
+  /// zorlar.
+  ///
+  /// Restore akışında (status == restored) bekleyen `restore()` completer'ını
+  /// `true` ile tamamlar ve `_FROM_RESTORE` ekli loglar basar.
   ///
   /// NOT: Bu, sunucu tarafı (Cloud Function) doğrulamanın yerine geçen geçici
   /// minimum istemci-taraflı entitlement'tır.
-  Future<void> _grantPremiumEntitlement(String uid, PurchaseDetails p) async {
+  Future<void> activatePremiumForUser(String uid, PurchaseDetails p) async {
+    final isRestore = p.status == PurchaseStatus.restored;
+    final logSuffix = isRestore ? '_FROM_RESTORE' : '';
     final productId = p.productID;
     if (!kEntitlementProductIds.contains(productId)) {
       debugPrint('PREMIUM_ENTITLEMENT_WRITING: atlandı — productID=$productId '
           'tanınan premium ürünü değil (uid=$uid)');
       return;
+    }
+    // Restore bekleyen UI'ya "aktif abonelik bulundu" sinyali ver — Firestore
+    // yazımı başarısız olsa bile abonelik gerçekten var.
+    if (_restoreCompleter != null && !_restoreCompleter!.isCompleted) {
+      _restoreCompleter!.complete(true);
     }
     debugPrint('PREMIUM_ENTITLEMENT_WRITING: uid=$uid productID=$productId');
     try {
@@ -353,7 +398,8 @@ class PremiumService extends ChangeNotifier {
         'premiumPurchaseToken': p.verificationData.serverVerificationData,
         'premiumUpdatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint('PREMIUM_ENTITLEMENT_WRITTEN: uid=$uid productID=$productId');
+      debugPrint(
+          'PREMIUM_ENTITLEMENT_WRITTEN$logSuffix: uid=$uid productID=$productId');
     } catch (e) {
       debugPrint('PREMIUM_ENTITLEMENT_WRITE_FAILED: uid=$uid '
           'productID=$productId error=$e');
@@ -363,9 +409,9 @@ class PremiumService extends ChangeNotifier {
     // günceller; bu explicit refresh + log (sessiz return yok).
     try {
       await onEntitlementChanged?.call();
-      debugPrint('PREMIUM_PROVIDER_REFRESHED: uid=$uid');
+      debugPrint('PREMIUM_PROVIDER_REFRESHED$logSuffix: uid=$uid');
     } catch (e) {
-      debugPrint('PREMIUM_PROVIDER_REFRESHED: başarısız → $e');
+      debugPrint('PREMIUM_PROVIDER_REFRESHED$logSuffix: başarısız → $e');
     }
   }
 

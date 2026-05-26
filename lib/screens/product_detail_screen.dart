@@ -519,7 +519,7 @@ class _DetailHeadlinePrice extends StatelessWidget {
 
 // ─── Regional price sections ────────────────────────────────────────────────
 
-class _RegionalPriceSections extends StatelessWidget {
+class _RegionalPriceSections extends StatefulWidget {
   const _RegionalPriceSections({
     required this.product,
     required this.state,
@@ -531,7 +531,44 @@ class _RegionalPriceSections extends StatelessWidget {
   final PriceEntry? legacyBest;
 
   @override
+  State<_RegionalPriceSections> createState() => _RegionalPriceSectionsState();
+}
+
+class _RegionalPriceSectionsState extends State<_RegionalPriceSections> {
+  // Bölgesel fiyat grubu stream'i, sorgu anahtarına göre cache'lenir. Ürün
+  // detay ekranı `AppStateScope` (InheritedNotifier) dinlediği için her oy /
+  // yorum / Firestore güncellemesinde build yeniden çalışır. Stream inline
+  // kurulursa her build YENİ bir stream üretir; StreamBuilder aboneliği
+  // yenileyip iskelet (124px×3) durumuna düşer, sonra dolu kartlara döner —
+  // bu yükseklik salınımı scroll pozisyonunu yukarıda zıplatıp "yukarı
+  // çıkamıyorum / sonsuz döngü" hissine yol açar. Aynı ürün/bölge için
+  // stream'i tekrar kullan; yalnız anahtar değişince yeniden oluştur.
+  Stream<List<PriceGroupModel>>? _groupStream;
+  String? _groupKey;
+
+  Stream<List<PriceGroupModel>> _groupsFor(
+    AppState state, {
+    required String productId,
+    required String city,
+    required String district,
+  }) {
+    final key = '$productId|$city|$district';
+    if (_groupKey != key || _groupStream == null) {
+      _groupKey = key;
+      _groupStream = state.watchRegionalPriceGroups(
+        productId: productId,
+        city: city,
+        district: district,
+      );
+    }
+    return _groupStream!;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final product = widget.product;
+    final state = widget.state;
+    final legacyBest = widget.legacyBest;
     final city = (state.cityName ?? '').trim();
     final district = (state.districtName ?? '').trim();
     final hasRegion = city.isNotEmpty && district.isNotEmpty;
@@ -565,7 +602,8 @@ class _RegionalPriceSections extends StatelessWidget {
     }
 
     return StreamBuilder<List<PriceGroupModel>>(
-      stream: state.watchRegionalPriceGroups(
+      stream: _groupsFor(
+        state,
         productId: product.id,
         city: city,
         district: district,

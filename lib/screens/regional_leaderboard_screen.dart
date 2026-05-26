@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/price_reporting.dart';
@@ -32,6 +33,35 @@ class _RegionalLeaderboardScreenState
     extends State<RegionalLeaderboardScreen> {
   LeaderboardScope _scope = LeaderboardScope.district;
   int _windowDays = 30;
+
+  // Liderlik tablosu stream'i, sorgu parametrelerine göre cache'lenir.
+  // `AppStateScope` bir InheritedNotifier olduğu için build, AppState her
+  // notifyListeners çağırdığında yeniden çalışır. Stream inline
+  // (`state.watch...()`) kurulursa her build YENİ bir stream nesnesi üretir;
+  // StreamBuilder bunu görüp aboneliği iptal edip yeniden kurar, liste sürekli
+  // "yükleniyor" iskeletine düşüp yanıp söner. Aynı scope/pencere/bölge için
+  // stream'i tekrar kullan; yalnız anahtar değişince yeniden oluştur.
+  Stream<List<RegionalContributorScore>>? _boardStream;
+  String? _boardKey;
+
+  Stream<List<RegionalContributorScore>> _boardFor(
+    AppState state, {
+    required String? city,
+    required String? district,
+    required int limit,
+  }) {
+    final key = '${city ?? ''}|${district ?? ''}|$_windowDays|$limit';
+    if (_boardKey != key || _boardStream == null) {
+      _boardKey = key;
+      _boardStream = state.watchRegionalContributorBoard(
+        city: city,
+        district: district,
+        windowDays: _windowDays,
+        limit: limit,
+      );
+    }
+    return _boardStream!;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,13 +131,28 @@ class _RegionalLeaderboardScreenState
               child: scopeRequiresRegion && !hasRegion
                   ? _NoRegion()
                   : StreamBuilder<List<RegionalContributorScore>>(
-                      stream: state.watchRegionalContributorBoard(
+                      stream: _boardFor(
+                        state,
                         city: streamCity,
                         district: streamDistrict,
-                        windowDays: _windowDays,
                         limit: limit,
                       ),
                       builder: (context, snap) {
+                        // Sorgu hatası (örn. Firestore composite index henüz
+                        // deploy edilmemiş) sessizce yutulmasın — Türkiye geneli
+                        // filtresiz çalışırken il/ilçe sorguları index ister.
+                        // Görünür hata + tekrar dene, ham hatayı da logla.
+                        if (snap.hasError) {
+                          debugPrint('LEADERBOARD_STREAM_ERROR: '
+                              'scope=${_scope.name} error=${snap.error}');
+                          return _BoardError(
+                            detail: kDebugMode ? '${snap.error}' : null,
+                            onRetry: () => setState(() {
+                              _boardKey = null;
+                              _boardStream = null;
+                            }),
+                          );
+                        }
                         if (snap.connectionState == ConnectionState.waiting &&
                             !snap.hasData) {
                           return const Padding(
@@ -165,6 +210,7 @@ class _RegionalLeaderboardScreenState
                                   rank: i + 1,
                                   score: visible[i],
                                   isMe: visible[i].userId == myUid,
+                                  meIsPremium: isPro,
                                 ),
                               ),
                           ],
@@ -266,14 +312,27 @@ class _BoardRow extends StatelessWidget {
     required this.rank,
     required this.score,
     required this.isMe,
+    required this.meIsPremium,
   });
   final int rank;
   final RegionalContributorScore score;
   final bool isMe;
 
+  /// Oturum açmış kullanıcının canlı premium durumu. Kendi satırında, eski
+  /// raporlarda `reporterIsPro` yazılmamış olsa bile yeni yükseltilmiş Pro
+  /// rozetinin anında görünmesi için `score.isPro` ile OR'lanır.
+  final bool meIsPremium;
+
   @override
   Widget build(BuildContext context) {
     final medal = rank == 1 ? '🥇' : rank == 2 ? '🥈' : rank == 3 ? '🥉' : '';
+    // Mevcut FiyatRadar Pro rozeti (FRProBadge) — yeni rozet TASARLANMAZ,
+    // uygulamadaki mevcut bileşen reuse edilir. Sıralamayı etkilemez; yalnız
+    // kullanıcı adının yanında görsel işaret.
+    final showPro = score.isPro || (isMe && meIsPremium);
+    if (showPro) {
+      debugPrint('LEADERBOARD_EXISTING_PRO_BADGE_RENDERED: ${score.userId}');
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -313,7 +372,7 @@ class _BoardRow extends StatelessWidget {
                           color: isMe ? FR.gold : FR.ink),
                     ),
                   ),
-                  if (score.isPro) ...[
+                  if (showPro) ...[
                     const SizedBox(width: 6),
                     const FRProBadge(compact: true),
                   ],
@@ -352,6 +411,52 @@ class _NoRegion extends StatelessWidget {
             Text(
               'Sıralamayı görmek için il/ilçe gerekli.',
               style: frText(12.5, FontWeight.w600, color: FR.ink3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BoardError extends StatelessWidget {
+  const _BoardError({required this.onRetry, this.detail});
+  final VoidCallback onRetry;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_rounded, size: 36, color: FR.warn),
+            const SizedBox(height: 12),
+            Text('Sıralama yüklenemedi',
+                style: frDisplay(18, FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              'Bu kapsamda sıralama şu an getirilemedi. '
+              'Bağlantını kontrol edip tekrar dene.',
+              textAlign: TextAlign.center,
+              style: frText(12.5, FontWeight.w600,
+                  color: FR.ink3, height: 1.45),
+            ),
+            if (detail != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                detail!,
+                textAlign: TextAlign.center,
+                style: frText(10.5, FontWeight.w600, color: FR.ink3),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: onRetry,
+              child: Text('Tekrar dene',
+                  style: frText(13, FontWeight.w800, color: FR.gold)),
             ),
           ],
         ),
