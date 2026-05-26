@@ -728,6 +728,33 @@ class ReleaseNotesScreen extends StatelessWidget {
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
+        version: 'v1.0.6',
+        date: '26 Mayıs 2026',
+        items: [
+          'Kategori görselleri zenginleşti: 14 yeni marka-bağımsız çizim '
+              'eklendi (armut, kiraz, nar, havuç, brokoli, mısır, mantar, '
+              'sucuk, salça, mısır gevreği, patlamış mısır, çöp poşeti, ıslak '
+              'mendil, pil). Ayrıca ürünler artık adına göre en uygun görsele '
+              'eşleşiyor; eşleşme yoksa aynı kategorideki ürünler tek bir '
+              'görsele yığılmak yerine farklı çizimlere dağılıyor.',
+          'Premium üyelik ekranı yenilendi: satın alma sonrası "fiyakalı" bir '
+              'üyelik kartı (altın madalyon, plan ve yenileme bilgisi) ve '
+              'açtığın ayrıcalıkları onay işaretleriyle gösteren "Pro '
+              'Ayrıcalıkların" listesi geldi.',
+          'Ürün detayında kaydırma takılması giderildi: birkaç fiyat '
+              'eklenmiş ürünlerde yukarı kaydırırken liste sıçrayıp yukarı '
+              'çıkmayı engelliyordu — bölgesel fiyat ve yorum akışları artık '
+              'sabit kalıyor, kaydırma pürüzsüz.',
+          'Rozetler artık konuşuyor: rozet listesinde bir rozete dokununca '
+              '"nasıl kazanılır" detayı (durum, ödül puanı, açıklama) listenin '
+              'içinde açılıyor. Daha önce açıklama en altta görünüp panel '
+              'açılınca kayboluyordu.',
+          'Profil ekranına görsel cila: kartlara yumuşak derinlik/gölge, '
+              'seviye çipi altın gradiente çevrildi, ilerleme çubukları '
+              'hizalandı — düzen aynı, his daha premium.',
+        ],
+      ),
+      (
         version: 'v1.0.5',
         date: '25 Mayıs 2026',
         items: [
