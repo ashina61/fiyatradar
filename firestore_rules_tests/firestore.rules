@@ -740,8 +740,13 @@ service cloud.firestore {
 
       allow get: if isAdmin() ||
         (signedIn() && priceId.matches('^' + request.auth.uid + '_.*'));
-      allow list: if isAdmin() ||
-        (signedIn() && resource.data.userId == request.auth.uid);
+      // Bölgesel katkı sıralaması (regional_leaderboard_screen →
+      // watchRegionalContributorBoard) bir bölgedeki TÜM kullanıcıların
+      // raporlarını cityId/districtId + createdAt ile sorgulayıp aggregate
+      // eder; bu yüzden list, kullanıcının kendi raporlarıyla sınırlı olamaz.
+      // Giriş yapan herkes listeleyebilir (fiyat/mağaza/ad zaten priceGroups
+      // ile public). Tekil doküman erişimi (`get`) sahibine özel kalır.
+      allow list: if signedIn();
       allow create: if isVerified() && (
         (
           hasSafePriceReportCreatePayload() &&

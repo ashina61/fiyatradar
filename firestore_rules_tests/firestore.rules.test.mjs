@@ -6,7 +6,16 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 
 const projectId = 'fiyatradar-rules-test';
 const rules = readFileSync('./firestore.rules', 'utf8');
@@ -194,6 +203,22 @@ describe('products rules', () => {
 });
 
 describe('priceReports rules', () => {
+  // Bölgesel katkı sıralaması bir bölgedeki tüm kullanıcıların raporlarını
+  // (userId filtresi olmadan) sorgular. Giriş yapan herkes listeleyebilmeli.
+  test('signed-in user can list priceReports by region (leaderboard query)', async () => {
+    const db = testEnv.authenticatedContext('userBoard').firestore();
+    await assertSucceeds(
+      getDocs(
+        query(collection(db, 'priceReports'), where('cityId', '==', 'istanbul')),
+      ),
+    );
+  });
+
+  test('anonymous (signed-out) user cannot list priceReports', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDocs(collection(db, 'priceReports')));
+  });
+
   test('authenticated user can create own price report', async () => {
     const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
