@@ -476,7 +476,7 @@ class _DetailHeadlinePrice extends StatelessWidget {
                 onTap: () => showTrustInfoSheet(context),
                 borderRadius: FRRad.all(999),
                 child: Padding(
-                  padding: const EdgeInsets.all(2),
+                  padding: const EdgeInsets.all(2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                   child: Icon(Icons.info_outline_rounded,
                       size: 14, color: FR.ink3),
                 ),
@@ -553,7 +553,7 @@ void showTrustInfoSheet(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
     ),
     builder: (ctx) => Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
           22, 4, 22, 24 + MediaQuery.of(ctx).padding.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,

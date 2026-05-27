@@ -392,7 +392,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       overline: 'KİMLİK',
       title: 'Profil bilgileri',
       child: ListView(
-        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
+        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         children: [
           _avatarEditor(state),
           const SizedBox(height: 14),
@@ -481,7 +481,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       onTap: _saving ? null : _pickProfileImage,
       borderRadius: FRRad.all(FRRad.l),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: frSurface(radius: FRRad.l),
         child: Row(
           children: [
@@ -847,8 +847,8 @@ class _FaqTile extends StatelessWidget {
         // ExpansionTile'ın varsayılan ayırıcı çizgilerini kaldır.
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
           iconColor: FR.gold,
           collapsedIconColor: FR.ink3,
           title: Text(question, style: frText(13.5, FontWeight.w800)),
