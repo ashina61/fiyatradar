@@ -437,7 +437,7 @@ class _QuickAddRow extends StatelessWidget {
             builder: (_) => const MainScreen(initialIndex: 2)),
       ),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: frSurface(radius: FRRad.l),
         child: Row(
           children: [
@@ -983,7 +983,7 @@ class _RadarHero extends StatelessWidget {
         : 'Ürün ekle, topluluk doğrulasın.';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [FR.surfaceHi, FR.surfaceLo],
@@ -1410,7 +1410,7 @@ class _EmptyBlock extends StatelessWidget {
     return Container(
       height: height,
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: frSurface(radius: FRRad.l),
       child: Column(
         mainAxisSize: MainAxisSize.min,

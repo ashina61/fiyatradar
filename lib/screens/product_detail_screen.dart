@@ -311,7 +311,7 @@ class _DetailTitleBlock extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.verified_rounded, color: FR.gold, size: 12),
+                  Icon(Icons.verified_rounded, color: FR.gold, size: 12),
                   const SizedBox(width: 5),
                   Text('Katalog onaylı',
                       style: frText(10.5, FontWeight.w800, color: FR.gold)),
@@ -476,7 +476,7 @@ class _DetailHeadlinePrice extends StatelessWidget {
                 onTap: () => showTrustInfoSheet(context),
                 borderRadius: FRRad.all(999),
                 child: Padding(
-                  padding: const EdgeInsets.all(2),
+                  padding: const EdgeInsets.all(2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
                   child: Icon(Icons.info_outline_rounded,
                       size: 14, color: FR.ink3),
                 ),
@@ -527,7 +527,7 @@ class _DetailHeadlinePrice extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.bar_chart_rounded, size: 12, color: FR.ink2),
+                    Icon(Icons.bar_chart_rounded, size: 12, color: FR.ink2),
                     const SizedBox(width: 4),
                     Text('$dataPoints veri noktası',
                         style: frText(10.5, FontWeight.w800, color: FR.ink2)),
@@ -549,11 +549,11 @@ void showTrustInfoSheet(BuildContext context) {
     context: context,
     backgroundColor: FR.surface,
     showDragHandle: true,
-    shape: RoundedRectangleBorder(
+    shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
     ),
     builder: (ctx) => Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB( // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
           22, 4, 22, 24 + MediaQuery.of(ctx).padding.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -660,7 +660,7 @@ class _RegionalPriceSectionsState extends State<_RegionalPriceSections> {
             decoration: frSurface(radius: FRRad.l),
             child: Row(
               children: [
-                const Icon(Icons.location_on_outlined, color: FR.ink3, size: 18),
+                Icon(Icons.location_on_outlined, color: FR.ink3, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

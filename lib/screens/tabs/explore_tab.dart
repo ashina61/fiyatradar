@@ -131,7 +131,7 @@ class _ExploreTabState extends State<ExploreTab> {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
             child: Container(
               height: 54,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               decoration: frSurface(radius: FRRad.l),
               child: Row(
                 children: [
