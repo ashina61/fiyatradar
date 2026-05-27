@@ -496,14 +496,34 @@ class FirebaseService {
         message: 'Google girişi iptal edildi.',
       );
     }
+    debugPrint('GOOGLE_ACCOUNT_SELECTED: ${googleUser.email}');
     final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
+    debugPrint('GOOGLE_CREDENTIAL_CREATED');
     final cred = await auth.signInWithCredential(credential);
+    debugPrint(
+      'FIREBASE_AUTH_SIGN_IN_SUCCESS: uid=${cred.user?.uid} '
+      'email=${cred.user?.email}',
+    );
+    // ÖNEMLİ: Buradan sonrası AUTH SONRASI ikincil işlem (username seed /
+    // profil doc). Auth zaten başarılı; bu Firestore yazımları
+    // permission-denied / network nedeniyle patlarsa sign-in'i BAŞARISIZ
+    // saymayalım — yoksa kullanıcı "giriş yapılamadı" görür ama aslında
+    // oturum açılmıştır (restart sonrası girişli gelir). Hata ayrı loglanır;
+    // bootstrap UI katmanında (login_screen) ele alınır.
+    await _seedGoogleUserProfile(cred);
+    return cred;
+  }
+
+  /// Google ile ilk girişte username/profil doc'unu seed eder. Auth başarılı
+  /// olduktan SONRA çağrılır ve hatası sign-in'i bozmaz — best-effort.
+  Future<void> _seedGoogleUserProfile(UserCredential cred) async {
     final uid = cred.user?.uid;
-    if (uid != null && uid.isNotEmpty) {
+    if (uid == null || uid.isEmpty) return;
+    try {
       final displayName = cred.user?.displayName?.trim() ?? '';
       final email = cred.user?.email?.trim() ?? '';
       // Sadece YENİ kullanıcılarda username seed et — mevcut hesabın elle
@@ -533,8 +553,9 @@ class FirebaseService {
           'displayName': displayName,
         }, SetOptions(merge: true));
       }
+    } catch (e, st) {
+      debugPrint('GOOGLE_PROFILE_SEED_FAILED: $e\n$st');
     }
-    return cred;
   }
 
   /// Google ile ilk girişte boş bir handle için çakışmasız bir varyant bul ve

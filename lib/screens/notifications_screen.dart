@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/product.dart';
+import '../services/messaging_service.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -73,6 +74,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ],
               ),
             ),
+            ValueListenableBuilder<bool>(
+              valueListenable: MessagingService.instance.notificationsBlocked,
+              builder: (context, blocked, _) {
+                if (!blocked) return const SizedBox.shrink();
+                return const _PermissionBlockedBanner();
+              },
+            ),
             Expanded(
               child: visible.isEmpty
                   ? const _EmptyState()
@@ -85,6 +93,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         onTap: () => state.markNotificationRead(visible[i].id),
                       ),
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bildirim izni kapalıyken görünür uyarı. Kullanıcı fiyat alarmı push'u
+/// alamayacağı için sebebi açıkça söylüyoruz (sessiz kalmıyoruz).
+class _PermissionBlockedBanner extends StatelessWidget {
+  const _PermissionBlockedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: FR.warn.withOpacity(.10),
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: FR.warn.withOpacity(.40)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.notifications_off_outlined, color: FR.warn, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Bildirim izni kapalı. Fiyat alarmlarını almak için '
+                'bildirimlere izin ver.',
+                style: frText(12, FontWeight.w700, color: FR.ink2, height: 1.4),
+              ),
             ),
           ],
         ),

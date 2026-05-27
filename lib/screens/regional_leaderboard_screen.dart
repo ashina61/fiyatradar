@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -53,6 +54,9 @@ class _RegionalLeaderboardScreenState
     final key = '${city ?? ''}|${district ?? ''}|$_windowDays|$limit';
     if (_boardKey != key || _boardStream == null) {
       _boardKey = key;
+      debugPrint('LEADERBOARD_LOAD_START: scope=${_scope.name}');
+      debugPrint('LEADERBOARD_QUERY_PARAMS: city=${city ?? '-'} '
+          'district=${district ?? '-'} windowDays=$_windowDays limit=$limit');
       _boardStream = state.watchRegionalContributorBoard(
         city: city,
         district: district,
@@ -139,13 +143,24 @@ class _RegionalLeaderboardScreenState
                       ),
                       builder: (context, snap) {
                         // Sorgu hatası (örn. Firestore composite index henüz
-                        // deploy edilmemiş) sessizce yutulmasın — Türkiye geneli
-                        // filtresiz çalışırken il/ilçe sorguları index ister.
-                        // Görünür hata + tekrar dene, ham hatayı da logla.
+                        // deploy edilmemiş) sessizce yutulmasın — gerçek
+                        // FirebaseException code'una göre doğru mesaj göster.
+                        // Her hatayı "internet" sanıp kullanıcıyı yanıltma.
                         if (snap.hasError) {
-                          debugPrint('LEADERBOARD_STREAM_ERROR: '
-                              'scope=${_scope.name} error=${snap.error}');
+                          final resolved =
+                              _resolveLeaderboardError(snap.error);
+                          debugPrint('LEADERBOARD_LOAD_FAILED: '
+                              'scope=${_scope.name} tag=${resolved.logTag} '
+                              'error=${snap.error}');
+                          if (resolved.logTag == 'INDEX_MISSING') {
+                            debugPrint('LEADERBOARD_INDEX_MISSING: '
+                                'scope=${_scope.name}');
+                          } else if (resolved.logTag == 'PERMISSION_DENIED') {
+                            debugPrint('LEADERBOARD_PERMISSION_DENIED: '
+                                'scope=${_scope.name}');
+                          }
                           return _BoardError(
+                            message: resolved.message,
                             detail: kDebugMode ? '${snap.error}' : null,
                             onRetry: () => setState(() {
                               _boardKey = null;
@@ -166,6 +181,11 @@ class _RegionalLeaderboardScreenState
                         }
                         final list =
                             snap.data ?? const <RegionalContributorScore>[];
+                        if (snap.connectionState == ConnectionState.active ||
+                            snap.hasData) {
+                          debugPrint('LEADERBOARD_LOAD_SUCCESS: '
+                              'scope=${_scope.name} count=${list.length}');
+                        }
                         if (list.isEmpty) {
                           return _EmptyBoard(
                             label: _scopeRegionLabel(_scope, city, district),
@@ -419,9 +439,48 @@ class _NoRegion extends StatelessWidget {
   }
 }
 
+/// Liderlik tablosu stream hatasını gerçek [FirebaseException] code'una göre
+/// kullanıcıya gösterilecek Türkçe mesaja ve log etiketine çevirir. Her hatayı
+/// "internet" sanmayı bırakır — index eksikliği / izin reddi ayrı raporlanır.
+({String message, String logTag}) _resolveLeaderboardError(Object? error) {
+  if (error is FirebaseException) {
+    switch (error.code) {
+      case 'unavailable':
+      case 'deadline-exceeded':
+      case 'network-request-failed':
+        return (
+          message: 'Bağlantı kurulamadı. İnternetini kontrol et.',
+          logTag: 'NETWORK',
+        );
+      case 'failed-precondition':
+        return (
+          message: 'Liderlik tablosu için gerekli veritabanı indeksi eksik. '
+              'Lütfen daha sonra tekrar dene.',
+          logTag: 'INDEX_MISSING',
+        );
+      case 'permission-denied':
+        return (
+          message: 'Liderlik tablosuna erişim izni alınamadı.',
+          logTag: 'PERMISSION_DENIED',
+        );
+      default:
+        return (
+          message: 'Liderlik tablosu yüklenemedi.',
+          logTag: 'UNKNOWN:${error.code}',
+        );
+    }
+  }
+  return (message: 'Liderlik tablosu yüklenemedi.', logTag: 'UNKNOWN');
+}
+
 class _BoardError extends StatelessWidget {
-  const _BoardError({required this.onRetry, this.detail});
+  const _BoardError({
+    required this.onRetry,
+    required this.message,
+    this.detail,
+  });
   final VoidCallback onRetry;
+  final String message;
   final String? detail;
 
   @override
@@ -438,8 +497,7 @@ class _BoardError extends StatelessWidget {
                 style: frDisplay(18, FontWeight.w700)),
             const SizedBox(height: 6),
             Text(
-              'Bu kapsamda sıralama şu an getirilemedi. '
-              'Bağlantını kontrol edip tekrar dene.',
+              message,
               textAlign: TextAlign.center,
               style: frText(12.5, FontWeight.w600,
                   color: FR.ink3, height: 1.45),
