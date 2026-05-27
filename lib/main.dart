@@ -28,6 +28,16 @@ Future<void> main() async {
   Object? bootError;
   try {
     await Firebase.initializeApp();
+    // Firebase Auth e-posta dilini Türkçe'ye zorla. Doğrulama ve şifre
+    // sıfırlama mailleri Firebase'in default şablonuyla gider (gövde tam
+    // özelleştirilemez), ama bu çağrı dili mümkün olduğunca Türkçe yapar.
+    // Verification / reset çağrı noktaları ayrıca kendi öncesinde de
+    // setLanguageCode('tr') çağırır (idempotent).
+    try {
+      await FirebaseAuth.instance.setLanguageCode('tr');
+    } catch (_) {
+      // Dil ayarı best-effort; başarısız olsa da auth akışı çalışmaya devam.
+    }
     await FRThemeController.instance.load();
     // Crashlytics: debug build'lerde göndermiyoruz (kullanıcı self-test
     // yaparken false-pozitif yığmasın). Release/profile build'lerde

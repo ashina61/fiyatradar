@@ -59,25 +59,60 @@ class _PaywallScreenState extends State<PaywallScreen> {
     if (_purchasing) return;
     debugPrint('🛒 START_PURCHASE: ${p.id}');
     setState(() => _purchasing = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final ok = await _svc.purchase(p);
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text(
                 'Satın alma başlatılamadı. Play Store hesabını kontrol et.'),
           ),
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Doğrulanıyor… birkaç saniye sürebilir.')),
-        );
+        return;
+      }
+      // Premium artık YALNIZ sunucu (verifyPurchase) tarafından yazılır;
+      // istemci isPremium yazmaz. Satın alma sonucu sunucu doğrulamasını da
+      // kapsayacak şekilde beklenir.
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Premium doğrulanıyor… birkaç saniye sürebilir.')),
+      );
+      final outcome = await _svc.awaitPurchaseOutcome();
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      switch (outcome) {
+        case PremiumPurchaseOutcome.verified:
+          // Premium state listener üzerinden zaten "aktif" karta geçer;
+          // kullanıcıya net onay ver.
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Premium üyeliğin aktif. Teşekkürler!')),
+          );
+          break;
+        case PremiumPurchaseOutcome.verificationFailed:
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Satın alma doğrulanamadı. Lütfen daha sonra tekrar dene.'),
+            ),
+          );
+          break;
+        case PremiumPurchaseOutcome.error:
+          messenger.showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Satın alma tamamlanamadı. Lütfen tekrar dene.'),
+            ),
+          );
+          break;
+        case PremiumPurchaseOutcome.canceled:
+          // Kullanıcı iptal etti — hata gösterme.
+          break;
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Hata: $e')),
       );
     } finally {

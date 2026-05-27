@@ -414,6 +414,34 @@ class _ExploreCard extends StatelessWidget {
                     left: 8,
                     child: FRTrendPill(pct: pct, dense: true),
                   ),
+                // Home kartlarıyla tutarlı doğrulama sinyali. Görsel üstünde
+                // sabit boyutlu overlay olduğu için kart yüksekliğini /
+                // genişliğini etkilemez (dar ekranda overflow yok).
+                if (product.verifiedCount > 0)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: FR.surface.withOpacity(FR.isDark ? .62 : .9),
+                        borderRadius: FRRad.all(999),
+                        border: Border.all(color: FR.good.withOpacity(.55)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.verified_rounded,
+                              size: 11, color: FR.good),
+                          const SizedBox(width: 3),
+                          Text('${product.verifiedCount}',
+                              style: frText(10, FontWeight.w800,
+                                  color: FR.good)),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
             Padding(

@@ -6,7 +6,16 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 
 const projectId = 'fiyatradar-rules-test';
 const rules = readFileSync('./firestore.rules', 'utf8');
@@ -115,6 +124,39 @@ describe('users rules', () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertFails(updateDoc(doc(db, 'users/user1'), { isAdmin: true }));
   });
+
+  // Premium entitlement alanları yalnız verifyPurchase Cloud Function (Admin
+  // SDK) tarafından yazılabilir. İstemci hiçbir şekilde kendi premium'unu
+  // açamamalı (production security: ücretsiz Pro sömürüsünü engeller).
+  test('owner cannot self-grant isPremium during update', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(updateDoc(doc(db, 'users/user1'), { isPremium: true }));
+  });
+
+  test('owner cannot write premium entitlement fields during update', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(
+      updateDoc(doc(db, 'users/user1'), {
+        isPremium: true,
+        premiumPlan: 'fr_pro_yearly',
+        premiumProductId: 'fr_pro_yearly',
+        premiumSource: 'google_play',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users/user1'), { premiumUntil: new Date() }),
+    );
+  });
+
+  test('owner cannot self-grant isPremium at create time', async () => {
+    const db = testEnv.authenticatedContext('userPrem').firestore();
+    await assertFails(
+      setDoc(doc(db, 'users/userPrem'), {
+        name: 'Premium Cheater',
+        isPremium: true,
+      }),
+    );
+  });
 });
 
 describe('users/{uid}/productAlerts rules', () => {
@@ -161,6 +203,22 @@ describe('products rules', () => {
 });
 
 describe('priceReports rules', () => {
+  // Bölgesel katkı sıralaması bir bölgedeki tüm kullanıcıların raporlarını
+  // (userId filtresi olmadan) sorgular. Giriş yapan herkes listeleyebilmeli.
+  test('signed-in user can list priceReports by region (leaderboard query)', async () => {
+    const db = testEnv.authenticatedContext('userBoard').firestore();
+    await assertSucceeds(
+      getDocs(
+        query(collection(db, 'priceReports'), where('cityId', '==', 'istanbul')),
+      ),
+    );
+  });
+
+  test('anonymous (signed-out) user cannot list priceReports', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDocs(collection(db, 'priceReports')));
+  });
+
   test('authenticated user can create own price report', async () => {
     const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await assertSucceeds(
