@@ -94,7 +94,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       await state.sendVerificationEmail();
       if (!mounted) return;
       setState(() {
-        _info = 'Doğrulama maili tekrar gönderildi. Spam klasörünü de kontrol et.';
+        _info = 'Doğrulama e-postası gönderildi. Lütfen gelen kutunu ve '
+            'spam klasörünü kontrol et.';
       });
       _ensureCooldownTickerRunning();
     } on StateError catch (e) {
@@ -110,7 +111,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Mail gönderilemedi. Lütfen tekrar dene.';
+        _error = 'E-posta gönderilemedi. Lütfen daha sonra tekrar dene.';
       });
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -162,11 +163,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   String _mapAuthError(FirebaseAuthException e) {
     switch (e.code) {
       case 'too-many-requests':
-        return 'Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar dene.';
+        return 'Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar dene.';
       case 'network-request-failed':
         return 'Bağlantı koptu. İnternetini kontrol et.';
       default:
-        return 'Mail gönderilemedi. Lütfen tekrar dene.';
+        return 'E-posta gönderilemedi. Lütfen daha sonra tekrar dene.';
     }
   }
 

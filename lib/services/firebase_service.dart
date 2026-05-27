@@ -473,10 +473,14 @@ class FirebaseService {
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
-    // Kayıt akışının son adımı: doğrulama maili. Network hatası kaydı
-    // iptal etmesin — kullanıcı `VerifyEmailScreen` üstünden tekrar
-    // tetikleyebiliyor.
+    // Kayıt akışının son adımı: doğrulama maili — SADECE BİR KEZ burada
+    // gönderilir. Uygulama açılışında otomatik tekrar gönderilmez; kullanıcı
+    // `VerifyEmailScreen`'den cooldown'lu "tekrar gönder" ile tetikler.
+    // Network hatası kaydı iptal etmesin.
     try {
+      // Mail dilini Türkçe'ye zorla (Firebase default şablonu; gövde
+      // özelleştirilemez ama dil mümkünse Türkçe gelir).
+      await auth.setLanguageCode('tr');
       await cred.user?.sendEmailVerification();
     } catch (e, st) {
       debugPrint('[register] sendEmailVerification failed: $e\n$st');
@@ -557,8 +561,10 @@ class FirebaseService {
     return fallback;
   }
 
-  Future<void> sendPasswordReset(String email) {
-    return auth.sendPasswordResetEmail(email: email);
+  Future<void> sendPasswordReset(String email) async {
+    // Şifre sıfırlama mailini Türkçe diliyle gönder (Firebase default şablonu).
+    await auth.setLanguageCode('tr');
+    await auth.sendPasswordResetEmail(email: email);
   }
 
   /// Seeds Firestore collections on first launch so the app is never empty.

@@ -2445,13 +2445,14 @@ class _UnverifiedAddPriceBlockState extends State<_UnverifiedAddPriceBlock> {
       await state.sendVerificationEmail();
       if (!mounted) return;
       setState(() => _info =
-          'Doğrulama maili tekrar gönderildi. Spam klasörünü de kontrol et.');
+          'Doğrulama e-postası gönderildi. Lütfen gelen kutunu ve spam '
+          'klasörünü kontrol et.');
     } on StateError catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Mail gönderilemedi. Tekrar dene.');
+      setState(() => _error = 'E-posta gönderilemedi. Lütfen daha sonra tekrar dene.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

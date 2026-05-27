@@ -148,11 +148,18 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseService.instance.sendPasswordReset(email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Şifre sıfırlama e-postası gönderildi.')),
+        const SnackBar(
+          content: Text(
+              'Şifre sıfırlama bağlantısı e-posta adresine gönderildi. '
+              'Gelen kutunu ve spam klasörünü kontrol et.'),
+        ),
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() => _error = _mapAuthError(e));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'E-posta gönderilemedi. Lütfen daha sonra tekrar dene.');
     }
   }
 
@@ -248,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'weak-password':
         return 'Şifre çok zayıf. En az 6 karakter kullan.';
       case 'too-many-requests':
-        return 'Çok fazla deneme yapıldı. Lütfen biraz bekle.';
+        return 'Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar dene.';
       case 'username-taken':
         return 'Bu kullanıcı adı zaten alınmış. Lütfen farklı bir tane seç.';
       case 'invalid-username':

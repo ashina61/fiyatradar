@@ -1706,22 +1706,32 @@ class _AccountScreenState extends State<AccountScreen> {
   Future<void> _sendVerification() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.isAnonymous) return;
+    // Cooldown + Türkçe dil zorlaması AppState.sendVerificationEmail içinde;
+    // doğrudan user.sendEmailVerification() çağırıp spam'i delmeyelim.
+    final state = AppStateScope.read(context);
     setState(() {
       _verifyBusy = true;
       _verifyMessage = null;
     });
     try {
-      await user.sendEmailVerification();
+      await state.sendVerificationEmail();
       if (!mounted) return;
       setState(() => _verifyMessage =
-          'Doğrulama bağlantısı ${user.email ?? "e-postana"} gönderildi.');
+          'Doğrulama e-postası gönderildi. Lütfen gelen kutunu ve spam '
+          'klasörünü kontrol et.');
+    } on StateError catch (e) {
+      // Cooldown veya uygun olmayan durum — net Türkçe mesaj.
+      if (!mounted) return;
+      setState(() => _verifyMessage = e.message);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      setState(() => _verifyMessage =
-          'Gönderilemedi: ${e.message ?? e.code}');
-    } catch (e) {
+      setState(() => _verifyMessage = e.code == 'too-many-requests'
+          ? 'Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar dene.'
+          : 'E-posta gönderilemedi. Lütfen daha sonra tekrar dene.');
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _verifyMessage = 'Gönderilemedi: $e');
+      setState(() =>
+          _verifyMessage = 'E-posta gönderilemedi. Lütfen daha sonra tekrar dene.');
     } finally {
       if (mounted) setState(() => _verifyBusy = false);
     }

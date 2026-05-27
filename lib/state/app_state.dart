@@ -274,11 +274,13 @@ class AppState extends ChangeNotifier {
     }
     if (u.emailVerified) return;
     if (!canResendVerificationEmail) {
-      final remaining = verificationEmailCooldownRemaining;
       throw StateError(
-        'Tekrar göndermeden önce ${remaining.inSeconds} saniye bekle.',
+        'Yeni doğrulama e-postası göndermek için biraz bekle.',
       );
     }
+    // Mail dilini Türkçe'ye zorla (Firebase default şablonu; gövde
+    // özelleştirilemez ama dil mümkünse Türkçe gelir).
+    await _svc.auth.setLanguageCode('tr');
     await u.sendEmailVerification();
     _lastVerificationEmailSentAt = DateTime.now();
     notifyListeners();
