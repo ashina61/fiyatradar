@@ -311,7 +311,7 @@ class _DetailTitleBlock extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.verified_rounded, color: FR.gold, size: 12),
+                  Icon(Icons.verified_rounded, color: FR.gold, size: 12),
                   const SizedBox(width: 5),
                   Text('Katalog onaylı',
                       style: frText(10.5, FontWeight.w800, color: FR.gold)),
@@ -527,7 +527,7 @@ class _DetailHeadlinePrice extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.bar_chart_rounded, size: 12, color: FR.ink2),
+                    Icon(Icons.bar_chart_rounded, size: 12, color: FR.ink2),
                     const SizedBox(width: 4),
                     Text('$dataPoints veri noktası',
                         style: frText(10.5, FontWeight.w800, color: FR.ink2)),
@@ -660,7 +660,7 @@ class _RegionalPriceSectionsState extends State<_RegionalPriceSections> {
             decoration: frSurface(radius: FRRad.l),
             child: Row(
               children: [
-                const Icon(Icons.location_on_outlined, color: FR.ink3, size: 18),
+                Icon(Icons.location_on_outlined, color: FR.ink3, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

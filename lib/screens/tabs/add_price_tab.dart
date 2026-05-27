@@ -1033,7 +1033,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                           : 'BİM, A101, ŞOK, Migros…',
                       hintStyle: frText(12.5, FontWeight.w600, color: FR.ink3),
                       prefixIcon:
-                          const Icon(Icons.search_rounded, color: FR.ink3, size: 18),
+                          Icon(Icons.search_rounded, color: FR.ink3, size: 18),
                     ),
                   ),
                 ),
@@ -1982,7 +1982,7 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.place_outlined, size: 18, color: FR.gold),
+                    Icon(Icons.place_outlined, size: 18, color: FR.gold),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -1996,7 +1996,7 @@ class _SuggestPlaceSheetState extends State<_SuggestPlaceSheet> {
                         ],
                       ),
                     ),
-                    const Icon(Icons.keyboard_arrow_right_rounded, color: FR.ink3),
+                    Icon(Icons.keyboard_arrow_right_rounded, color: FR.ink3),
                   ],
                 ),
               ),
