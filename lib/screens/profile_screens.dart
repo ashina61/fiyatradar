@@ -871,8 +871,8 @@ class _FaqTile extends StatelessWidget {
 class ContactSupportScreen extends StatelessWidget {
   const ContactSupportScreen({super.key});
 
-  // NOT: Production öncesi gerçek bir gelen kutusuna bağlanmalı.
-  static const String _supportEmail = 'destek@fiyatradar.app';
+  // Geçici destek adresi — özel domain doğrulanana kadar gerçek Gmail kutusu.
+  static const String _supportEmail = 'fiyatradar.app@gmail.com';
 
   Future<void> _sendMail(BuildContext context) async {
     final uri = Uri(
