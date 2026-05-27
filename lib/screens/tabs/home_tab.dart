@@ -57,6 +57,8 @@ class HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           FRFadeSlideIn(delay: nextDelay(), child: const _QuickAddRow()),
+          const SizedBox(height: 12),
+          FRFadeSlideIn(delay: nextDelay(), child: const _BasketCompareRow()),
           if (state.banners.isNotEmpty) ...[
             const SizedBox(height: 24),
             FRFadeSlideIn(
@@ -161,10 +163,7 @@ class HomeTab extends StatelessWidget {
           if (feedItems.isEmpty)
             FRFadeSlideIn(
               delay: nextDelay(),
-              child: _EmptyBlock(
-                height: 120,
-                text: state.homeScopeEmptyMessage,
-              ),
+              child: _FeedEmptyState(state: state),
             )
           else
             // Feed rows skip the per-row fade animation — each instance
@@ -463,6 +462,59 @@ class _QuickAddRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text('20 saniyede ekle, bölgendeki kullanıcılar görsün.',
                       style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: FR.ink3),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Sepet karşılaştırması uygulamanın en güçlü özelliği; ana sayfada görünür
+/// ama sade bir CTA kartıyla öne çıkarılır. Sepet sekmesine (index 3) götürür.
+class _BasketCompareRow extends StatelessWidget {
+  const _BasketCompareRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: FRRad.all(FRRad.l),
+      onTap: () => Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+            builder: (_) => const MainScreen(initialIndex: 3)),
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+        decoration: frSurface(radius: FRRad.l),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.14),
+                borderRadius: FRRad.all(11),
+                border: Border.all(color: FR.gold.withOpacity(.4)),
+              ),
+              child: Icon(Icons.compare_arrows_rounded,
+                  color: FR.gold, size: 19),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Sepetini karşılaştır',
+                      style: frText(13.5, FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Aynı sepet hangi markette daha ucuz, saniyeler içinde gör.',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3),
+                  ),
                 ],
               ),
             ),
@@ -1358,8 +1410,107 @@ class _EmptyBlock extends StatelessWidget {
     return Container(
       height: height,
       alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: frSurface(radius: FRRad.l),
-      child: Text(text, style: frText(12.5, FontWeight.w600, color: FR.ink3)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.radar_rounded, size: 26, color: FR.ink3),
+          const SizedBox(height: 8),
+          Text(text,
+              textAlign: TextAlign.center,
+              style: frText(12.5, FontWeight.w600, color: FR.ink3)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Topluluk akışı boşken gösterilen profesyonel boş durum: ikon + başlık +
+/// açıklama + iki aksiyon (fiyat ekle / bölge değiştir). Gri/kuru kutu yerine
+/// kullanıcıyı ilk katkıya veya bölge seçimine yönlendirir.
+class _FeedEmptyState extends StatelessWidget {
+  const _FeedEmptyState({required this.state});
+  final AppState state;
+
+  Future<void> _changeRegion(BuildContext context) async {
+    final result = await showRegionPickerSheet(
+      context,
+      initialCity: state.cityName,
+      initialDistrict: state.districtName,
+    );
+    if (result == null) return;
+    try {
+      await state.updateRegionSettings(
+        cityName: result.city,
+        districtName: result.district,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Bölge güncellendi: ${result.city} / ${result.district}')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bölge güncellenemedi: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: frSurface(radius: FRRad.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: FR.gold.withOpacity(.14),
+                borderRadius: FRRad.all(18),
+                border: Border.all(color: FR.gold.withOpacity(.4)),
+              ),
+              child: Icon(Icons.radar_rounded, color: FR.gold, size: 28),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Bu bölgede henüz yeterli fiyat yok',
+            textAlign: TextAlign.center,
+            style: frText(15, FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'İlk fiyatı sen ekleyerek bölgenin fiyat radarını başlatabilirsin.',
+            textAlign: TextAlign.center,
+            style: frText(12.5, FontWeight.w600, color: FR.ink3, height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          FRCta(
+            label: 'Fiyat ekle',
+            icon: Icons.add_rounded,
+            onTap: () => Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                  builder: (_) => const MainScreen(initialIndex: 2)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          FRCta(
+            label: 'Bölge değiştir',
+            icon: Icons.place_outlined,
+            filled: false,
+            onTap: () => _changeRegion(context),
+          ),
+        ],
+      ),
     );
   }
 }

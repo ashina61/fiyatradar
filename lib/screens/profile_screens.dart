@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -718,6 +719,235 @@ class AboutScreen extends StatelessWidget {
   }
 }
 
+/// Yardım ve SSS — kullanıcı güvenini artıran kısa, sade Türkçe açıklamalar.
+/// Topluluk verisi, güven yüzdesi, puan/seviye, alarm ve Premium gibi konuları
+/// makale uzunluğuna kaçmadan cevaplar.
+class HelpFaqScreen extends StatelessWidget {
+  const HelpFaqScreen({super.key});
+
+  static const _items = <(String, String)>[
+    (
+      'FiyatRadar nasıl çalışır?',
+      'Topluluk üyeleri markette gördükleri fiyatları paylaşır. Sen de '
+          'bölgendeki en güncel fiyatları görür, sepetini marketlere göre '
+          'karşılaştırır ve fiyat düşünce bildirim alırsın.',
+    ),
+    (
+      'Fiyatlar nasıl eklenir?',
+      'Alttaki “+” sekmesinden ürünü, fiyatı ve marketi seç; istersen raf '
+          'fotoğrafı da ekle. Her onaylı katkı sana +10 puan kazandırır.',
+    ),
+    (
+      'Fiyatlara nasıl güvenebilirim?',
+      'Her fiyat topluluk tarafından doğrulanabilir. Doğrulanma sayısı, '
+          'ekleyen kullanıcının güven skoru ve fotoğraf kanıtı bir fiyatın '
+          'güvenilirliğini artırır.',
+    ),
+    (
+      'Güven yüzdesi ne demek?',
+      'Bir fiyatın ne kadar doğrulandığını ve güncel/güvenilir olma '
+          'ihtimalini özetleyen bir orandır. Daha yüksek güven, fiyatın '
+          'topluluk tarafından daha çok teyit edildiğini gösterir.',
+    ),
+    (
+      'Yanlış fiyat görürsem ne yapmalıyım?',
+      'Ürün detayında ilgili fiyatın yanındaki “Yanlış fiyat bildir” ile '
+          'topluluğa bildirebilir ya da doğru fiyatı ekleyerek güncel '
+          'tutabilirsin.',
+    ),
+    (
+      'Fiyat alarmı nasıl çalışır?',
+      'Bir ürüne hedef fiyat kurarsın; fiyat o seviyeye inince bildirim '
+          'alırsın. Ücretsiz planda en fazla 3 aktif alarm kurabilirsin, '
+          'Premium’da sınırsızdır. Bildirim tercihlerini Ayarlar > Bildirim '
+          'tercihleri’nden yönetebilirsin.',
+    ),
+    (
+      'Puan nasıl kazanılır, nasıl yükselirim?',
+      'Fiyat ekleyerek, fotoğraf ekleyerek ve fiyat doğrulayarak puan '
+          'kazanırsın. Puanın arttıkça seviye atlarsın (örn. Mahalle '
+          'Gözcüsü → Radar Pilotu). Seviye, topluluğa katkının bir '
+          'göstergesidir.',
+    ),
+    (
+      'Güven skorum nasıl artar?',
+      'Doğru fiyatlar ekleyip topluluk doğrulamalarına katıldıkça güven '
+          'skorun yükselir. Yüksek güven skoru, oylarının daha çok '
+          'ağırlık taşıması demektir.',
+    ),
+    (
+      'Pro rozeti sıralamamı etkiler mi?',
+      'Hayır. Pro rozeti sıralamanı yükseltmez; yalnızca Premium üyelik '
+          'göstergesidir. Liderlik tablosu sadece gerçek katkılarına göre '
+          'hesaplanır.',
+    ),
+    (
+      'Premium ne sağlar?',
+      'Reklamsız kullanım, sınırsız fiyat alarmı, 12 aya kadar fiyat '
+          'geçmişi, akıllı sepet karşılaştırması ve Pro rozeti.',
+    ),
+    (
+      'Satın alımı geri yükle ne işe yarar?',
+      'Yeni bir cihazda veya uygulamayı yeniden kurduğunda mevcut Premium '
+          'aboneliğini geri getirmek için kullanılır. Tekrar ücret alınmaz.',
+    ),
+    (
+      'E-posta doğrulama neden gerekli?',
+      'Sahte hesapları ve spam’i önleyip topluluk verisinin güvenilirliğini '
+          'korumak için; fiyat ekleme, doğrulama ve puan kazanma gibi '
+          'katkılar doğrulanmış hesap ister.',
+    ),
+    (
+      'Misafir kullanıcı neler yapabilir?',
+      'Fiyatları görüntüleyebilir ve sepet karşılaştırmasını sınırlı sayıda '
+          'deneyebilirsin. Fiyat eklemek, alarm kurmak ve puan kazanmak için '
+          'ücretsiz bir hesap açman gerekir.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileSubScaffold(
+      overline: 'DESTEK',
+      title: 'Yardım ve SSS',
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: frSurface(radius: FRRad.l),
+            child: Text(
+              'Bölgendeki gerçek market fiyatlarını gör, sepetini marketlere '
+              'göre karşılaştır, fiyat düşünce haber al.',
+              style: frText(12.5, FontWeight.w600, color: FR.ink2, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final item in _items) ...[
+            _FaqTile(question: item.$1, answer: item.$2),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FaqTile extends StatelessWidget {
+  const _FaqTile({required this.question, required this.answer});
+  final String question;
+  final String answer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: frSurface(radius: FRRad.l),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        // ExpansionTile'ın varsayılan ayırıcı çizgilerini kaldır.
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          iconColor: FR.gold,
+          collapsedIconColor: FR.ink3,
+          title: Text(question, style: frText(13.5, FontWeight.w800)),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(answer,
+                  style: frText(12.5, FontWeight.w600,
+                      color: FR.ink3, height: 1.5)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// İletişim ve Destek — sorun, öneri, yanlış fiyat bildirimi ve destek
+/// talepleri için. Uygulama içinde teknik debug bilgisi gösterilmez.
+class ContactSupportScreen extends StatelessWidget {
+  const ContactSupportScreen({super.key});
+
+  // NOT: Production öncesi gerçek bir gelen kutusuna bağlanmalı.
+  static const String _supportEmail = 'destek@fiyatradar.app';
+
+  Future<void> _sendMail(BuildContext context) async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: _supportEmail,
+      query: 'subject=${Uri.encodeComponent('FiyatRadar destek talebi')}',
+    );
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      await Clipboard.setData(const ClipboardData(text: _supportEmail));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('E-posta uygulaması açılamadı. Adres panoya kopyalandı.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _copyMail(BuildContext context) async {
+    await Clipboard.setData(const ClipboardData(text: _supportEmail));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Destek adresi panoya kopyalandı.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProfileSubScaffold(
+      overline: 'DESTEK',
+      title: 'İletişim ve Destek',
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: frSurface(radius: FRRad.l),
+            child: Text(
+              'Sorun, öneri, yanlış fiyat bildirimi veya destek taleplerin '
+              'için bizimle iletişime geçebilirsin. Genellikle birkaç iş günü '
+              'içinde yanıt veriyoruz.',
+              style: frText(12.5, FontWeight.w600, color: FR.ink2, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _HubRow(
+            icon: Icons.mail_outline_rounded,
+            title: 'E-posta gönder',
+            subtitle: _supportEmail,
+            onTap: () => _sendMail(context),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.copy_rounded,
+            title: 'Destek adresini kopyala',
+            subtitle: 'Panoya kopyala',
+            onTap: () => _copyMail(context),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: frSurface(radius: FRRad.l),
+            child: Text(
+              'Yanlış veya güncel olmayan bir fiyat gördüysen, ürün detayındaki '
+              '“Yanlış fiyat bildir” ile de hızlıca bildirebilirsin.',
+              style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class ReleaseNotesScreen extends StatelessWidget {
   const ReleaseNotesScreen({super.key});
 
@@ -788,148 +1018,72 @@ class ReleaseNotesScreen extends StatelessWidget {
         version: 'v1.0.4',
         date: '23 Mayıs 2026',
         items: [
-          'Pro satın alımları artık sunucu tarafında doğrulanıyor: yeni '
-              '`verifyPurchase` Cloud Function, Google Play Developer API '
-              '(`subscriptionsv2.get`) üzerinden satın alma token\'ının '
-              'gerçekten aktif olduğunu kontrol edip Pro statüsünü '
-              'düşürüyor. İptal edilen / iade edilen abonelikler artık '
-              'cihazda zorla "Pro" kalmıyor — kullanıcı için davranış '
-              'aynı, dolandırılma riski kalmadı.',
-          'Free planda fiyat geçmişi 7 gün, Pro\'da 12 ay: ürün detay '
-              'sayfasındaki grafik artık plan'
-              'ına göre pencereleniyor. Free kullanıcı grafik altında '
-              '"12 aylık grafik ve trend için Pro" upsell pill\'i '
-              'görüyor, tek dokunuşla paywall\'a gidiyor.',
-          'Free planda aktif akıllı alarm tavanı 3 ile sınırlandı: '
-              'yeni `enforceFreeAlertLimit` Firestore trigger\'ı 4. ve '
-              'sonraki alarmı sunucu tarafında pasifleştirip nedeni '
-              '"Free planda en fazla 3 aktif alarm" olarak doc\'a '
-              'yazıyor. Pro\'da limit yok. Daha önce client tarafında '
-              'açık olan tüm alarmlar Pro değilse ilk 3\'ün dışındakiler '
-              'sessizce pasife düşer.',
-          'Bölgesel fiyat lider tablosunda yazarın Pro rozeti satır '
-              'üstünde görünüyor — kim aktif Pro üye, listeyi açtığında '
-              'bir bakışta belli oluyor.',
-          'Sepet sekmesinde Pro pitch sadeleşti: "Sepet AI" adı tüm '
-              'ekranlarda "Akıllı sepet" olarak yenilendi, Pro değilse '
-              'karışık market dağılımı (Mixed) kartı paywall arkasına '
-              'alındı — sayısal sonuçlar (kaç market, ne kadar tasarruf) '
-              'leak etmiyor, sadece "ne kazanırsın" hissi gösteriliyor. '
-              'Profil kartındaki Pro upsell tagline\'ı da yeni '
-              'avantajlarla güncellendi.',
+          'Premium satın alımları artık sunucu tarafında güvenle '
+              'doğrulanıyor. İptal veya iade edilen abonelikler cihazda “Pro” '
+              'olarak kalmıyor.',
+          'Fiyat geçmişi planına göre genişledi: Ücretsiz planda son 7 gün, '
+              'Premium’da 12 aya kadar grafik ve trend.',
+          'Ücretsiz planda aktif fiyat alarmı 3 ile sınırlandı; Premium’da '
+              'sınırsız. Sınıra ulaşınca nedeni açıkça gösteriliyor.',
+          'Liderlik tablosunda aktif Premium üyelerin Pro rozeti adının '
+              'yanında görünüyor (sıralamayı etkilemez).',
+          'Sepet karşılaştırması sadeleşip “Akıllı sepet” adını aldı; birden '
+              'fazla markete bölerek tasarruf eden karışık-market önerisi '
+              'Premium’a taşındı.',
         ],
       ),
       (
         version: 'v1.0.3',
         date: '21 Mayıs 2026',
         items: [
-          'Banner reklamlar artık gerçek AdMob hesabıyla servis ediliyor: '
-              'release build\'lerde test reklamı yerine production banner '
-              'unit\'i (`ca-app-pub-7857385959432819`) yükleniyor. Debug '
-              'build\'ler hesabı koruma adına yine Google resmi test id\'sine '
-              'düşüyor — gerçek impression sayılmıyor.',
-          'UMP (User Messaging Platform) consent akışı eklendi: AB / GDPR '
-              'bölgesinden açılan kullanıcılar MobileAds başlamadan önce '
-              'kişiselleştirilmiş reklam onayı için form görüyor, "kabul / '
-              'reddet" seçimi cihaza yazılıyor. Form gerekmiyorsa (Türkiye '
-              'gibi non-EEA bölgeler) akış sessizce geçiliyor. Pro '
-              'kullanıcılar zaten reklam görmediği için form yine atlanıyor.',
-          'Paywall ekranı baştan kurgulandı: 5 maddelik yeni Pro avantaj '
-              'listesi (akıllı sepet önerisi, geçmiş fiyat grafikleri, sınırsız '
-              'akıllı alarm, reklamsız deneyim, Pro rozeti + erken erişim), '
-              'aylık/yıllık radio yerine üst kısımda segment toggle, yıllık '
-              'planda "%50 tasarruf" rozeti, hero kartın tepesinde "7 gün '
-              'ücretsiz dene" pill\'i. CTA metni yıllıkta "7 gün ücretsiz '
-              'başla", aylıkta "Pro\'ya geç" olarak otomatik değişiyor.',
-          'Play Store yayın hattı kuruldu: imzalı release AAB artık GitHub '
-              'Actions üzerinden üretiliyor, build sonunda signer '
-              'sertifikasının SHA-256 fingerprint\'i upload keystore ile '
-              'karşılaştırılıyor — yapı sessizce debug imzasına düşerse iş '
-              'fail oluyor. (Önceki sürümde release AAB\'nin debug '
-              'sertifikasıyla imzalanma riski vardı, kapandı.)',
-          'İç temizlik: `AppState` ile `google_mobile_ads` arasındaki tip '
-              'çakışması (import collision) çözüldü, AndroidManifest\'teki '
-              'XML yorum parse hatası giderildi — kullanıcıya yansıyan '
-              'davranış değişikliği yok, sadece release build\'in temiz '
-              'derlenmesi için.',
+          'Reklam altyapısı yenilendi; kişiselleştirilmiş reklam onayı gereken '
+              'bölgelerde açıkça soruluyor. Premium üyeler hiç reklam görmez.',
+          'Premium ekranı baştan tasarlandı: net avantaj listesi, aylık/yıllık '
+              'geçiş, yıllık planda “%50 tasarruf” ve “7 gün ücretsiz” vurgusu.',
+          'Performans ve kararlılık iyileştirmeleri yapıldı.',
         ],
       ),
       (
         version: 'v1.0.2',
         date: '14 Mayıs 2026',
         items: [
-          'Profil → "Kullanıcı adı 3 ayda bir değiştirilebilir" bilgilendirme '
-              'kutusu eklendi; cooldown sürerken kaç gün kaldığını ve bir '
-              'sonraki değişiklik tarihini açıkça gösteriyor.',
-          'Topluluk yorumlarında yazarın PRO rozeti ve güven yüzdesi artık '
-              'yorum listesinden anında okunabiliyor — her satır için ayrı '
-              'kullanıcı profili çekilmediği için liste belirgin biçimde daha '
-              'hızlı açılıyor.',
-          '"Fiyat ekle" akışında mahalle pazarı seçicisi: pazar günü bugün '
-              'ise marketin yanında küçük altın "BUGÜN" rozeti çıkıyor, '
-              'haftalık kurulum günleri ürün doğrulamasına yansıyor.',
-          'İç temizlik: tasarım sistemi guardrail\'inin yakaladığı 7 yeni '
-              'EdgeInsets çağrısı standart `LEGACY_EXCEPTION` notuyla '
-              'etiketlendi (Haziran 2026 sonuna kadar FRSpace tokenlarına '
-              'taşınacak). `flutter analyze` uyarıları (kullanılmayan import, '
-              'ölü `_baseScopedPriceQuery` helper\'ı) giderildi — kullanıcıya '
-              'yansıyan bir davranış değişikliği yok, sadece kod sağlığı.',
+          'Profilde “Kullanıcı adı 3 ayda bir değiştirilebilir” bilgisi '
+              'eklendi; kalan süreyi açıkça gösteriyor.',
+          'Topluluk yorumlarında yazarın Pro rozeti ve güven yüzdesi anında '
+              'görünüyor; liste daha hızlı açılıyor.',
+          'Fiyat ekleme akışına mahalle pazarı seçici eklendi; pazar günü '
+              'bugünse marketin yanında “BUGÜN” rozeti çıkıyor.',
+          'Performans ve kod kalitesi iyileştirmeleri yapıldı.',
         ],
       ),
       (
         version: 'v1.0.1',
         date: '14 Mayıs 2026',
         items: [
-          'Güvenlik sekmesi kaldırıldı: 2FA + biyometrik kilit, küçük bir '
-              'topluluk fiyat uygulaması için aşırı sürtüşmeye yol açıyordu. '
-              'Hesabı koruma sorumluluğu yine Firebase Auth + Google Sign-In '
-              'üzerinde; e-posta doğrulama ve hesap silme akışları yerinde.',
-          'Kullanıcı adları artık benzersiz: yeni hesap açarken veya profil '
-              'düzenlerken aynı takma adı başkası kullanıyorsa kayıt '
-              'reddediliyor. Firestore tarafında `usernames/{handle}` '
-              'rezervasyon collection\'ı eklendi, rules ile kilitlendi.',
-          'Tutorial slaytları gerçekçileşti: uydurma istatistikler (Kadıköy · '
-              '3.4K vb.) yerine uygulamanın gerçek davranışını anlatan '
-              'mesajlar geldi. Üçüncü slayt artık hem düşüş hem yükseliş '
-              'bildirimini açıkça belirtiyor.',
-          'Bölgesel fiyat hareketi tercihi (`regionalDropPushEnabled`) artık '
-              'Cloud Functions tarafında da okunuyor — kapalıysa push '
-              'gönderilmiyor, sadece in-app bildirim doc\'u yazılıyor. '
-              'Toggle subtitle\'ı "düşüş / yükseliş" olarak güncellendi.',
-          '"Hakkında" ekranına KVKK gereği veri silme talebi link\'i ve Play '
-              'Store abonelik / geri ödeme koşulları link\'i eklendi.',
-          'AndroidManifest.xml temizliği: biyometrik (USE_BIOMETRIC, '
-              'USE_FINGERPRINT) izinleri kaldırıldı, Play Billing izni '
-              '(com.android.vending.BILLING) eklendi. local_auth bağımlılığı '
-              'pubspec\'ten düştü.',
+          'Güvenlik ayarları sadeleştirildi; hesabın yine güvenle korunuyor, '
+              'e-posta doğrulama ve hesap silme akışları yerinde.',
+          'Kullanıcı adları artık benzersiz: aynı takma adı başkası '
+              'kullanıyorsa kayıt sırasında uyarılırsın.',
+          'Tanıtım slaytları uygulamanın gerçek davranışını anlatacak şekilde '
+              'güncellendi.',
+          'Bölgesel fiyat hareketi bildirim tercihi tam olarak uygulanıyor; '
+              'kapalıysa bildirim gönderilmiyor.',
+          '“Hakkında” ekranına veri silme talebi ve abonelik/iade koşulları '
+              'bağlantıları eklendi.',
+          'Performans ve güvenlik iyileştirmeleri yapıldı.',
         ],
       ),
       (
         version: 'v1.0.0',
         date: '8 Mayıs 2026',
         items: [
-          'Topluluk akışındaki "az önce" rozeti dar ekranlarda kayıyordu — '
-              'satır artık otomatik alt satıra geçiyor, görsel taşma kalktı.',
-          'Profil fotoğrafı yükleme: yavaş bağlantılarda "internet bağlantını '
-              'kontrol et" hatasını otomatik 1 sn ara ile yeniden deniyoruz; '
-              'görsel boyutu 720 px\'e indirildi, yükleme çoğu cihazda anında.',
-          'Splash ekranındaki yükleniyor halkası kaldırıldı — Android native '
-              'splash zaten gösteriliyordu, iki katmanlı görüntü tek karede '
-              'birleşti.',
-          '"Fiyat ekle" akışı sadeleştirildi: kalın "Radar Ekosistemi" kartı '
-              'yerine ince ilerleme şeridi geldi, kaynak türü chip\'leri 3. '
-              'adımın içine taşındı, alttaki bilgi kutusu kaldırıldı.',
-          'Admin paneli baştan yazıldı: 9 sekme yerine PANEL / KATALOG / '
-              'FİYAT / MAĞAZA / SİSTEM olmak üzere 5 mantıksal modüle ayrıldı. '
-              'Mağaza sekmesi artık zincir, fiziksel ve online sayaçlarını, '
-              'bekleyen onayları ve son hareketleri inline gösteriyor; yeni '
-              'şube / zincir / online kısayolları doğrudan ilgili form '
-              'sheet\'ini açıyor.',
-          'Play Store yayını için release imza yapılandırması güncellendi: '
-              'android/key.properties dosyası üzerinden upload keystore '
-              'okunuyor, geliştirme makinelerinde dosya yoksa debug imzayla '
-              'geri düşüyor. ProGuard kurallarına Play Billing, Mobile '
-              'Scanner ve diğer plugin grupları eklendi.',
+          'Topluluk akışındaki “az önce” rozeti dar ekranlarda taşıyordu; '
+              'düzeltildi.',
+          'Profil fotoğrafı yükleme hızlandırıldı ve yavaş bağlantılarda '
+              'otomatik yeniden deneniyor.',
+          'Açılış ekranı sadeleşti; daha akıcı bir giriş deneyimi.',
+          '“Fiyat ekle” akışı sadeleştirildi; daha hızlı ve anlaşılır.',
+          'Performans, kararlılık ve yayın hazırlığı iyileştirmeleri yapıldı.',
         ],
       ),
       (
@@ -953,23 +1107,20 @@ class ReleaseNotesScreen extends StatelessWidget {
               'ikonu, splash, paywall, admin başlığı.',
           'Adaptif Android ikonunun krem haresi kaldırıldı — koyu launcher '
               'temalarında daha temiz duruyor.',
-          'Fiyat ekleme transaction\'ı "read-after-write" hatası alıyordu, '
-              'gönderim akışı yeniden yazıldı.',
+          'Fiyat ekleme sırasında nadir görülen bir gönderim hatası giderildi.',
         ],
       ),
       (
         version: 'v0.9.4',
         date: '15 Nisan 2026',
         items: [
-          'FiyatRadar Pro: Play Billing + StoreKit entegrasyonu; reklamsız '
-              'mod, gelişmiş alarm, sınırsız favori.',
+          'FiyatRadar Pro geldi: reklamsız kullanım, gelişmiş alarm ve '
+              'sınırsız favori.',
           'Bölgesel lider tablosu yayında — il / ilçe bazında en çok katkı '
               'yapan kullanıcılar haftalık güncelleniyor.',
-          'Watchlist: ürün takibi, hedef fiyat alarmı, push bildirimi.',
-          'Skeleton yükleme animasyonları; bağlantı zayıfken boş kart yerine '
-              'iskelet gösteriliyor.',
-          'Reklam slotları: AdMob banner + interstitial yapılandırıldı; Pro '
-              'kullanıcılarda otomatik gizleniyor.',
+          'Takip listesi: ürün takibi, hedef fiyat alarmı ve bildirim.',
+          'Bağlantı zayıfken boş ekran yerine yükleniyor görünümü gösteriliyor.',
+          'Reklamlar eklendi; Premium üyelerde otomatik gizleniyor.',
         ],
       ),
       (
@@ -980,18 +1131,18 @@ class ReleaseNotesScreen extends StatelessWidget {
               'profilde puan ve rozet gösterimi.',
           'Admin moderasyon: ihtilaflı / şüpheli fiyat raporları için '
               'inceleme kuyruğu, onay-red akışları.',
-          'Crashlytics canlı: release build\'de uncaught Flutter ve native '
-              'hatalar otomatik raporlanıyor.',
-          'Sepet altyapısı yeniden yazıldı — gerçek zamanlı toplam fiyat, '
-              'market bazında kıyas.',
+          'Kararlılık iyileştirildi: uygulama hataları otomatik raporlanıp '
+              'daha hızlı düzeltiliyor.',
+          'Sepet yenilendi — gerçek zamanlı toplam fiyat ve market bazında '
+              'karşılaştırma.',
         ],
       ),
       (
         version: 'v0.9.2',
         date: '28 Mart 2026',
         items: [
-          'Firebase Cloud Messaging: bölgesel fiyat düşüşü, takip ettiğin '
-              'ürünlerde değişiklik için push.',
+          'Bildirimler: bölgesel fiyat düşüşü ve takip ettiğin ürünlerdeki '
+              'değişiklikler için anlık bildirim.',
           'Barkod tarayıcı: ürün eklerken barkod ile otomatik tanıma.',
           'Yorum sistemi: ürün altında topluluk yorumları, beğeni, raporlama.',
           'Hesap yönetimi: e-posta / şifre değiştir, hesabı sil, oturumları '
@@ -1002,12 +1153,12 @@ class ReleaseNotesScreen extends StatelessWidget {
         version: 'v0.9.1',
         date: '20 Mart 2026',
         items: [
-          'P0 / P1 düzeltmeler — Play Store hazırlığı için güvenlik '
-              'sertleştirmesi (Firestore rules, Storage rules, App Check).',
+          'Play Store hazırlığı için kapsamlı güvenlik iyileştirmeleri '
+              'yapıldı.',
           'Onboarding ekranı: 3 sayfalık tanıtım, izin istekleri (konum, '
               'bildirim).',
-          'UX: tutarlı buton boyutları, dock-safe alt boşluklar, klavye '
-              'açıkken kaydırma davranışı.',
+          'Arayüz: tutarlı buton boyutları, alt menü için güvenli boşluklar '
+              've klavye açıkken akıcı kaydırma.',
         ],
       ),
       (
@@ -1037,10 +1188,10 @@ class ReleaseNotesScreen extends StatelessWidget {
         version: 'v0.8.3',
         date: '20 Şubat 2026',
         items: [
-          'Bölge seçici Türkiye il/ilçe whitelist\'iyle kilitlendi — yanlış '
-              'bölge raporları ortadan kalktı.',
-          'Anasayfa kapsam akışı (şehir / mahalle) hardenıldı.',
-          'Admin market yönetimi yeniden yazıldı: chain bazlı arama, statü '
+          'Bölge seçici Türkiye il/ilçe listesiyle sınırlandı — yanlış bölge '
+              'bildirimleri ortadan kalktı.',
+          'Ana sayfa bölge akışı (şehir / mahalle) sağlamlaştırıldı.',
+          'Yönetici market yönetimi yenilendi: zincir bazlı arama ve durum '
               'filtreleri.',
         ],
       ),
@@ -1071,9 +1222,8 @@ class ReleaseNotesScreen extends StatelessWidget {
         date: '25 Ocak 2026',
         items: [
           'Bölgesel fiyat sistemi tasarlandı ve uygulandı: her fiyat girişi '
-              'bir storeplace + bölge ile ilişkilendiriliyor.',
-          'Firestore rules + indexes deterministik okuma için yeniden '
-              'yazıldı.',
+              'bir mağaza ve bölge ile ilişkilendiriliyor.',
+          'Veri okuma performansı ve tutarlılığı iyileştirildi.',
         ],
       ),
       (
@@ -1090,8 +1240,8 @@ class ReleaseNotesScreen extends StatelessWidget {
         version: 'v0.7.0',
         date: '5 Ocak 2026',
         items: [
-          'Çekirdek sertleştirme: doğrulama sistemi, canlı tema değişimi, '
-              'dock-safe sayfa sonu boşlukları.',
+          'Temel iyileştirmeler: doğrulama sistemi, canlı tema değişimi ve '
+              'alt menü için güvenli sayfa boşlukları.',
           'Bildirim ekranı yenilendi: tüm push geçmişi, okundu / okunmadı '
               'rozetleri, tek dokunuşla detaya git.',
           'Tema renkleri runtime\'da güncellenebiliyor — admin paletten '
@@ -1102,12 +1252,9 @@ class ReleaseNotesScreen extends StatelessWidget {
         version: 'v0.6.0',
         date: '20 Aralık 2025',
         items: [
-          'Tüm UI koyu, sıcak premium FR design tokens\'a göre yeniden '
-              'düzenlendi (gold + ink palette).',
-          'Tipografi: Display / text / price font ailesi tek noktadan '
-              'okunuyor.',
-          'Component sistemi: FRCard, FRCta, FRChip, FRSectionHead vb. '
-              'paylaşılan widget kütüphanesi.',
+          'Tüm arayüz sıcak, premium bir görünümle yeniden düzenlendi.',
+          'Tipografi tek bir tutarlı sistemden okunacak şekilde düzenlendi.',
+          'Tutarlı, paylaşılan bir arayüz bileşen sistemi oluşturuldu.',
         ],
       ),
       (
@@ -1116,9 +1263,9 @@ class ReleaseNotesScreen extends StatelessWidget {
         items: [
           'Login: Google Sign-In + e-posta/şifre + anonim auth.',
           'Profil: ad, kullanıcı adı, telefon, fotoğraf, bölge, dil tercihi.',
-          'Admin yetkisi: Firestore "isAdmin" flag ile.',
-          'Splash + boot error gate: Firebase init başarısızsa kullanıcıya '
-              'aksiyon alınabilir hata ekranı.',
+          'Yönetici araçları eklendi.',
+          'Açılışta bağlantı sorununda kullanıcıya net, aksiyon alınabilir '
+              'bir hata ekranı gösteriliyor.',
         ],
       ),
       (
@@ -1145,19 +1292,19 @@ class ReleaseNotesScreen extends StatelessWidget {
         version: 'v0.2.0',
         date: '28 Ekim 2025',
         items: [
-          'Firebase çekirdeği: Firestore, Auth, Storage, Functions iskeleti.',
-          'Veri modelleri: Product, PriceEntry, StorePlace, User.',
-          'Cloud Functions: fiyat doğrulama, premium IAP doğrulama.',
+          'Uygulama altyapısı kuruldu.',
+          'Ürün, fiyat ve mağaza veri yapısı oluşturuldu.',
+          'Sunucu tarafı fiyat ve abonelik doğrulama altyapısı eklendi.',
         ],
       ),
       (
         version: 'v0.1.0',
         date: '15 Ekim 2025',
         items: [
-          'Proje başlangıcı — Flutter app scaffold, marka renkleri, '
-              'pubspec setup.',
-          'İlk wireframe ekranları (anasayfa, profil, fiyat ekle).',
-          'Tasarım dili: FR.gold + FR.ink seti, FRRad radius tokenları.',
+          'Proje başlangıcı: ilk uygulama iskeleti ve marka kimliği.',
+          'İlk taslak ekranlar (ana sayfa, profil, fiyat ekle).',
+          'Tasarım dili: altın + koyu mürekkep paleti ve tutarlı köşe '
+              'yuvarlamaları.',
         ],
       ),
     ];
@@ -1539,6 +1686,22 @@ class SettingsHubScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _HubRow(
+            icon: Icons.help_outline_rounded,
+            title: 'Yardım ve SSS',
+            subtitle: 'Nasıl çalışır, güven, puan, alarm',
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const HelpFaqScreen())),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.support_agent_rounded,
+            title: 'İletişim ve Destek',
+            subtitle: 'Soru, öneri, geri bildirim',
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ContactSupportScreen())),
+          ),
+          const SizedBox(height: 10),
+          _HubRow(
             icon: Icons.info_outline_rounded,
             title: 'Hakkında',
             subtitle: 'Sürüm ve yasal metinler',
@@ -1799,7 +1962,9 @@ class _AccountScreenState extends State<AccountScreen> {
         title: Text('Hesabı sil', style: frDisplay(20, FontWeight.w800)),
         content: Text(
           'Hesabını sildiğinde profil bilgilerin kalıcı olarak silinir. '
-          'Bu işlem geri alınamaz.',
+          'Topluluğa katkı olarak eklediğin bazı fiyat kayıtları, herkesin '
+          'yararına anonimleştirilmiş şekilde korunabilir. Bu işlem geri '
+          'alınamaz.',
           style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.45),
         ),
         actions: [
@@ -1914,7 +2079,8 @@ class _AccountScreenState extends State<AccountScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Hesabını silmek profilini, favorilerini ve kazandığın '
-                    'puanları kalıcı olarak kaldırır.',
+                    'puanları kalıcı olarak kaldırır. Topluluğa eklediğin bazı '
+                    'fiyat kayıtları anonimleştirilmiş şekilde korunabilir.',
                     style: frText(12.5, FontWeight.w600,
                         color: FR.ink2, height: 1.5),
                   ),

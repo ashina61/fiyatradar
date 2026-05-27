@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../models/gamification.dart';
 import '../../models/price_v1.dart';
 import '../../models/product.dart';
 import '../../models/turkey_locations.dart';
@@ -277,15 +278,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
         }
       } else {
         final hasProofPhoto = (proofUrl ?? '').isNotEmpty;
-        _snack(
-          hasProofPhoto
-              ? 'Fotoğraflı fiyat admin kontrolüne gönderildi; onay sonrası yayına alınacak.'
-              : isOnline
-                  ? 'Online fiyat eklendi · $chainName · ${result.sourceLabel}'
-                  : 'Fiyat eklendi · '
-                      '$chainName / $district bölgesine işlendi · '
-                      '${result.sourceLabel}',
-        );
         if (mounted) {
           setState(() {
             _selectedProduct = null;
@@ -299,6 +291,17 @@ class _AddPriceTabState extends State<AddPriceTab> {
           // so the user can stay in flow.
           _consumeNextQueuedProduct(state);
         }
+        if (!mounted) return;
+        if (hasProofPhoto) {
+          // Fotoğraflı fiyat moderasyona düşer; henüz "yayında" değil.
+          _snack(
+            'Fotoğraflı fiyat admin kontrolüne gönderildi; onay sonrası '
+            'yayına alınacak.',
+          );
+        } else {
+          // Anında yayına giren katkı için güçlü başarı geri bildirimi.
+          await _showContributionReward(state);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -306,6 +309,76 @@ class _AddPriceTabState extends State<AddPriceTab> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Anında yayına giren bir fiyat katkısından sonra güçlü ama sade başarı
+  /// geri bildirimi. Puan/level altyapısını DEĞİŞTİRMEZ; yalnızca mevcut
+  /// snapshot'tan okur (puanlar Firestore listener'ı ile birazdan tazelenir).
+  Future<void> _showContributionReward(AppState state) async {
+    final g = state.gamification;
+    final next = FRLevels.nextOf(g.level);
+    final projected = g.points + PointsRules.addPrice;
+    final remaining = next == null ? null : (next.minPoints - projected);
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: FR.surface,
+      showDragHandle: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            22, 4, 22, 24 + MediaQuery.of(ctx).padding.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                  borderRadius: FRRad.all(20),
+                  boxShadow: frGoldGlow(opacity: .25),
+                ),
+                child: Icon(Icons.verified_rounded, color: FR.onGold, size: 32),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Katkın yayında',
+                textAlign: TextAlign.center,
+                style: frDisplay(22, FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('+${PointsRules.addPrice} puan kazandın',
+                textAlign: TextAlign.center,
+                style: frText(14, FontWeight.w800, color: FR.gold)),
+            const SizedBox(height: 8),
+            Text(
+              'Bölgenin fiyat radarına katkı sağladın. Teşekkürler!',
+              textAlign: TextAlign.center,
+              style: frText(12.5, FontWeight.w600, color: FR.ink3, height: 1.5),
+            ),
+            if (remaining != null && remaining > 0) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Sonraki seviye “${next!.name}” için $remaining puan kaldı.',
+                textAlign: TextAlign.center,
+                style: frText(12, FontWeight.w700, color: FR.ink2),
+              ),
+            ],
+            const SizedBox(height: 18),
+            FRCta(
+              label: 'Devam et',
+              icon: Icons.check_rounded,
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _pickProofPhoto({required bool fromCamera}) async {

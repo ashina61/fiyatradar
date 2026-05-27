@@ -173,6 +173,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             Text('Ürün bu fiyata indiğinde seni uyaralım.',
                 style: frText(12.5, FontWeight.w600, color: FR.ink3)),
+            if (!state.premium.isActive) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Ücretsiz planda '
+                '${state.productAlerts.length}/${AppState.kFreeProductAlertLimit} '
+                'alarm kullanıldı. Sınırsız alarm Premium’da.',
+                style: frText(11.5, FontWeight.w700, color: FR.ink2),
+              ),
+            ],
             const SizedBox(height: 14),
             TextField(
               controller: ctrl,
@@ -457,7 +466,23 @@ class _DetailHeadlinePrice extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('TOPLULUKTAN EN İYİ FİYAT', style: frOverline()),
+          Row(
+            children: [
+              Flexible(
+                child: Text('TOPLULUKTAN EN İYİ FİYAT', style: frOverline()),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () => showTrustInfoSheet(context),
+                borderRadius: FRRad.all(999),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(Icons.info_outline_rounded,
+                      size: 14, color: FR.ink3),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -515,6 +540,56 @@ class _DetailHeadlinePrice extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Güven yüzdesi nedir?" açıklaması — kullanıcı dostu, teknik formül yok.
+/// Headline fiyat kartındaki info ikonu bunu açar.
+void showTrustInfoSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: FR.surface,
+    showDragHandle: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
+    ),
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.fromLTRB(
+          22, 4, 22, 24 + MediaQuery.of(ctx).padding.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.verified_rounded, color: FR.gold, size: 22),
+              const SizedBox(width: 10),
+              Text('Güven yüzdesi nedir?',
+                  style: frDisplay(20, FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Bu oran; fiyatın doğrulanma sayısı, ekleyen kullanıcının güven '
+            'skoru, fotoğraf kanıtı ve topluluk geri bildirimleri gibi '
+            'sinyallerle hesaplanır.',
+            style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.55),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Daha yüksek güven, fiyatın daha güncel ve doğrulanmış olma '
+            'ihtimalinin yüksek olduğunu gösterir.',
+            style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.55),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Yanlış veya güncel olmayan bir fiyat görürsen “Yanlış fiyat '
+            'bildir” ile topluluğa bildirebilirsin.',
+            style: frText(12.5, FontWeight.w600, color: FR.ink3, height: 1.5),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 // ─── Regional price sections ────────────────────────────────────────────────
@@ -1195,14 +1270,26 @@ class _ContributionRowState extends State<_ContributionRow> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FR.surface,
-        title: Text('Fiyatı raporla', style: frDisplay(20, FontWeight.w700)),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: 'Kısa not (opsiyonel)',
-            hintStyle: frText(12, FontWeight.w600, color: FR.ink3),
-          ),
+        title: Text('Yanlış fiyat bildir', style: frDisplay(20, FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bu fiyat güncel değilse veya hatalıysa, topluluğun güvenini '
+              'korumak için bize bildirebilirsin.',
+              style: frText(12.5, FontWeight.w600, color: FR.ink3, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Kısa not (opsiyonel)',
+                hintStyle: frText(12, FontWeight.w600, color: FR.ink3),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -1349,7 +1436,7 @@ class _ContributionRowState extends State<_ContributionRow> {
               IconButton(
                 onPressed: _busy ? null : _report,
                 icon: Icon(Icons.flag_outlined, size: 18, color: FR.ink3),
-                tooltip: 'Raporla',
+                tooltip: 'Yanlış fiyat bildir',
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
