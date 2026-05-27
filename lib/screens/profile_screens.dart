@@ -958,6 +958,31 @@ class ReleaseNotesScreen extends StatelessWidget {
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
+        version: 'v1.0.7',
+        date: '27 Mayıs 2026',
+        items: [
+          'Yardım ve SSS ile İletişim ve Destek ekranları eklendi: nasıl '
+              'çalışır, güven yüzdesi, puan ve alarm gibi konular tek yerde; '
+              'sorun ve önerilerin için doğrudan bize ulaşabilirsin.',
+          'Ana sayfada bölge boşken artık yol gösteren bir ekran var: tek '
+              'dokunuşla fiyat ekleyebilir veya bölgeni değiştirebilirsin.',
+          'Ana sayfaya “Sepetini karşılaştır” kısayolu geldi — aynı sepet '
+              'hangi markette daha ucuz, saniyeler içinde gör.',
+          'Ürün detayında “güven yüzdesi” artık tek dokunuşla açıklanıyor; '
+              'yanlış fiyat bildirimi daha anlaşılır hale geldi.',
+          'Fiyat ekledikten sonra “Katkın yayında” başarı ekranı ve '
+              'kazandığın puan net şekilde gösteriliyor.',
+          'Fiyat alarmı kurarken ücretsiz planda kalan hakkın görünüyor.',
+          'Satın alma ve e-posta (doğrulama / şifre sıfırlama) mesajları '
+              'Türkçeleştirildi; tekrar gönderme daha kontrollü.',
+          'Premium güvenliği güçlendirildi: üyelik durumu yalnızca sunucu '
+              'tarafında doğrulanıyor.',
+          'Bölgesel katkı sıralamasında İlçe ve Şehir sekmelerindeki yüklenme '
+              'sorunu giderildi.',
+          'Performans, kararlılık ve metin iyileştirmeleri yapıldı.',
+        ],
+      ),
+      (
         version: 'v1.0.6',
         date: '26 Mayıs 2026',
         items: [

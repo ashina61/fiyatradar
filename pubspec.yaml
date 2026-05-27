@@ -7,9 +7,9 @@ publish_to: 'none'
 # satırdaki +N yalnızca local build'ler için fallback'tir. Play'e versionCode
 # 5'e kadar yüklendiğinden local fallback 101'den başlatıldı.
 # versionName (sol taraf) uygulama içi "Yenilikler" changelog'uyla hizalı
-# tutulur — en güncel giriş v1.0.6. CI yalnız versionCode'u override ettiği
+# tutulur — en güncel giriş v1.0.7. CI yalnız versionCode'u override ettiği
 # için versionName pubspec'ten gelir; release öncesi burada güncel olmalı.
-version: 1.0.6+101
+version: 1.0.7+101
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
