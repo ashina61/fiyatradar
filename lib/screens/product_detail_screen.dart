@@ -549,7 +549,7 @@ void showTrustInfoSheet(BuildContext context) {
     context: context,
     backgroundColor: FR.surface,
     showDragHandle: true,
-    shape: RoundedRectangleBorder(
+    shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
     ),
     builder: (ctx) => Padding(

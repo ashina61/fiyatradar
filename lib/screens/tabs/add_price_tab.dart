@@ -324,7 +324,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
       context: context,
       backgroundColor: FR.surface,
       showDragHandle: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(FRRad.xl)),
       ),
       builder: (ctx) => Padding(
