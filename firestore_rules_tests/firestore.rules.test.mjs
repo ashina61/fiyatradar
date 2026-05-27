@@ -115,6 +115,39 @@ describe('users rules', () => {
     const db = testEnv.authenticatedContext('user1').firestore();
     await assertFails(updateDoc(doc(db, 'users/user1'), { isAdmin: true }));
   });
+
+  // Premium entitlement alanları yalnız verifyPurchase Cloud Function (Admin
+  // SDK) tarafından yazılabilir. İstemci hiçbir şekilde kendi premium'unu
+  // açamamalı (production security: ücretsiz Pro sömürüsünü engeller).
+  test('owner cannot self-grant isPremium during update', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(updateDoc(doc(db, 'users/user1'), { isPremium: true }));
+  });
+
+  test('owner cannot write premium entitlement fields during update', async () => {
+    const db = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(
+      updateDoc(doc(db, 'users/user1'), {
+        isPremium: true,
+        premiumPlan: 'fr_pro_yearly',
+        premiumProductId: 'fr_pro_yearly',
+        premiumSource: 'google_play',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users/user1'), { premiumUntil: new Date() }),
+    );
+  });
+
+  test('owner cannot self-grant isPremium at create time', async () => {
+    const db = testEnv.authenticatedContext('userPrem').firestore();
+    await assertFails(
+      setDoc(doc(db, 'users/userPrem'), {
+        name: 'Premium Cheater',
+        isPremium: true,
+      }),
+    );
+  });
 });
 
 describe('users/{uid}/productAlerts rules', () => {

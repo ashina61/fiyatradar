@@ -34,12 +34,21 @@ service cloud.firestore {
         'banReason',
         'role',
         'email',
-        // NOT: Premium alanları (`isPremium`, `premiumUntil`, `premiumPlan`,
-        // `premiumProductId`, `premiumSource`, `premiumPurchaseId`,
-        // `premiumPurchaseToken`, `premiumUpdatedAt`) artık burada DEĞİL.
-        // Geçici minimum istemci-taraflı entitlement akışı için bu alanların
-        // yazımına `hasSafePremiumMutation` (tip güvenliği) altında izin
-        // verilir. Sunucu doğrulaması geri geldiğinde tekrar immutable yapılmalı.
+        // Premium entitlement alanları İSTEMCİ TARAFINDAN YAZILAMAZ. Tek
+        // otorite `verifyPurchase` Cloud Function'ı (Admin SDK, Google Play
+        // Developer API doğrulamasından sonra). Admin SDK rules'ı bypass
+        // ettiği için bu immutable liste yalnız client mutation'larını bloklar;
+        // sunucu yazımı etkilenmez. (Önceki `hasSafePremiumMutation` gevşek
+        // tip-kontrolü kaldırıldı — kullanıcı kendi isPremium'unu açamaz.)
+        'isPremium',
+        'premiumUntil',
+        'premiumPlan',
+        'premiumSource',
+        'premiumProductId',
+        'premiumPurchaseId',
+        'premiumPurchaseToken',
+        'premiumUpdatedAt',
+        'premiumSubscriptionState',
         'priceEntries',
         'validations',
         'inviteCount',
@@ -110,42 +119,15 @@ service cloud.firestore {
         'currentStreak',
         'longestStreak',
         'lastContributionDay',
-        'badges',
-        // Premium entitlement alanları — istemci-taraflı satın alma/restore
-        // akışı `hasSafePremiumMutation` tip güvenliği altında yazar.
-        'isPremium',
-        'premiumUntil',
-        'premiumPlan',
-        'premiumProductId',
-        'premiumSource',
-        'premiumPurchaseId',
-        'premiumPurchaseToken',
-        'premiumUpdatedAt'
+        'badges'
+        // NOT: Premium entitlement alanları (isPremium, premiumUntil,
+        // premiumPlan, premiumSource, premiumProductId, premiumPurchaseId,
+        // premiumPurchaseToken, premiumUpdatedAt, premiumSubscriptionState)
+        // bilerek bu yazılabilir-alan whitelist'inde DEĞİL. İstemci bunlara
+        // dokunursa `hasOnlyUserWritableKeys` (whitelist) + immutable kontrol
+        // ile update reddedilir. Yalnız `verifyPurchase` Cloud Function'ı
+        // (Admin SDK) yazar.
       ]);
-    }
-
-    // İstemci-taraflı premium entitlement yazımının tip güvenliğini zorlar.
-    // Değer doğrulaması (Play Developer API token kontrolü) bu aşamada YOK;
-    // sunucu doğrulaması geri geldiğinde bu fonksiyon sıkılaştırılmalı.
-    function hasSafePremiumMutation() {
-      let changed = request.resource.data.diff(resource.data).changedKeys();
-      return (!changed.hasAny(['isPremium']) ||
-            request.resource.data.isPremium is bool) &&
-        (!changed.hasAny(['premiumSource']) ||
-            request.resource.data.premiumSource is string) &&
-        (!changed.hasAny(['premiumProductId']) ||
-            request.resource.data.premiumProductId is string) &&
-        (!changed.hasAny(['premiumPurchaseId']) ||
-            request.resource.data.premiumPurchaseId is string) &&
-        (!changed.hasAny(['premiumPurchaseToken']) ||
-            request.resource.data.premiumPurchaseToken is string) &&
-        (!changed.hasAny(['premiumPlan']) ||
-            request.resource.data.premiumPlan is string) &&
-        (!changed.hasAny(['premiumUpdatedAt']) ||
-            request.resource.data.premiumUpdatedAt is timestamp) &&
-        (!changed.hasAny(['premiumUntil']) ||
-            request.resource.data.premiumUntil == null ||
-            request.resource.data.premiumUntil is timestamp);
     }
 
     // `emailVerified` alanı sadece token'da email_verified=true olduğunda
@@ -365,7 +347,6 @@ service cloud.firestore {
           hasSafeUsernameCooldown() &&
           hasSafeUserGamificationMutation() &&
           hasSafeEmailVerifiedMutation() &&
-          hasSafePremiumMutation() &&
           // Profil fotoğrafı / puan / streak gibi katkı alanlarına dokunmak
           // istiyorsa kullanıcı doğrulanmış olmalı. Ad/ilçe/dil/bildirim
           // tercihi gibi güvenli alanlar (örn. hesap doğum ekranı) verified

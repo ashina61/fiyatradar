@@ -8,6 +8,27 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import 'firebase_service.dart';
 
+/// Paywall'ın bir satın alma başlattıktan sonra beklediği nihai sonuç.
+///
+/// Premium entitlement artık YALNIZ sunucu (`verifyPurchase` Cloud Function,
+/// Admin SDK) tarafından yazıldığı için, istemci "satın alındı" demekle
+/// premium'u açmaz; sunucunun `users/{uid}.isPremium`'u yazmasını bekler ve
+/// sonucu buradaki değerlerle UI'ya bildirir.
+enum PremiumPurchaseOutcome {
+  /// `verifyPurchase` entitlement'ı yazdı — premium aktif.
+  verified,
+
+  /// Satın alma alındı ama sunucu doğrulaması zaman aşımına uğradı veya
+  /// başarısız oldu (Play API hatası / inactive abonelik). Premium açılmadı.
+  verificationFailed,
+
+  /// Play Billing satın alma hatası döndürdü.
+  error,
+
+  /// Kullanıcı satın almayı iptal etti.
+  canceled,
+}
+
 /// FiyatRadar Pro abonelik / IAP yönetimi.
 ///
 /// Sorumluluk:
@@ -19,9 +40,12 @@ import 'firebase_service.dart';
 ///   • Restore akışı: kullanıcı yeni cihaz / yeniden kurulum durumunda
 ///     `restorePurchases()` çağırır; aynı queue'ya restore record yazılır.
 ///
-/// İstemci ASLA `users/{uid}.isPremium`'u kendisi yazmaz — Firestore rules
-/// `immutable('isPremium')` ile bunu zorlar (firestore.rules:147+). Tek
-/// otorite Cloud Function (admin SDK).
+/// İstemci ASLA `users/{uid}.isPremium` (veya premiumUntil / premiumPlan /
+/// premiumSource / premiumProductId / premiumPurchaseId / premiumPurchaseToken
+/// / premiumUpdatedAt) yazmaz — Firestore rules bu alanları client mutation'a
+/// kapatır (`hasNoImmutableUserChanges` + writable-key whitelist'inden hariç).
+/// Tek otorite `verifyPurchase` Cloud Function'ı (Admin SDK; rules'ı bypass
+/// eder). Client yalnız `purchaseQueue`'ya yazıp doğrulamayı tetikler.
 ///
 /// `ChangeNotifier` — paywall ekranı ürün yükleme durumu değiştikçe
 /// (loading → loaded / error) reactive olarak rebuild eder.
@@ -69,10 +93,17 @@ class PremiumService extends ChangeNotifier {
 
   /// `restore()` çağrısı sırasında tanınan bir abonelik event'i (restored /
   /// purchased) gelene kadar bekleyen completer. Event geldiğinde
-  /// `activatePremiumForUser` bunu `true` ile tamamlar; 10 sn içinde hiçbir
-  /// event gelmezse `restore()` `false` döner ve UI "aktif abonelik
-  /// bulunamadı" gösterir. Restore akışı dışında `null`.
+  /// `_handlePurchaseUpdates` bunu `true` ile tamamlar (mağazada abonelik var
+  /// sinyali); 10 sn içinde hiçbir event gelmezse `restore()` `false` döner ve
+  /// UI "aktif abonelik bulunamadı" gösterir. Restore akışı dışında `null`.
   Completer<bool>? _restoreCompleter;
+
+  /// `purchase()` ile başlatılan akışın paywall'a döndürülecek sonucu. Yeni
+  /// satın almada sıfırlanır; `purchased`/`error`/`canceled` event'i geldiğinde
+  /// `_handlePurchaseUpdates` uygun [PremiumPurchaseOutcome] ile tamamlar.
+  /// Paywall `awaitPurchaseOutcome()` ile bekler. Satın alma akışı dışında
+  /// `null`.
+  Completer<PremiumPurchaseOutcome>? _purchaseOutcomeCompleter;
 
   bool _initialized = false;
   List<ProductDetails> _availableProducts = const [];
@@ -158,6 +189,10 @@ class PremiumService extends ChangeNotifier {
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
+    // Güvenlik duruşu: premium entitlement alanları Firestore rules ile client
+    // mutation'a kapalı; yalnız verifyPurchase Cloud Function (Admin SDK) yazar.
+    debugPrint('FIRESTORE_RULES_PREMIUM_FIELDS_IMMUTABLE: client premium '
+        'yazımı kapalı — entitlement yalnız verifyPurchase tarafından yazılır');
     _loadingProducts = true;
     notifyListeners();
     try {
@@ -268,8 +303,72 @@ class PremiumService extends ChangeNotifier {
     // Billing surfaces its own error if the store is genuinely gone, and the
     // caller already try/catches.
     if (_availableProducts.isEmpty) return false;
+    // Yeni satın alma için sonuç completer'ını hazırla. Paywall, bu çağrı true
+    // dönünce `awaitPurchaseOutcome()` ile sonucu bekler; sonuç purchaseStream
+    // event'i + sunucu doğrulaması tamamlanınca gelir.
+    _purchaseOutcomeCompleter = Completer<PremiumPurchaseOutcome>();
     final purchaseParam = PurchaseParam(productDetails: product);
     return _iap.buyNonConsumable(purchaseParam: purchaseParam);
+  }
+
+  /// Paywall, `purchase()` true dönünce bunu await eder. `purchased` /
+  /// `error` / `canceled` event'i (purchased için ayrıca sunucu entitlement
+  /// yazımı) tamamlanana kadar — ya da [timeout] dolana kadar — bekler.
+  ///
+  /// Premium artık client tarafından YAZILMADIĞI için `verified` sonucu,
+  /// `users/{uid}.isPremium`'un sunucu (verifyPurchase) tarafından gerçekten
+  /// yazıldığını ifade eder.
+  Future<PremiumPurchaseOutcome> awaitPurchaseOutcome({
+    Duration timeout = const Duration(seconds: 120),
+  }) {
+    final completer = _purchaseOutcomeCompleter;
+    if (completer == null) {
+      return Future.value(PremiumPurchaseOutcome.verificationFailed);
+    }
+    return Future.any<PremiumPurchaseOutcome>([
+      completer.future,
+      Future<PremiumPurchaseOutcome>.delayed(
+          timeout, () => PremiumPurchaseOutcome.verificationFailed),
+    ]);
+  }
+
+  void _completePurchaseOutcome(PremiumPurchaseOutcome outcome) {
+    final c = _purchaseOutcomeCompleter;
+    if (c != null && !c.isCompleted) c.complete(outcome);
+  }
+
+  /// `verifyPurchase` Cloud Function (Admin SDK) `users/{uid}.isPremium`'u
+  /// yazana kadar bekler. İstemci ARTIK premium yazmadığı için entitlement'ın
+  /// tek kaynağı budur. [timeout] içinde `isPremium == true` gözlenirse `true`,
+  /// aksi halde `false` döner (premium sonradan listener ile yine yansıyabilir,
+  /// ama UI'ya "doğrulanamadı" geri bildirimi için bu sınır gerekir).
+  Future<bool> _awaitServerEntitlement(
+    String uid, {
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    try {
+      final snap = await _svc.userDoc(uid).get();
+      if ((snap.data()?['isPremium'] as bool?) == true) return true;
+    } catch (e) {
+      debugPrint('VERIFY_PURCHASE: ön kontrol okunamadı → $e');
+    }
+    final completer = Completer<bool>();
+    final sub = _svc.userDoc(uid).snapshots().listen(
+      (snap) {
+        if ((snap.data()?['isPremium'] as bool?) == true &&
+            !completer.isCompleted) {
+          completer.complete(true);
+        }
+      },
+      onError: (Object e) =>
+          debugPrint('VERIFY_PURCHASE: user-doc listen hatası → $e'),
+    );
+    final result = await Future.any<bool>([
+      completer.future,
+      Future<bool>.delayed(timeout, () => false),
+    ]);
+    await sub.cancel();
+    return result;
   }
 
   /// Yeni cihaz / yeniden kurulum sonrası kullanıcının var olan
@@ -333,12 +432,7 @@ class PremiumService extends ChangeNotifier {
           break;
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
-          if (p.status == PurchaseStatus.restored) {
-            debugPrint('RESTORED_PURCHASE_FOUND: productID=${p.productID} '
-                'purchaseID=${p.purchaseID}');
-          }
-          await _enqueueForServerVerification(uid, p);
-          await activatePremiumForUser(uid, p);
+          await _handleVerifiedDelivery(uid, p);
           if (p.pendingCompletePurchase) {
             await _iap.completePurchase(p);
           }
@@ -347,6 +441,7 @@ class PremiumService extends ChangeNotifier {
           // Hata → premium AÇMA.
           debugPrint('PURCHASE_STREAM_EVENT: error → premium açılmadı '
               '${p.error} (${p.productID})');
+          _completePurchaseOutcome(PremiumPurchaseOutcome.error);
           if (p.pendingCompletePurchase) {
             await _iap.completePurchase(p);
           }
@@ -355,6 +450,7 @@ class PremiumService extends ChangeNotifier {
           // İptal → premium AÇMA.
           debugPrint('PURCHASE_STREAM_EVENT: canceled → premium açılmadı '
               '(${p.productID})');
+          _completePurchaseOutcome(PremiumPurchaseOutcome.canceled);
           if (p.pendingCompletePurchase) {
             await _iap.completePurchase(p);
           }
@@ -363,70 +459,94 @@ class PremiumService extends ChangeNotifier {
     }
   }
 
-  /// İstemci tarafı premium entitlement yazımı — `purchased` VE `restored`
-  /// event'leri için tek merkezi giriş noktası. Tanınan bir abonelik ürünü
-  /// için geldiğinde `users/{uid}` dokümanına premium alanlarını merge eder.
-  /// Firestore rules `hasSafePremiumMutation` ile bu alanların tip güvenliğini
-  /// zorlar.
-  ///
-  /// Restore akışında (status == restored) bekleyen `restore()` completer'ını
-  /// `true` ile tamamlar ve `_FROM_RESTORE` ekli loglar basar.
-  ///
-  /// NOT: Bu, sunucu tarafı (Cloud Function) doğrulamanın yerine geçen geçici
-  /// minimum istemci-taraflı entitlement'tır.
-  Future<void> activatePremiumForUser(String uid, PurchaseDetails p) async {
+  /// `purchased` VE `restored` event'leri için tek merkezi akış. İstemci
+  /// premium ALANLARINI ARTIK YAZMAZ — yalnız `purchaseQueue`'ya yazarak
+  /// `verifyPurchase` Cloud Function'ını (Admin SDK + Google Play Developer
+  /// API) tetikler ve sunucunun `users/{uid}.isPremium` yazmasını bekler.
+  /// Firestore rules premium alanlarını client mutation'a kapattığı için
+  /// (FIRESTORE_RULES_PREMIUM_FIELDS_IMMUTABLE) tek otorite budur.
+  Future<void> _handleVerifiedDelivery(String uid, PurchaseDetails p) async {
     final isRestore = p.status == PurchaseStatus.restored;
-    final logSuffix = isRestore ? '_FROM_RESTORE' : '';
     final productId = p.productID;
-    if (!kEntitlementProductIds.contains(productId)) {
-      debugPrint('PREMIUM_ENTITLEMENT_WRITING: atlandı — productID=$productId '
-          'tanınan premium ürünü değil (uid=$uid)');
+    if (isRestore) {
+      debugPrint('RESTORED_PURCHASE_FOUND: productID=$productId '
+          'purchaseID=${p.purchaseID}');
+      debugPrint('RESTORE_VERIFY_PURCHASE_CALLING: uid=$uid '
+          'productID=$productId');
+    } else {
+      debugPrint('VERIFY_PURCHASE_CALLING: uid=$uid productID=$productId');
+    }
+
+    final recognized = kEntitlementProductIds.contains(productId);
+    if (!recognized) {
+      debugPrint('VERIFY_PURCHASE_FAILED: tanınmayan ürün productID=$productId '
+          '(uid=$uid) — entitlement yazılmadı');
+      if (!isRestore) {
+        _completePurchaseOutcome(PremiumPurchaseOutcome.verificationFailed);
+      }
       return;
     }
-    // Restore bekleyen UI'ya "aktif abonelik bulundu" sinyali ver — Firestore
-    // yazımı başarısız olsa bile abonelik gerçekten var.
-    if (_restoreCompleter != null && !_restoreCompleter!.isCompleted) {
+
+    // Sunucu doğrulaması için kuyruğa yaz → verifyPurchase tetiklenir.
+    await _enqueueForServerVerification(uid, p);
+    debugPrint('CLIENT_PREMIUM_WRITE_BLOCKED_REMOVED: uid=$uid '
+        'productID=$productId (premium yalnız verifyPurchase tarafından yazılır)');
+
+    // Restore akışı: tanınan event = "mağazada abonelik var" sinyali. UI'nın
+    // "kontrol ediliyor" beklemesini bitir; gerçek premium sunucu yazınca
+    // listener üzerinden yansır.
+    if (isRestore &&
+        _restoreCompleter != null &&
+        !_restoreCompleter!.isCompleted) {
       _restoreCompleter!.complete(true);
     }
-    debugPrint('PREMIUM_ENTITLEMENT_WRITING: uid=$uid productID=$productId');
-    try {
-      await _svc.userDoc(uid).set({
-        'isPremium': true,
-        'premiumSource': 'google_play',
-        'premiumProductId': productId,
-        'premiumPurchaseId': p.purchaseID ?? '',
-        'premiumPurchaseToken': p.verificationData.serverVerificationData,
-        'premiumUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      debugPrint(
-          'PREMIUM_ENTITLEMENT_WRITTEN$logSuffix: uid=$uid productID=$productId');
-    } catch (e) {
-      debugPrint('PREMIUM_ENTITLEMENT_WRITE_FAILED: uid=$uid '
-          'productID=$productId error=$e');
-      return;
-    }
-    // Premium provider'ı tazele. Firestore user-doc listener zaten otomatik
-    // günceller; bu explicit refresh + log (sessiz return yok).
-    try {
-      await onEntitlementChanged?.call();
-      debugPrint('PREMIUM_PROVIDER_REFRESHED$logSuffix: uid=$uid');
-    } catch (e) {
-      debugPrint('PREMIUM_PROVIDER_REFRESHED$logSuffix: başarısız → $e');
+
+    // verifyPurchase (Admin SDK) user-doc'a isPremium yazana kadar bekle.
+    final verified = await _awaitServerEntitlement(uid);
+    if (verified) {
+      debugPrint(isRestore
+          ? 'VERIFY_PURCHASE_SUCCESS_FROM_RESTORE: uid=$uid productID=$productId'
+          : 'VERIFY_PURCHASE_SUCCESS: uid=$uid productID=$productId');
+      try {
+        await onEntitlementChanged?.call();
+        debugPrint('PREMIUM_PROVIDER_REFRESHED_AFTER_VERIFY: uid=$uid');
+      } catch (e) {
+        debugPrint('PREMIUM_PROVIDER_REFRESHED_AFTER_VERIFY: başarısız → $e');
+      }
+      if (!isRestore) {
+        _completePurchaseOutcome(PremiumPurchaseOutcome.verified);
+      }
+    } else {
+      debugPrint('VERIFY_PURCHASE_FAILED: uid=$uid productID=$productId '
+          '(sunucu doğrulaması zaman aşımı/başarısız)');
+      if (!isRestore) {
+        _completePurchaseOutcome(PremiumPurchaseOutcome.verificationFailed);
+      }
     }
   }
 
   /// Cloud Function tarafına doğrulanması için pending kuyruğa yazıyoruz.
   /// Function Play Developer API ile token doğrular, sonra
-  /// `users/{uid}.isPremium = true` yazar. Doc id deterministik:
-  /// `${uid}_${productId}_${purchaseId}` — aynı transaction tekrar gelirse
-  /// idempotent kalsın.
+  /// `users/{uid}.isPremium = true` yazar.
+  ///
+  /// Doc id: `purchased` için deterministik (`${uid}_${productId}_${purchaseId}`)
+  /// — aynı satın alma tekrar teslim edilirse fazladan API çağrısı olmasın.
+  /// `restored` için ise timestamp ekli BENZERSIZ id kullanırız: aksi halde
+  /// orijinal satın almanın doc'uyla çakışır, `set(merge)` bir UPDATE'e döner
+  /// ve purchaseQueue update kuralı (yalnız admin) restore'u sessizce reddeder
+  /// → verifyPurchase tetiklenmez. Benzersiz id her restore'da `onDocumentCreated`
+  /// trigger'ını garanti eder (Function idempotent; premium'u aynı şekilde yazar).
   Future<void> _enqueueForServerVerification(
     String uid,
     PurchaseDetails p,
   ) async {
     final productId = p.productID;
     final purchaseId = p.purchaseID ?? '';
-    final docId = '${uid}_${productId}_${purchaseId.isNotEmpty ? purchaseId : DateTime.now().millisecondsSinceEpoch}';
+    final isRestore = p.status == PurchaseStatus.restored;
+    final suffix = (purchaseId.isNotEmpty && !isRestore)
+        ? purchaseId
+        : '${purchaseId.isNotEmpty ? '${purchaseId}_' : ''}${DateTime.now().millisecondsSinceEpoch}';
+    final docId = '${uid}_${productId}_$suffix';
     try {
       await _svc.db
           .collection('purchaseQueue')
