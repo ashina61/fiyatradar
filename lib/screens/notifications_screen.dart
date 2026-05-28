@@ -109,9 +109,11 @@ class _PermissionBlockedBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsetsDirectional.fromSTEB(
+          FRSpace.xl, FRSpace.m, FRSpace.xl, 0),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsetsDirectional.fromSTEB(
+            FRSpace.m, FRSpace.m, FRSpace.m, FRSpace.m),
         decoration: BoxDecoration(
           color: FR.warn.withOpacity(.10),
           borderRadius: FRRad.all(FRRad.m),
@@ -120,7 +122,7 @@ class _PermissionBlockedBanner extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.notifications_off_outlined, color: FR.warn, size: 20),
-            const SizedBox(width: 10),
+            const SizedBox(width: FRSpace.s),
             Expanded(
               child: Text(
                 'Bildirim izni kapalı. Fiyat alarmlarını almak için '
