@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     # Sadece main üzerinden manuel tetikleme kabul ediliyor; feature branch'ten
     # yanlışlıkla prod'a basılmasın diye guard.
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout
