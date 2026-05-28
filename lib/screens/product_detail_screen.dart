@@ -393,12 +393,12 @@ class _ModeRadio extends StatelessWidget {
       onTap: () => onChanged(value),
       borderRadius: FRRad.all(FRRad.m),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 6), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.only(top: 2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               child: Icon(
                 selected
                     ? Icons.radio_button_checked
