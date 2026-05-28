@@ -187,7 +187,7 @@ class MessagingService {
       await _setUpLocalNotifications();
     }
     try {
-      final details = NotificationDetails(
+      final details = const NotificationDetails(
         android: AndroidNotificationDetails(
           _kAndroidChannelId,
           'Fiyat Alarmları',
