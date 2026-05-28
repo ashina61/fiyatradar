@@ -165,48 +165,89 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signInWithGoogle() async {
     if (_submitting) return;
+    debugPrint('GOOGLE_SIGN_IN_TAPPED');
     setState(() => _error = null);
     final state = AppStateScope.of(context);
     final svc = FirebaseService.instance;
     setState(() => _submitting = true);
+
+    // 1) AUTH AŞAMASI — sadece kimlik doğrulama. Bu patlarsa giriş gerçekten
+    //    başarısızdır.
     try {
-      final cred = await svc.signInWithGoogle();
-      final current = cred.user ?? svc.auth.currentUser;
+      await svc.signInWithGoogle();
+      final current = svc.auth.currentUser;
       if (current == null || current.isAnonymous) {
         throw FirebaseAuthException(
           code: 'session-invalid',
           message: 'Google oturumu doğrulanamadı.',
         );
       }
-      state.syncUserFromAuthSession();
-      state.setGuestAcknowledged(false);
-      await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
-      if (!mounted) return;
-      // Google hesapları normalde verified gelir; yine de defansif
-      // olarak doğrulama gerekiyorsa VerifyEmailScreen'e yönlendir.
-      final currentUser = svc.auth.currentUser;
-      final needsVerification = currentUser != null &&
-          !currentUser.isAnonymous &&
-          !currentUser.emailVerified;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => needsVerification
-              ? const VerifyEmailScreen()
-              : const MainScreen(),
-        ),
-        (_) => false,
-      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       if (e.code == 'sign-in-cancelled') {
+        setState(() => _submitting = false);
         return;
       }
-      setState(() => _error = _mapAuthError(e));
-    } catch (_) {
+      debugPrint('GOOGLE_SIGN_IN_FAILED_AUTH_STAGE: code=${e.code} '
+          'message=${e.message}');
+      setState(() {
+        _error = 'Google ile giriş tamamlanamadı. Lütfen tekrar dene.';
+        _submitting = false;
+      });
+      return;
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Google ile giriş yapılamadı.');
-    } finally {
-      if (mounted) setState(() => _submitting = false);
+      debugPrint('GOOGLE_SIGN_IN_FAILED_AUTH_STAGE: $e');
+      setState(() {
+        _error = 'Google ile giriş tamamlanamadı. Lütfen tekrar dene.';
+        _submitting = false;
+      });
+      return;
+    }
+
+    // Buraya geldiysek FirebaseAuth oturumu AÇIK ve kalıcı. İkincil
+    // (bootstrap) işlemler patlasa bile kullanıcıyı auth'tan ATMA.
+    state.syncUserFromAuthSession();
+    state.setGuestAcknowledged(false);
+
+    var bootstrapOk = true;
+    try {
+      debugPrint('POST_LOGIN_BOOTSTRAP_START');
+      await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
+    } catch (e, st) {
+      bootstrapOk = false;
+      debugPrint('POST_LOGIN_BOOTSTRAP_FAILED: $e\n$st');
+      debugPrint('GOOGLE_SIGN_IN_FAILED_POST_AUTH_STAGE: $e');
+    }
+
+    if (!mounted) return;
+    // Google hesapları normalde verified gelir; yine de defansif olarak
+    // doğrulama gerekiyorsa VerifyEmailScreen'e yönlendir.
+    final currentUser = svc.auth.currentUser;
+    final needsVerification = currentUser != null &&
+        !currentUser.isAnonymous &&
+        !currentUser.emailVerified;
+    // Soft mesajı navigasyondan sonra göstermek için root messenger'ı önceden
+    // yakala (pushAndRemoveUntil mevcut route'u kaldırıyor).
+    final messenger = ScaffoldMessenger.of(context);
+    debugPrint('APP_NAVIGATE_HOME_AFTER_GOOGLE_SIGN_IN '
+        '(bootstrapOk=$bootstrapOk)');
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => needsVerification
+            ? const VerifyEmailScreen()
+            : const MainScreen(),
+      ),
+      (_) => false,
+    );
+    if (!bootstrapOk) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Giriş yapıldı, bazı bilgiler daha sonra senkronize edilecek.',
+          ),
+        ),
+      );
     }
   }
 
