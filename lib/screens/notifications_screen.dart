@@ -307,6 +307,10 @@ IconData _iconForType(AppNotification n) {
       case 'regional_price_drop':
       case 'price_drop':
         return Icons.trending_down_rounded;
+      case 'price_alert_target':
+        return Icons.flag_rounded;
+      case 'price_new':
+        return Icons.add_alert_outlined;
       case 'price_rise':
         return Icons.trending_up_rounded;
       case 'price_verified':
@@ -326,6 +330,10 @@ IconData _iconForType(AppNotification n) {
       return Icons.radar_rounded;
     case 'price_drop':
       return Icons.trending_down_rounded;
+    case 'price_alert_target':
+      return Icons.flag_rounded;
+    case 'price_new':
+      return Icons.add_alert_rounded;
     case 'price_rise':
       return Icons.trending_up_rounded;
     case 'price_verified':

@@ -2974,7 +2974,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> setProductAlert({
     required String productId,
-    required double targetPrice,
+    required ProductAlertMode mode,
+    double? targetPrice,
   }) async {
     if (user == null) return;
     // Fiyat alarmı bir katkı aksiyonu — doğrulanmamış / misafir hesap
@@ -2987,18 +2988,49 @@ class AppState extends ChangeNotifier {
         productAlerts.length >= kFreeProductAlertLimit) {
       throw const AlertLimitExceededException(kFreeProductAlertLimit);
     }
-    await _svc.userProductAlerts(user!.uid).doc(productId).set({
+    final isBelowTarget = mode == ProductAlertMode.belowTarget;
+    if (isBelowTarget && (targetPrice == null || targetPrice <= 0)) {
+      throw StateError('Hedef fiyat girmelisin.');
+    }
+    final modeValue = productAlertModeToValue(mode);
+    debugPrint(
+      'PRICE_ALERT_CREATE_START: productId=$productId mode=$modeValue '
+      'targetPrice=${targetPrice ?? '-'}',
+    );
+    // Eski versiyonlardaki Cloud Function ve UI sadece `targetPrice` alanını
+    // okuyabilir; mode below_target değilse de geçmişi koruyup
+    // `notifyOnAnyNewPrice` / `notifyOnPriceDrop` ayna alanlarını yazıyoruz.
+    final payload = <String, dynamic>{
       // `productId` alanını da yazıyoruz: Cloud Function (`onProductPriceDrop`)
       // collectionGroup('productAlerts').where('productId', '==', id) ile
       // indexli sorgu yapabilsin, doc id eşleşmesi yerine. Eski full-scan
       // her ürün update'inde tüm alert dokümanlarını okuyordu.
       'productId': productId,
-      'targetPrice': targetPrice,
+      'mode': modeValue,
+      'notifyOnAnyNewPrice': mode == ProductAlertMode.anyNewPrice,
+      'notifyOnPriceDrop': mode == ProductAlertMode.priceDrop,
+      'enabled': true,
+      'targetPrice': isBelowTarget ? targetPrice : 0,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': existing == null
           ? FieldValue.serverTimestamp()
           : Timestamp.fromDate(existing.createdAt),
-    }, SetOptions(merge: true));
+    };
+    try {
+      await _svc.userProductAlerts(user!.uid).doc(productId).set(
+            payload,
+            SetOptions(merge: true),
+          );
+      debugPrint(
+        'PRICE_ALERT_CREATED: productId=$productId mode=$modeValue',
+      );
+    } catch (e) {
+      debugPrint(
+        'PRICE_ALERT_CREATE_FAILED: productId=$productId mode=$modeValue '
+        'error=$e',
+      );
+      rethrow;
+    }
   }
 
   Future<void> updateProfileSettings({

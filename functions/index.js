@@ -58,19 +58,19 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
 
   const oldPrice = lowestValidPrice(before.priceHistory);
   const newPrice = lowestValidPrice(after.priceHistory);
-  if (oldPrice === null || newPrice === null) return;
-  if (newPrice >= oldPrice) return;
+  if (newPrice === null) return;
+  const hasComparableOld = oldPrice !== null && oldPrice > 0;
+  const direction = !hasComparableOld
+    ? 'available'
+    : (newPrice < oldPrice
+      ? 'drop'
+      : (newPrice > oldPrice ? 'rise' : 'flat'));
 
   const productId = event.params.productId;
   const productName = (after.name || 'Ürün').toString();
 
   // ÖNCE: full collectionGroup scan + client-side `d.id === productId`.
-  // Bu her ürün update'inde TÜM kullanıcıların TÜM alarmlarını okuyordu →
-  // 100 alarm = 100 read × her drop. Dakikada 10 drop olsa bile maliyet
-  // patlıyor.
-  // SONRA: `productId` field'ı üzerinden indexli sorgu. Client tarafı
-  // `setProductAlert` artık bu field'ı da yazıyor; eski dokümanlarda
-  // alan yoksa fallback olarak doc id'ye düşüyoruz (geri uyumluluk).
+  // SONRA: `productId` field'ı üzerinden indexli sorgu.
   let interested = [];
   try {
     const alertsSnap = await db
@@ -87,7 +87,7 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
     interested = scan.docs.filter((d) => d.id === productId);
   }
   if (interested.length === 0) {
-    logger.info('Fiyat düştü ama alarm kuran kullanıcı yok.', {
+    logger.info('Fiyat değişti ama alarm kuran kullanıcı yok.', {
       productId,
       oldPrice,
       newPrice,
@@ -95,33 +95,129 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
     return;
   }
 
-  const tokens = [];
-  const tokenToRefs = new Map();
+  logger.info('PRICE_ALERT_TRIGGER_STARTED', {
+    productId,
+    source: 'products.priceHistory',
+    direction,
+  });
+
+  const pushQueue = [];
+  let inAppSent = 0;
 
   const writePromises = interested.map(async (doc) => {
     const data = doc.data() || {};
     const userId = doc.ref.parent.parent.id;
+    if (data.enabled === false) return;
+
+    const mode = resolveAlertMode(data);
     const targetPrice = Number(data.targetPrice);
 
-    // Skip alerts whose target hasn't been crossed yet.
-    if (Number.isFinite(targetPrice) && targetPrice > 0 && newPrice > targetPrice) {
+    logger.info('PRICE_ALERT_USER_ALERT_FOUND', {
+      productId,
+      uid: userId,
+      mode,
+      targetPrice: Number.isFinite(targetPrice) ? targetPrice : null,
+      source: 'products.priceHistory',
+    });
+
+    if (mode === 'below_target') {
+      if (!(Number.isFinite(targetPrice) && targetPrice > 0)) return;
+      if (newPrice > targetPrice) {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'new_price_above_target',
+        });
+        return;
+      }
+      if (hasComparableOld && oldPrice <= targetPrice) {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'already_below_target',
+        });
+        return;
+      }
+    } else if (mode === 'price_drop') {
+      if (direction !== 'drop') {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'not_a_drop',
+          direction,
+        });
+        return;
+      }
+    } else if (mode === 'any_new_price') {
+      // Bu trigger sadece lowestValidPrice değiştiğinde anlamlı sinyal verir;
+      // değişmediyse atla (priceGroups trigger zaten any_new_price'i
+      // raporCount değişimi üzerinden yakalıyor).
+      if (!hasComparableOld) {
+        // İlk fiyat oluşumu — herkes için bildirim anlamlı.
+      } else if (newPrice === oldPrice) {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'no_lowest_price_change',
+        });
+        return;
+      }
+    }
+
+    const copy = buildAlertNotificationCopy({
+      mode,
+      productName,
+      chainName: '',
+      newPrice,
+      oldPrice,
+      hasComparableOld,
+    });
+    const notificationType = mode === 'below_target'
+      ? 'price_alert_target'
+      : (mode === 'price_drop' ? 'price_drop' : 'price_new');
+
+    logger.info('PRICE_ALERT_CONDITION_MATCHED', {
+      productId,
+      uid: userId,
+      mode,
+      newPrice,
+    });
+
+    try {
+      await db
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .add({
+          title: copy.title,
+          body: copy.body,
+          productId,
+          type: notificationType,
+          mode,
+          direction,
+          oldPrice: hasComparableOld ? oldPrice : null,
+          newPrice,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      inAppSent++;
+      logger.info('IN_APP_NOTIFICATION_WRITTEN', {
+        uid: userId,
+        mode,
+        source: 'products.priceHistory',
+      });
+    } catch (e) {
+      logger.error('In-app notification write failed', {
+        productId,
+        uid: userId,
+        error: e.message,
+      });
       return;
     }
 
-    // 1) In-app notification doc.
-    await db
-      .collection('users')
-      .doc(userId)
-      .collection('notifications')
-      .add({
-        title: 'Fiyat düştü',
-        body: `${productName}: ${oldPrice.toFixed(2)}₺ → ${newPrice.toFixed(2)}₺`,
-        productId,
-        type: 'price_drop',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-    // 2) Push token (best-effort) + opt-in kontrolleri.
     try {
       const userSnap = await db.collection('users').doc(userId).get();
       const u = userSnap.data() || {};
@@ -130,9 +226,21 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
       const pushEnabled = settings.pushEnabled !== false;
       const priceAlertsEnabled = settings.priceAlertsEnabled !== false;
       if (fcmToken && pushEnabled && priceAlertsEnabled) {
-        tokens.push(fcmToken);
-        if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
-        tokenToRefs.get(fcmToken).push(userSnap.ref);
+        pushQueue.push({
+          token: fcmToken,
+          uid: userId,
+          title: copy.title,
+          body: copy.body,
+          notificationType,
+          mode,
+        });
+      } else {
+        logger.info('PUSH_SKIPPED', {
+          uid: userId,
+          reason: !fcmToken
+            ? 'no_token'
+            : (!pushEnabled ? 'push_disabled' : 'price_alerts_disabled'),
+        });
       }
     } catch (e) {
       logger.warn('FCM token okunamadı', { userId, error: e.message });
@@ -141,46 +249,60 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
 
   await Promise.all(writePromises);
 
-  if (tokens.length === 0) {
+  if (pushQueue.length === 0) {
     logger.info('FCM token bulunan alıcı yok; sadece in-app bildirim atıldı.', {
       productId,
+      inAppSent,
     });
     return;
   }
 
-  const response = await messaging.sendEachForMulticast({
-    tokens,
-    notification: {
-      title: 'Fiyat düştü',
-      body: `${productName} ${newPrice.toFixed(2)}₺`,
-    },
-    data: {
-      productId,
-      type: 'price_drop',
-    },
-  });
-
-  // Cleanup unregistered tokens so we don't keep retrying them.
+  let pushSent = 0;
+  let pushFailed = 0;
   const cleanupPromises = [];
-  response.responses.forEach((result, index) => {
-    if (!result.error) return;
-    const code = result.error.code;
-    if (!INVALID_TOKEN_ERROR_CODES.has(code)) return;
-    const token = tokens[index];
-    const refs = tokenToRefs.get(token) || [];
-    refs.forEach((ref) =>
-      cleanupPromises.push(ref.update({ fcmToken: admin.firestore.FieldValue.delete() }))
-    );
-  });
+  for (const item of pushQueue) {
+    logger.info('PUSH_SEND_ATTEMPT', { uid: item.uid, mode: item.mode });
+    try {
+      await messaging.send({
+        token: item.token,
+        notification: { title: item.title, body: item.body },
+        data: {
+          productId,
+          type: item.notificationType,
+          mode: item.mode,
+          direction,
+        },
+      });
+      pushSent++;
+      logger.info('PUSH_SEND_SUCCESS', { uid: item.uid });
+    } catch (err) {
+      pushFailed++;
+      const code = err.code || (err.errorInfo && err.errorInfo.code);
+      logger.warn('PUSH_SEND_FAILED', {
+        uid: item.uid,
+        error: err.message,
+        code,
+      });
+      if (INVALID_TOKEN_ERROR_CODES.has(code)) {
+        cleanupPromises.push(
+          db.collection('users').doc(item.uid).update({
+            fcmToken: admin.firestore.FieldValue.delete(),
+          }),
+        );
+      }
+    }
+  }
   await Promise.all(cleanupPromises);
 
-  logger.info('Fiyat düşüş bildirimleri işlendi', {
+  logger.info('Fiyat değişim bildirimleri işlendi', {
     productId,
     oldPrice,
     newPrice,
+    direction,
     recipients: interested.length,
-    pushSent: response.successCount,
-    pushFailed: response.failureCount,
+    inAppSent,
+    pushSent,
+    pushFailed,
     cleanedTokens: cleanupPromises.length,
   });
 });
@@ -193,16 +315,90 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
  * sürüm sadece update + düşüş dinliyordu; ilk grup yaratıldığında ya da fiyat
  * yükseldiğinde bildirim merkezi sessiz kalıyordu.
  */
+/**
+ * Alert dokümanının yeni / eski şemasından mod çıkarır. Eski kayıtlarda
+ * yalnız `targetPrice` vardı; o dokümanlar `below_target` olarak değerlendi-
+ * rilir. Yeni şema `mode` alanı taşır:
+ *   - "below_target"   → hedef fiyatın altına düşünce
+ *   - "price_drop"     → yeni fiyat öncekinden düşükse
+ *   - "any_new_price"  → her yeni fiyat geldiğinde
+ *
+ * Geri uyum için `notifyOnAnyNewPrice` / `notifyOnPriceDrop` boolean
+ * ayna alanları da okunur.
+ */
+function resolveAlertMode(alertData) {
+  const raw = (alertData.mode || '').toString();
+  if (raw === 'below_target') return 'below_target';
+  if (raw === 'price_drop') return 'price_drop';
+  if (raw === 'any_new_price') return 'any_new_price';
+  if (alertData.notifyOnAnyNewPrice === true) return 'any_new_price';
+  if (alertData.notifyOnPriceDrop === true) return 'price_drop';
+  const target = Number(alertData.targetPrice);
+  if (Number.isFinite(target) && target > 0) return 'below_target';
+  return 'any_new_price';
+}
+
+function buildAlertNotificationCopy({
+  mode,
+  productName,
+  chainName,
+  newPrice,
+  oldPrice,
+  hasComparableOld,
+}) {
+  const formattedPrice = newPrice.toFixed(2);
+  const venue = chainName ? ' · ' + chainName : '';
+  if (mode === 'below_target') {
+    return {
+      title: 'Fiyat alarmı',
+      body: `${productName}${venue} hedeflediğin fiyatın altına düştü: ₺${formattedPrice}`,
+    };
+  }
+  if (mode === 'price_drop') {
+    const transition = hasComparableOld
+      ? ` (₺${Number(oldPrice).toFixed(2)} → ₺${formattedPrice})`
+      : `: ₺${formattedPrice}`;
+    return {
+      title: 'Fiyat düştü',
+      body: `${productName}${venue} için yeni daha düşük fiyat bulundu${transition}`,
+    };
+  }
+  return {
+    title: 'Yeni fiyat bildirimi',
+    body: `${productName}${venue} için yeni fiyat eklendi: ₺${formattedPrice}`,
+  };
+}
+
 exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (event) => {
   const before = event.data.before.exists ? event.data.before.data() || {} : null;
   const after = event.data.after.exists ? event.data.after.data() || {} : null;
   if (!after) return;
 
+  logger.info('PRICE_ALERT_TRIGGER_STARTED', {
+    groupId: event.params.groupId,
+    source: 'priceGroups',
+  });
+
   const oldPrice = before ? Number(before.trustedPrice ?? before.latestPrice) : null;
   const newPrice = Number(after.trustedPrice ?? after.latestPrice);
   if (!Number.isFinite(newPrice) || newPrice <= 0) return;
   const hasComparableOld = Number.isFinite(oldPrice) && oldPrice > 0;
-  if (hasComparableOld && Number(oldPrice) === newPrice) return;
+  const priceChanged = !hasComparableOld || Number(oldPrice) !== newPrice;
+
+  // priceGroups'un her güncellemesi fiyat değişimi anlamına gelmez (yalnız
+  // verifiedCount artışı olabilir). `any_new_price` modunda yine de
+  // bildirmek için reportCount artışını işaretliyoruz; aksi halde sadece
+  // fiyat değişti ise devam ediyoruz.
+  const beforeReportCount = before ? Number(before.reportCount ?? 0) : 0;
+  const afterReportCount = Number(after.reportCount ?? 0);
+  const newReportObserved = afterReportCount > beforeReportCount;
+  if (!priceChanged && !newReportObserved) {
+    logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+      groupId: event.params.groupId,
+      reason: 'no_price_change_and_no_new_report',
+    });
+    return;
+  }
 
   const productId = (after.productId || '').toString();
   if (!productId) return;
@@ -210,21 +406,20 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
   const cityName = (after.cityName || '').toString();
   const districtName = (after.districtName || '').toString();
   const chainName = (after.chainName || '').toString();
+  const lastReporterId = (after.lastReporterId || '').toString();
   const direction = !hasComparableOld
     ? 'available'
     : newPrice < Number(oldPrice)
       ? 'drop'
-      : 'rise';
-  const title = direction === 'drop'
-    ? 'Fiyat düştü'
-    : direction === 'rise'
-      ? 'Fiyat yükseldi'
-      : 'Alarmındaki ürün fiyatlandı';
-  const priceText = hasComparableOld
-    ? `${Number(oldPrice).toFixed(2)}₺ → ${newPrice.toFixed(2)}₺`
-    : `${newPrice.toFixed(2)}₺`;
-  const body = `${productName}${chainName ? ' · ' + chainName : ''}: ${priceText}`;
-  const type = direction === 'rise' ? 'price_rise' : 'price_drop';
+      : (newPrice > Number(oldPrice) ? 'rise' : 'flat');
+
+  logger.info('PRICE_ALERT_PRODUCT_MATCH', {
+    productId,
+    groupId: event.params.groupId,
+    direction,
+    newPrice,
+    oldPrice: hasComparableOld ? Number(oldPrice) : null,
+  });
 
   // Sadece bu ürünü takip eden kullanıcıları çek (indexed).
   let alerts;
@@ -252,18 +447,118 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       });
     }
   }
-  if (alerts.length === 0) return;
+  if (alerts.length === 0) {
+    logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+      productId,
+      reason: 'no_alerts_for_product',
+    });
+    return;
+  }
 
-  const tokens = [];
-  const tokenToRefs = new Map();
+  const isOnlineGroup = cityName.toLowerCase() === 'türkiye' &&
+    districtName.toLowerCase() === 'online';
+
+  const pushQueue = [];
   let inAppSent = 0;
   const writes = alerts.map(async (doc) => {
     const userId = doc.ref.parent.parent?.id;
     if (!userId) return;
 
-    // Bölge filtresi: alarm sahibinin profil bölgesi grubun bölgesiyle
-    // eşleşmiyorsa bildirme. Online gruplar Türkiye / Online olarak geçtiği
-    // için bölge bilgisi olmayan kullanıcılara da ulaşabilir.
+    const alertData = doc.data() || {};
+    if (alertData.enabled === false) {
+      logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+        productId,
+        uid: userId,
+        reason: 'alert_disabled',
+      });
+      return;
+    }
+
+    const mode = resolveAlertMode(alertData);
+    const targetPrice = Number(alertData.targetPrice);
+
+    logger.info('PRICE_ALERT_USER_ALERT_FOUND', {
+      productId,
+      uid: userId,
+      mode,
+      targetPrice: Number.isFinite(targetPrice) ? targetPrice : null,
+    });
+
+    // Self-notification politikası: kullanıcı kendi raporladığı fiyat için
+    // bildirim almamalı (zaten ekledikleri anda biliyorlar).
+    if (lastReporterId && lastReporterId === userId) {
+      logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+        productId,
+        uid: userId,
+        reason: 'self_reporter',
+      });
+      return;
+    }
+
+    if (mode === 'below_target') {
+      if (!(Number.isFinite(targetPrice) && targetPrice > 0)) {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'missing_target_price',
+        });
+        return;
+      }
+      if (newPrice > targetPrice) {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'new_price_above_target',
+          newPrice,
+          targetPrice,
+        });
+        return;
+      }
+      // below_target: önceki fiyat zaten target altındaysa tekrar bildirme
+      // (kullanıcıyı aynı eşik için sürekli rahatsız etmeyelim).
+      if (hasComparableOld && Number(oldPrice) <= targetPrice) {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'already_below_target',
+          oldPrice: Number(oldPrice),
+          targetPrice,
+        });
+        return;
+      }
+    } else if (mode === 'price_drop') {
+      if (direction !== 'drop') {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'not_a_drop',
+          direction,
+        });
+        return;
+      }
+    } else if (mode === 'any_new_price') {
+      // Yeni rapor yok ve fiyat aynı kaldıysa skip et — gerçek bir yeni
+      // fiyat sinyali olduğunda bildiriyoruz.
+      if (!newReportObserved && !priceChanged) {
+        logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+          productId,
+          uid: userId,
+          mode,
+          reason: 'no_signal',
+        });
+        return;
+      }
+    }
+
+    // Bölge filtresi: below_target ve any_new_price modlarında kullanıcı
+    // ülke çapında bildirim istemiş kabul edilir (hedef fiyat her yerde
+    // geçerli). price_drop modunda kullanıcının bölgesi grubun bölgesiyle
+    // eşleşmiyorsa atla — kendi bölgesi dışındaki kısa süreli düşüşlerle
+    // boğmayalım.
     let userCity = '';
     let userDistrict = '';
     let fcmToken = '';
@@ -284,9 +579,8 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       logger.warn('priceGroup: user fetch failed', { userId, error: e.message });
       return;
     }
-    const isOnlineGroup = cityName.toLowerCase() === 'türkiye' &&
-      districtName.toLowerCase() === 'online';
     if (
+      mode === 'price_drop' &&
       !isOnlineGroup &&
       userCity &&
       userDistrict &&
@@ -295,43 +589,102 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       (userCity.toLowerCase() !== cityName.toLowerCase() ||
         userDistrict.toLowerCase() !== districtName.toLowerCase())
     ) {
+      logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+        productId,
+        uid: userId,
+        mode,
+        reason: 'region_mismatch',
+        userRegion: `${userCity}/${userDistrict}`,
+        groupRegion: `${cityName}/${districtName}`,
+      });
       return;
     }
 
-    await db
-      .collection('users')
-      .doc(userId)
-      .collection('notifications')
-      .add({
-        title,
-        body,
+    const copy = buildAlertNotificationCopy({
+      mode,
+      productName,
+      chainName,
+      newPrice,
+      oldPrice,
+      hasComparableOld,
+    });
+    const notificationType = mode === 'below_target'
+      ? 'price_alert_target'
+      : (mode === 'price_drop' ? 'price_drop' : 'price_new');
+
+    logger.info('PRICE_ALERT_CONDITION_MATCHED', {
+      productId,
+      uid: userId,
+      mode,
+      newPrice,
+    });
+
+    try {
+      await db
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .add({
+          title: copy.title,
+          body: copy.body,
+          productId,
+          groupId: event.params.groupId,
+          type: notificationType,
+          mode,
+          direction,
+          oldPrice: hasComparableOld ? Number(oldPrice) : null,
+          newPrice,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      inAppSent++;
+      logger.info('IN_APP_NOTIFICATION_WRITTEN', { uid: userId, mode });
+    } catch (e) {
+      logger.error('In-app notification write failed', {
         productId,
-        groupId: event.params.groupId,
-        type,
-        direction,
-        oldPrice: hasComparableOld ? Number(oldPrice) : null,
-        newPrice,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        uid: userId,
+        error: e.message,
       });
-    inAppSent++;
+      // In-app yazılamadıysa push deneme — sessizce gizleyip raporlamak
+      // istemiyoruz; bir sonraki tetikleyici tekrar deneyecek.
+      return;
+    }
 
     // Push'u sadece opt-in kullanıcılara gönder; in-app doc yine yazıldı.
     // regionalDropPushEnabled: kullanıcı bölgesel hareket bildirimlerini
-    // kapatmışsa push'u skip et (in-app doc yazılmaya devam eder).
+    // kapatmışsa price_drop push'u skip et (in-app doc yazılmaya devam
+    // eder). below_target ve any_new_price modlarında bu toggle göz
+    // ardı edilir; çünkü kullanıcı bilinçli olarak bu modu seçmiş.
+    const respectRegionalToggle = mode === 'price_drop';
     if (
       fcmToken &&
       pushEnabled &&
       priceAlertsEnabled &&
-      regionalDropPushEnabled
+      (!respectRegionalToggle || regionalDropPushEnabled)
     ) {
-      tokens.push(fcmToken);
-      if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
-      tokenToRefs.get(fcmToken).push(db.collection('users').doc(userId));
+      pushQueue.push({
+        token: fcmToken,
+        uid: userId,
+        title: copy.title,
+        body: copy.body,
+        notificationType,
+        mode,
+      });
+    } else {
+      logger.info('PUSH_SKIPPED', {
+        uid: userId,
+        reason: !fcmToken
+          ? 'no_token'
+          : (!pushEnabled
+            ? 'push_disabled'
+            : (!priceAlertsEnabled
+              ? 'price_alerts_disabled'
+              : 'regional_drop_disabled')),
+      });
     }
   });
   await Promise.all(writes);
 
-  if (tokens.length === 0) {
+  if (pushQueue.length === 0) {
     logger.info('priceGroup change: push yok, in-app yazıldı', {
       groupId: event.params.groupId,
       productId,
@@ -341,31 +694,43 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     return;
   }
 
-  const response = await messaging.sendEachForMulticast({
-    tokens,
-    notification: {
-      title,
-      body,
-    },
-    data: {
-      productId,
-      groupId: event.params.groupId,
-      type,
-      direction,
-    },
-  });
-
+  let pushSent = 0;
+  let pushFailed = 0;
   const cleanupPromises = [];
-  response.responses.forEach((result, index) => {
-    if (!result.error) return;
-    const code = result.error.code;
-    if (!INVALID_TOKEN_ERROR_CODES.has(code)) return;
-    const token = tokens[index];
-    const refs = tokenToRefs.get(token) || [];
-    refs.forEach((ref) =>
-      cleanupPromises.push(ref.update({ fcmToken: admin.firestore.FieldValue.delete() }))
-    );
-  });
+  // Her kullanıcı için ayrı title/body olabildiği için tek tek gönderiyoruz.
+  for (const item of pushQueue) {
+    logger.info('PUSH_SEND_ATTEMPT', { uid: item.uid, mode: item.mode });
+    try {
+      await messaging.send({
+        token: item.token,
+        notification: { title: item.title, body: item.body },
+        data: {
+          productId,
+          groupId: event.params.groupId,
+          type: item.notificationType,
+          mode: item.mode,
+          direction,
+        },
+      });
+      pushSent++;
+      logger.info('PUSH_SEND_SUCCESS', { uid: item.uid });
+    } catch (err) {
+      pushFailed++;
+      const code = err.code || (err.errorInfo && err.errorInfo.code);
+      logger.warn('PUSH_SEND_FAILED', {
+        uid: item.uid,
+        error: err.message,
+        code,
+      });
+      if (INVALID_TOKEN_ERROR_CODES.has(code)) {
+        cleanupPromises.push(
+          db.collection('users').doc(item.uid).update({
+            fcmToken: admin.firestore.FieldValue.delete(),
+          }),
+        );
+      }
+    }
+  }
   await Promise.all(cleanupPromises);
 
   logger.info('Fiyat değişim bildirimleri işlendi', {
@@ -378,8 +743,8 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     direction,
     recipients: alerts.length,
     inAppSent,
-    pushSent: response.successCount,
-    pushFailed: response.failureCount,
+    pushSent,
+    pushFailed,
   });
 });
 

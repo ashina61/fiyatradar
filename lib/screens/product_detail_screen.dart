@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
@@ -158,91 +159,272 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     Product product,
     double? current,
   ) async {
-    final ctrl = TextEditingController(
-      text: current?.toStringAsFixed(2) ??
-          (product.lowestPrice ?? 0).toStringAsFixed(2),
-    );
-    final res = await showDialog<double>(
+    debugPrint('PRICE_ALERT_DIALOG_OPENED: productId=${product.id}');
+    final existing = state.alertForProduct(product.id);
+    final res = await showDialog<_AlertDialogResult>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: FR.surface,
-        title: Text('Fiyat alarmı', style: frDisplay(20, FontWeight.w700)),
-        content: Column(
+      builder: (_) => _PriceAlertDialog(
+        product: product,
+        currentTarget: current ?? existing?.targetPrice,
+        currentMode: existing?.mode ?? ProductAlertMode.belowTarget,
+        freeUsage: state.productAlerts.length,
+        isPremium: state.premium.isActive,
+      ),
+    );
+    if (res == null) return;
+    debugPrint(
+      'PRICE_ALERT_MODE_SELECTED: mode=${productAlertModeToValue(res.mode)}',
+    );
+    try {
+      await state.setProductAlert(
+        productId: product.id,
+        mode: res.mode,
+        targetPrice: res.targetPrice,
+      );
+      if (!context.mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      String successText;
+      switch (res.mode) {
+        case ProductAlertMode.belowTarget:
+          successText =
+              'Fiyat alarmın aktif edildi. ₺${(res.targetPrice ?? 0).toStringAsFixed(2)} altına düşünce haberin olacak.';
+          break;
+        case ProductAlertMode.priceDrop:
+          successText =
+              'Fiyat alarmın aktif edildi. Ürün için daha düşük fiyat bulunduğunda haberdar olacaksın.';
+          break;
+        case ProductAlertMode.anyNewPrice:
+          successText =
+              'Bu ürün için yeni fiyat eklendiğinde bildirim alacaksın.';
+          break;
+      }
+      messenger.showSnackBar(SnackBar(content: Text(successText)));
+    } on AlertLimitExceededException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          action: SnackBarAction(
+            label: 'Pro\'ya geç',
+            textColor: FR.gold,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PaywallScreen()),
+            ),
+          ),
+        ),
+      );
+    } on StateError catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fiyat alarmı kurulamadı: $e'),
+        ),
+      );
+    }
+  }
+}
+
+class _AlertDialogResult {
+  const _AlertDialogResult({required this.mode, this.targetPrice});
+  final ProductAlertMode mode;
+  final double? targetPrice;
+}
+
+class _PriceAlertDialog extends StatefulWidget {
+  const _PriceAlertDialog({
+    required this.product,
+    required this.currentTarget,
+    required this.currentMode,
+    required this.freeUsage,
+    required this.isPremium,
+  });
+  final Product product;
+  final double? currentTarget;
+  final ProductAlertMode currentMode;
+  final int freeUsage;
+  final bool isPremium;
+
+  @override
+  State<_PriceAlertDialog> createState() => _PriceAlertDialogState();
+}
+
+class _PriceAlertDialogState extends State<_PriceAlertDialog> {
+  late ProductAlertMode _mode = widget.currentMode;
+  late final TextEditingController _ctrl = TextEditingController(
+    text: (widget.currentTarget ?? widget.product.lowestPrice ?? 0)
+        .toStringAsFixed(2),
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final needsTarget = _mode == ProductAlertMode.belowTarget;
+    return AlertDialog(
+      backgroundColor: FR.surface,
+      title: Text('Fiyat alarmı kur', style: frDisplay(20, FontWeight.w700)),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Ürün bu fiyata indiğinde seni uyaralım.',
-                style: frText(12.5, FontWeight.w600, color: FR.ink3)),
-            if (!state.premium.isActive) ...[
+            Text(
+              'Bu ürün için nasıl bildirim almak istiyorsun?',
+              style: frText(12.5, FontWeight.w600, color: FR.ink3),
+            ),
+            if (!widget.isPremium) ...[
               const SizedBox(height: 8),
               Text(
                 'Ücretsiz planda '
-                '${state.productAlerts.length}/${AppState.kFreeProductAlertLimit} '
+                '${widget.freeUsage}/${AppState.kFreeProductAlertLimit} '
                 'alarm kullanıldı. Sınırsız alarm Premium’da.',
                 style: frText(11.5, FontWeight.w700, color: FR.ink2),
               ),
             ],
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: frPrice(20),
-              cursorColor: FR.gold,
-              decoration: InputDecoration(
-                prefixText: '₺ ',
-                prefixStyle:
-                    TextStyle(color: FR.gold, fontWeight: FontWeight.w800),
+            const SizedBox(height: 12),
+            _ModeRadio(
+              value: ProductAlertMode.belowTarget,
+              group: _mode,
+              title: 'Hedef fiyatın altına düşünce',
+              subtitle: 'Belirlediğin tutarın altına düşen her yeni fiyatta '
+                  'bildirim al.',
+              onChanged: (v) => setState(() => _mode = v),
+            ),
+            _ModeRadio(
+              value: ProductAlertMode.priceDrop,
+              group: _mode,
+              title: 'Fiyat düşünce',
+              subtitle: 'Bu ürün için bilinen fiyatın altına bir teklif '
+                  'geldiğinde bildirim al.',
+              onChanged: (v) => setState(() => _mode = v),
+            ),
+            _ModeRadio(
+              value: ProductAlertMode.anyNewPrice,
+              group: _mode,
+              title: 'Her yeni fiyat geldiğinde',
+              subtitle: 'Bu ürüne her yeni fiyat eklendiğinde bildirim alırsın.',
+              onChanged: (v) => setState(() => _mode = v),
+            ),
+            if (needsTarget) ...[
+              const SizedBox(height: 14),
+              TextField(
+                controller: _ctrl,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: frPrice(20),
+                cursorColor: FR.gold,
+                decoration: InputDecoration(
+                  prefixText: '₺ ',
+                  prefixStyle:
+                      TextStyle(color: FR.gold, fontWeight: FontWeight.w800),
+                  errorText: _error,
+                ),
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('İptal',
+              style: frText(13, FontWeight.w800, color: FR.ink3)),
+        ),
+        TextButton(
+          onPressed: () {
+            if (_mode == ProductAlertMode.belowTarget) {
+              final v = double.tryParse(_ctrl.text.replaceAll(',', '.'));
+              if (v == null || v <= 0) {
+                setState(() => _error = 'Geçerli bir fiyat gir.');
+                return;
+              }
+              Navigator.pop(
+                context,
+                _AlertDialogResult(mode: _mode, targetPrice: v),
+              );
+              return;
+            }
+            Navigator.pop(
+              context,
+              _AlertDialogResult(mode: _mode),
+            );
+          },
+          child: Text('Kaydet',
+              style: frText(13, FontWeight.w800, color: FR.gold)),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeRadio extends StatelessWidget {
+  const _ModeRadio({
+    required this.value,
+    required this.group,
+    required this.title,
+    required this.subtitle,
+    required this.onChanged,
+  });
+  final ProductAlertMode value;
+  final ProductAlertMode group;
+  final String title;
+  final String subtitle;
+  final ValueChanged<ProductAlertMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = group == value;
+    return InkWell(
+      onTap: () => onChanged(value),
+      borderRadius: FRRad.all(FRRad.m),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                color: selected ? FR.gold : FR.ink3,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: frText(13, FontWeight.w800,
+                          color: selected ? FR.ink : FR.ink2)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('İptal',
-                style: frText(13, FontWeight.w800, color: FR.ink3)),
-          ),
-          TextButton(
-            onPressed: () {
-              final v = double.tryParse(ctrl.text.replaceAll(',', '.'));
-              if (v != null && v > 0) Navigator.pop(context, v);
-            },
-            child: Text('Kaydet',
-                style: frText(13, FontWeight.w800, color: FR.gold)),
-          ),
-        ],
       ),
     );
-    if (res != null) {
-      try {
-        await state.setProductAlert(productId: product.id, targetPrice: res);
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alarm ayarlandı: ₺${res.toStringAsFixed(2)}')),
-        );
-      } on AlertLimitExceededException catch (e) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            action: SnackBarAction(
-              label: 'Pro\'ya geç',
-              textColor: FR.gold,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PaywallScreen()),
-              ),
-            ),
-          ),
-        );
-      } on StateError catch (e) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
-      }
-    }
   }
 }
 
