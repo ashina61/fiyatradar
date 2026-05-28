@@ -309,8 +309,12 @@ IconData _iconForType(AppNotification n) {
         return Icons.trending_down_rounded;
       case 'price_alert_target':
         return Icons.flag_rounded;
+      case 'price_alert_created':
+        return Icons.notifications_active_outlined;
       case 'price_new':
         return Icons.add_alert_outlined;
+      case 'price_report_created':
+        return Icons.local_offer_outlined;
       case 'price_rise':
         return Icons.trending_up_rounded;
       case 'price_verified':
@@ -321,6 +325,10 @@ IconData _iconForType(AppNotification n) {
         return Icons.gpp_maybe_rounded;
       case 'weekly_summary':
         return Icons.insights_rounded;
+      case 'badge_earned':
+        return Icons.workspace_premium_outlined;
+      case 'level_up':
+        return Icons.military_tech_outlined;
       default:
         return Icons.notifications_none_rounded;
     }
@@ -332,8 +340,12 @@ IconData _iconForType(AppNotification n) {
       return Icons.trending_down_rounded;
     case 'price_alert_target':
       return Icons.flag_rounded;
+    case 'price_alert_created':
+      return Icons.notifications_active_rounded;
     case 'price_new':
       return Icons.add_alert_rounded;
+    case 'price_report_created':
+      return Icons.local_offer_rounded;
     case 'price_rise':
       return Icons.trending_up_rounded;
     case 'price_verified':
@@ -346,6 +358,10 @@ IconData _iconForType(AppNotification n) {
       return Icons.gpp_maybe_rounded;
     case 'weekly_summary':
       return Icons.insights_rounded;
+    case 'badge_earned':
+      return Icons.workspace_premium_rounded;
+    case 'level_up':
+      return Icons.military_tech_rounded;
     default:
       return Icons.notifications_active_rounded;
   }

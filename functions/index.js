@@ -187,6 +187,12 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
       newPrice,
     });
 
+    logger.info('IN_APP_NOTIFICATION_WRITE_START', {
+      uid: userId,
+      mode,
+      type: notificationType,
+      source: 'products.priceHistory',
+    });
     try {
       await db
         .collection('users')
@@ -196,11 +202,14 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
           title: copy.title,
           body: copy.body,
           productId,
+          productName,
+          price: newPrice,
           type: notificationType,
           mode,
           direction,
           oldPrice: hasComparableOld ? oldPrice : null,
           newPrice,
+          read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       inAppSent++;
@@ -225,6 +234,9 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
       const settings = (u.settings || {}).notifications || {};
       const pushEnabled = settings.pushEnabled !== false;
       const priceAlertsEnabled = settings.priceAlertsEnabled !== false;
+      if (fcmToken) {
+        logger.info('FCM_TOKEN_FOUND', { uid: userId });
+      }
       if (fcmToken && pushEnabled && priceAlertsEnabled) {
         pushQueue.push({
           token: fcmToken,
@@ -619,6 +631,11 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       newPrice,
     });
 
+    logger.info('IN_APP_NOTIFICATION_WRITE_START', {
+      uid: userId,
+      mode,
+      type: notificationType,
+    });
     try {
       await db
         .collection('users')
@@ -628,12 +645,15 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
           title: copy.title,
           body: copy.body,
           productId,
+          productName,
+          price: newPrice,
           groupId: event.params.groupId,
           type: notificationType,
           mode,
           direction,
           oldPrice: hasComparableOld ? Number(oldPrice) : null,
           newPrice,
+          read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       inAppSent++;
@@ -655,6 +675,9 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     // eder). below_target ve any_new_price modlarında bu toggle göz
     // ardı edilir; çünkü kullanıcı bilinçli olarak bu modu seçmiş.
     const respectRegionalToggle = mode === 'price_drop';
+    if (fcmToken) {
+      logger.info('FCM_TOKEN_FOUND', { uid: userId });
+    }
     if (
       fcmToken &&
       pushEnabled &&
