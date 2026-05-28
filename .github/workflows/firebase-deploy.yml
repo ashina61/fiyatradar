@@ -6,9 +6,10 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Sadece main üzerinden manuel tetikleme kabul ediliyor; feature branch'ten
-    # yanlışlıkla prod'a basılmasın diye guard.
-    if: github.ref == 'refs/heads/main'
+    # Sadece default branch (claude/fiyatradar-app-oKr5R) üzerinden manuel
+    # tetikleme kabul ediliyor; diğer feature branch'lerden yanlışlıkla prod'a
+    # basılmasın diye guard.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/claude/fiyatradar-app-oKr5R'
 
     steps:
       - name: Checkout
