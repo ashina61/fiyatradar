@@ -1625,6 +1625,34 @@ class AppState extends ChangeNotifier {
         kind: _ContribKind.report,
         hasPhoto: (proofImageUrl ?? '').isNotEmpty,
       );
+
+      // Katkı Bildirim Merkezi sinyali — kullanıcı katkı geçmişini
+      // notification panelinden de görebilsin. Fotoğraflı/moderasyon
+      // bekleyen fiyatlar farklı metinle yazılır.
+      final notifTitle = requiresPhotoReview
+          ? 'Fiyat katkın incelemede'
+          : 'Fiyat katkın alındı';
+      final notifBody = requiresPhotoReview
+          ? 'Fotoğraflı fiyat katkın kontrol edildikten sonra yayına alınacak.'
+          : '${p.name} için eklediğin fiyat topluluğa katkı sağladı.';
+      await createUserNotification(
+        uid: uid,
+        type: 'price_report_created',
+        title: notifTitle,
+        body: notifBody,
+        productId: productId,
+        productName: p.name,
+        price: price,
+        data: {
+          'requiresReview': requiresPhotoReview,
+          'chainName': resolvedChainName,
+          'city': cityTrim,
+          'district': districtTrim,
+        },
+        // Kullanıcı zaten ekran içinde; cihaz tepsisinde de sinyal verme
+        // (spam olmasın).
+        showLocalNotification: false,
+      );
     }
     return result;
   }
@@ -1684,6 +1712,7 @@ class AppState extends ChangeNotifier {
       longestStreak: longestStreak,
       lastContributionDay: lastContributionDay,
     );
+    final levelBefore = FRLevels.forPoints(points);
     // Yeni rozet kazançlarını hesapla — sadece daha önce kazanılmamış olanları
     // ekle. Çift sayımı engellemek için badge id-set merge yapıyoruz.
     final earned = <FRBadge>[];
@@ -1774,6 +1803,36 @@ class AppState extends ChangeNotifier {
           'points': FieldValue.increment(b.rewardPoints.clamp(0, 50)),
         }, SetOptions(merge: true));
       }
+    }
+
+    // Bildirim Merkezi sinyalleri: yeni kazanılan her rozet için bir doc,
+    // level eşiği geçildiyse ek bir doc. `cappedDelta` ilk yazıda kesin
+    // commit edilen artış; kalan badge ödülleri rule cap'i nedeniyle
+    // sıralı yazılır ama level değişimi tipik olarak ilk write'ta tetiklenir.
+    final projectedPoints = points + cappedDelta;
+    final levelAfter = FRLevels.forPoints(projectedPoints);
+    for (final b in earned) {
+      await createUserNotification(
+        uid: uid,
+        type: 'badge_earned',
+        title: 'Yeni rozet kazandın',
+        body: '${b.emoji} ${b.name} rozeti profilinde görünüyor.',
+        data: {'badgeId': b.id},
+        showLocalNotification: false,
+      );
+    }
+    if (levelAfter.index > levelBefore.index) {
+      await createUserNotification(
+        uid: uid,
+        type: 'level_up',
+        title: 'Seviye atladın',
+        body: 'Yeni seviyen: ${levelAfter.name}',
+        data: {
+          'levelIndex': levelAfter.index,
+          'levelName': levelAfter.name,
+        },
+        showLocalNotification: false,
+      );
     }
   }
 
@@ -2937,6 +2996,68 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Bildirim Merkezi'ne (users/{uid}/notifications) tek noktadan yazım yapan
+  /// merkezi yardımcı. Push göndermez — gerekirse `showLocalNotification`
+  /// ile cihazda yerel sistem bildirimi de çizer.
+  ///
+  /// Cloud Function tarafındaki notification yazımları (price alert tetik,
+  /// product_request_*, vs.) bu helper'dan bağımsızdır; aynı path'e Admin
+  /// SDK ile yazıyorlar. Bu helper sadece client-side aksiyonlar (alarm
+  /// kuruldu, fiyat eklendi, rozet kazanıldı) için kullanılır.
+  Future<void> createUserNotification({
+    required String uid,
+    required String type,
+    required String title,
+    required String body,
+    String? productId,
+    String? productName,
+    double? price,
+    Map<String, dynamic>? data,
+    bool showLocalNotification = false,
+  }) async {
+    if (uid.isEmpty) return;
+    debugPrint(
+      'IN_APP_NOTIFICATION_CREATE_START: uid=$uid type=$type',
+    );
+    final payload = <String, dynamic>{
+      'type': type,
+      'title': title,
+      'body': body,
+      // `read: false` kullanıcı bildirimi okuyana kadar; `markNotificationRead`
+      // çağrıldığında `readAt` timestamp'i ayrıca yazılır (eski okumalar onu
+      // okuyor) — `read` boolean'ı forward-compat için duruyor.
+      'read': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    if (productId != null && productId.isNotEmpty) {
+      payload['productId'] = productId;
+    }
+    if (productName != null && productName.isNotEmpty) {
+      payload['productName'] = productName;
+    }
+    if (price != null) {
+      payload['price'] = price;
+    }
+    if (data != null && data.isNotEmpty) {
+      payload['data'] = data;
+    }
+    try {
+      await _svc.userNotifications(uid).add(payload);
+      debugPrint(
+        'IN_APP_NOTIFICATION_CREATED: uid=$uid type=$type',
+      );
+    } catch (e) {
+      debugPrint(
+        'USER_NOTIFICATION_CREATE_FAILED: uid=$uid type=$type error=$e',
+      );
+      // Hata kullanıcıya teknik mesaj olarak iletilmiyor — Bildirim Merkezi
+      // yazımı best-effort; rules/network hatası UI akışını kesmemeli.
+    }
+    if (showLocalNotification) {
+      await MessagingService.instance.showLocalAlert(title: title, body: body);
+    }
+  }
+
   Future<void> markNotificationRead(String notificationId) async {
     if (user == null) return;
     AppNotification? current;
@@ -2974,7 +3095,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> setProductAlert({
     required String productId,
-    required double targetPrice,
+    required ProductAlertMode mode,
+    double? targetPrice,
   }) async {
     if (user == null) return;
     // Fiyat alarmı bir katkı aksiyonu — doğrulanmamış / misafir hesap
@@ -2987,18 +3109,88 @@ class AppState extends ChangeNotifier {
         productAlerts.length >= kFreeProductAlertLimit) {
       throw const AlertLimitExceededException(kFreeProductAlertLimit);
     }
-    await _svc.userProductAlerts(user!.uid).doc(productId).set({
+    final isBelowTarget = mode == ProductAlertMode.belowTarget;
+    if (isBelowTarget && (targetPrice == null || targetPrice <= 0)) {
+      throw StateError('Hedef fiyat girmelisin.');
+    }
+    final modeValue = productAlertModeToValue(mode);
+    debugPrint(
+      'PRICE_ALERT_CREATE_START: productId=$productId mode=$modeValue '
+      'targetPrice=${targetPrice ?? '-'}',
+    );
+    // Eski versiyonlardaki Cloud Function ve UI sadece `targetPrice` alanını
+    // okuyabilir; mode below_target değilse de geçmişi koruyup
+    // `notifyOnAnyNewPrice` / `notifyOnPriceDrop` ayna alanlarını yazıyoruz.
+    final payload = <String, dynamic>{
       // `productId` alanını da yazıyoruz: Cloud Function (`onProductPriceDrop`)
       // collectionGroup('productAlerts').where('productId', '==', id) ile
       // indexli sorgu yapabilsin, doc id eşleşmesi yerine. Eski full-scan
       // her ürün update'inde tüm alert dokümanlarını okuyordu.
       'productId': productId,
-      'targetPrice': targetPrice,
+      'mode': modeValue,
+      'notifyOnAnyNewPrice': mode == ProductAlertMode.anyNewPrice,
+      'notifyOnPriceDrop': mode == ProductAlertMode.priceDrop,
+      'enabled': true,
+      'targetPrice': isBelowTarget ? targetPrice : 0,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': existing == null
           ? FieldValue.serverTimestamp()
           : Timestamp.fromDate(existing.createdAt),
-    }, SetOptions(merge: true));
+    };
+    try {
+      await _svc.userProductAlerts(user!.uid).doc(productId).set(
+            payload,
+            SetOptions(merge: true),
+          );
+      debugPrint(
+        'PRICE_ALERT_CREATED: productId=$productId mode=$modeValue',
+      );
+    } catch (e) {
+      debugPrint(
+        'PRICE_ALERT_CREATE_FAILED: productId=$productId mode=$modeValue '
+        'error=$e',
+      );
+      rethrow;
+    }
+
+    // Alarm kurulduğu anda Bildirim Merkezi'ne kullanıcının "hatırlatıcı"
+    // sinyali olarak bir doc yaz; ayrıca cihaz tepsisine küçük bir yerel
+    // bildirim çiz. Hata olursa alarm kurulumu yine başarılı sayılır.
+    final product = findById(productId);
+    final productName = product?.name ?? 'Ürün';
+    String alertBody;
+    switch (mode) {
+      case ProductAlertMode.belowTarget:
+        alertBody =
+            '$productName hedef fiyatın altına düşünce haber vereceğiz.';
+        break;
+      case ProductAlertMode.priceDrop:
+        alertBody = '$productName fiyatı düşünce haber vereceğiz.';
+        break;
+      case ProductAlertMode.anyNewPrice:
+        alertBody =
+            '$productName için her yeni fiyat eklendiğinde haber vereceğiz.';
+        break;
+    }
+    debugPrint(
+      'PRICE_ALERT_CREATED_NOTIFICATION_START: productId=$productId '
+      'mode=$modeValue',
+    );
+    await createUserNotification(
+      uid: user!.uid,
+      type: 'price_alert_created',
+      title: 'Fiyat alarmı kuruldu',
+      body: alertBody,
+      productId: productId,
+      productName: productName,
+      price: isBelowTarget ? targetPrice : null,
+      data: {'mode': modeValue},
+      showLocalNotification: true,
+    );
+    debugPrint(
+      'PRICE_ALERT_CREATED_NOTIFICATION_WRITTEN: productId=$productId '
+      'mode=$modeValue',
+    );
   }
 
   Future<void> updateProfileSettings({

@@ -34,6 +34,14 @@ class _RegionalLeaderboardScreenState
     extends State<RegionalLeaderboardScreen> {
   LeaderboardScope _scope = LeaderboardScope.district;
   int _windowDays = 30;
+  bool _initialScopeResolved = false;
+  bool? _lastLoggedPro;
+
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('LEADERBOARD_SCREEN_OPENED');
+  }
 
   // Liderlik tablosu stream'i, sorgu parametrelerine göre cache'lenir.
   // `AppStateScope` bir InheritedNotifier olduğu için build, AppState her
@@ -77,6 +85,30 @@ class _RegionalLeaderboardScreenState
     // Pro: top-100 → 500 doc limitine çıkar; ücretsiz → top-50.
     final isPro = state.premium.isActive;
     final limit = isPro ? 500 : 200;
+
+    // Premium durum logu sadece ilk frame ya da geçiş anında — her rebuild
+    // üzerinde spam üretmesin.
+    if (_lastLoggedPro != isPro) {
+      _lastLoggedPro = isPro;
+      debugPrint('LEADERBOARD_PREMIUM_STATE: $isPro');
+      if (isPro) {
+        debugPrint('LEADERBOARD_PRO_MODE_ENABLED');
+      } else {
+        debugPrint('LEADERBOARD_FREE_MODE_ENABLED');
+      }
+    }
+
+    // Bölgesi henüz seçilmemiş kullanıcı district default'a girince
+    // `_NoRegion` boş ekranıyla karşılaşıyor ve liderlik tablosunu hiç
+    // görmüyordu — özellikle yeni Free kullanıcılar için "leaderboard
+    // çalışmıyor" hissi yaratıyordu. İlk açılışta bölge yoksa Türkiye
+    // scope'una düş; gerçek liste görünür.
+    if (!_initialScopeResolved) {
+      _initialScopeResolved = true;
+      if (!hasRegion && _scope != LeaderboardScope.turkey) {
+        _scope = LeaderboardScope.turkey;
+      }
+    }
 
     String? streamCity;
     String? streamDistrict;
@@ -233,6 +265,10 @@ class _RegionalLeaderboardScreenState
                                   meIsPremium: isPro,
                                 ),
                               ),
+                            if (!isPro) ...[
+                              const SizedBox(height: 16),
+                              const _FreeProCta(),
+                            ],
                           ],
                         );
                       },
@@ -518,6 +554,37 @@ class _BoardError extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Free kullanıcıya liderlik tablosunun altında küçük bir Pro CTA.
+/// Tabloyu görmesine engel olmaz — sadece daha geniş liste ve gelişmiş
+/// filtreler için Premium'a geçebileceğini hatırlatır.
+class _FreeProCta extends StatelessWidget {
+  const _FreeProCta();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.gold.withOpacity(.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.workspace_premium_outlined,
+              size: 20, color: FR.gold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Pro ile daha geniş listeyi ve gelişmiş filtreleri gör.',
+              style: frText(12.5, FontWeight.w700, color: FR.ink2),
+            ),
+          ),
+        ],
       ),
     );
   }

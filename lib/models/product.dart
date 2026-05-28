@@ -637,15 +637,63 @@ class ProductImageSubmission {
   }
 }
 
+/// Fiyat alarmı modu — kullanıcının hangi durumda bildirim almak istediğini
+/// söyler. Eski kayıtlarda yalnız `targetPrice` vardı; o dokümanlar
+/// `ProductAlertMode.belowTarget` olarak değerlendirilir (geri uyum).
+enum ProductAlertMode {
+  /// Yeni fiyat, kullanıcının belirlediği `targetPrice`'ın altına düşünce.
+  belowTarget,
+
+  /// Bu üründe yeni doğrulanmış fiyat öncekinden düşük olunca.
+  priceDrop,
+
+  /// Bu ürün için yeni fiyat (ne olursa olsun) eklendiğinde.
+  anyNewPrice,
+}
+
+String productAlertModeToValue(ProductAlertMode mode) {
+  switch (mode) {
+    case ProductAlertMode.belowTarget:
+      return 'below_target';
+    case ProductAlertMode.priceDrop:
+      return 'price_drop';
+    case ProductAlertMode.anyNewPrice:
+      return 'any_new_price';
+  }
+}
+
+ProductAlertMode productAlertModeFromValue(
+  String? value, {
+  required bool hasTargetPrice,
+  bool? notifyOnAnyNewPrice,
+  bool? notifyOnPriceDrop,
+}) {
+  switch (value) {
+    case 'below_target':
+      return ProductAlertMode.belowTarget;
+    case 'price_drop':
+      return ProductAlertMode.priceDrop;
+    case 'any_new_price':
+      return ProductAlertMode.anyNewPrice;
+  }
+  // Geri uyum: alan boşsa eski semantiği koru.
+  if (notifyOnAnyNewPrice == true) return ProductAlertMode.anyNewPrice;
+  if (notifyOnPriceDrop == true) return ProductAlertMode.priceDrop;
+  if (hasTargetPrice) return ProductAlertMode.belowTarget;
+  return ProductAlertMode.anyNewPrice;
+}
+
 class ProductAlert {
   final String productId;
   final double targetPrice;
+  final ProductAlertMode mode;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
   const ProductAlert({
     required this.productId,
     required this.targetPrice,
+    required this.mode,
     required this.createdAt,
     this.updatedAt,
   });
@@ -654,9 +702,20 @@ class ProductAlert {
     final m = d.data() ?? <String, dynamic>{};
     final created = m['createdAt'];
     final updated = m['updatedAt'];
+    final target = (m['targetPrice'] as num?)?.toDouble() ?? 0;
+    final modeRaw = m['mode'] as String?;
+    final notifyAny = m['notifyOnAnyNewPrice'] as bool?;
+    final notifyDrop = m['notifyOnPriceDrop'] as bool?;
+    final mode = productAlertModeFromValue(
+      modeRaw,
+      hasTargetPrice: target > 0,
+      notifyOnAnyNewPrice: notifyAny,
+      notifyOnPriceDrop: notifyDrop,
+    );
     return ProductAlert(
       productId: d.id,
-      targetPrice: (m['targetPrice'] as num?)?.toDouble() ?? 0,
+      targetPrice: target,
+      mode: mode,
       createdAt: created is Timestamp ? created.toDate() : DateTime.now(),
       updatedAt: updated is Timestamp ? updated.toDate() : null,
     );

@@ -183,6 +183,24 @@ class MessagingService {
     if ((title == null || title.isEmpty) && (body == null || body.isEmpty)) {
       return;
     }
+    await _renderLocalNotification(title: title, body: body);
+  }
+
+  /// Uygulama içinde yapılan kullanıcı aksiyonları (alarm kuruldu, rozet
+  /// kazanıldı vb.) için yerel bildirim göster. Push gönderilmez — sistem
+  /// tepsisinde küçük bir görsel sinyal verir.
+  Future<void> showLocalAlert({
+    required String title,
+    required String body,
+  }) async {
+    debugPrint('LOCAL_NOTIFICATION_SHOW_START: title="$title"');
+    await _renderLocalNotification(title: title, body: body);
+  }
+
+  Future<void> _renderLocalNotification({
+    required String? title,
+    required String? body,
+  }) async {
     if (!_localSetupDone) {
       await _setUpLocalNotifications();
     }
@@ -204,8 +222,9 @@ class MessagingService {
         body,
         details,
       );
+      debugPrint('LOCAL_NOTIFICATION_SHOWN');
     } catch (e) {
-      debugPrint('Local notification show failed: $e');
+      debugPrint('LOCAL_NOTIFICATION_SHOW_FAILED: $e');
     }
   }
 

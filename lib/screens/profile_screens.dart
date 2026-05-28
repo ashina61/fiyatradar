@@ -1484,10 +1484,26 @@ class AlertsScreen extends StatelessWidget {
                 if (p == null) {
                   return _alertGhost(a.productId, a.targetPrice);
                 }
+                final priceNow = p.lowestPrice == null
+                    ? '—'
+                    : '₺${p.lowestPrice!.toStringAsFixed(2)}';
+                String alertText;
+                switch (a.mode) {
+                  case ProductAlertMode.belowTarget:
+                    alertText =
+                        'Hedef: ₺${a.targetPrice.toStringAsFixed(2)} altına';
+                    break;
+                  case ProductAlertMode.priceDrop:
+                    alertText = 'Fiyat düşünce';
+                    break;
+                  case ProductAlertMode.anyNewPrice:
+                    alertText = 'Her yeni fiyatta';
+                    break;
+                }
                 return _ProductMiniRow(
                   product: p,
                   subtitleOverride:
-                      'Hedef: ₺${a.targetPrice.toStringAsFixed(2)} · güncel: ${p.lowestPrice == null ? '—' : '₺${p.lowestPrice!.toStringAsFixed(2)}'}',
+                      '$alertText · güncel: $priceNow',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(

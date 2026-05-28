@@ -220,17 +220,19 @@ class _AlertsPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Silinmiş ürün için alarm · hedef ₺${a.targetPrice.toStringAsFixed(2)}',
+                  'Silinmiş ürün için alarm · ${_alertSummary(a)}',
                   style: frText(12, FontWeight.w700, color: FR.ink3),
                 ),
               ),
             ]),
           );
         }
+        final priceNow = p.lowestPrice == null
+            ? '—'
+            : '₺${p.lowestPrice!.toStringAsFixed(2)}';
         return _Row(
           product: p,
-          subtitle:
-              'Hedef ₺${a.targetPrice.toStringAsFixed(2)} · şu an ${p.lowestPrice == null ? "—" : "₺${p.lowestPrice!.toStringAsFixed(2)}"}',
+          subtitle: '${_alertSummary(a)} · şu an $priceNow',
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -250,6 +252,17 @@ class _AlertsPanel extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+String _alertSummary(ProductAlert a) {
+  switch (a.mode) {
+    case ProductAlertMode.belowTarget:
+      return 'Hedef ₺${a.targetPrice.toStringAsFixed(2)} altına düşünce';
+    case ProductAlertMode.priceDrop:
+      return 'Fiyat düşünce bildirim';
+    case ProductAlertMode.anyNewPrice:
+      return 'Her yeni fiyatta bildirim';
   }
 }
 
