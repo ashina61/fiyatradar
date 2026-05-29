@@ -467,7 +467,7 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     productId,
     groupId: event.params.groupId,
   });
-  let alerts;
+  let alerts = [];
   try {
     const snap = await db
       .collectionGroup('productAlerts')
@@ -475,11 +475,26 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       .get();
     alerts = snap.docs;
   } catch (e) {
-    logger.warn('priceGroup alerts query failed', {
+    // Indexli sorgu COLLECTION_GROUP scope'lu `productId` index'i ister.
+    // Prod deploy pipeline'ı `firestore:indexes`'i atladığı için bu index
+    // ortamda olmayabilir; sorgu FAILED_PRECONDITION fırlatır. Eskiden bu
+    // noktada `return` ediyorduk → alarm pipeline'ı sessizce ölüyor, hiç
+    // bildirim yazılmıyordu. Bunun yerine `onProductPriceDrop` ile aynı
+    // davranışı uygulayıp full-scan + doc-id eşleşmesine düşüyoruz.
+    logger.warn('priceGroup alerts indexed query failed, falling back to scan', {
       groupId: event.params.groupId,
       error: e.message,
     });
-    return;
+    try {
+      const scan = await db.collectionGroup('productAlerts').get();
+      alerts = scan.docs.filter((d) => d.id === productId);
+    } catch (scanErr) {
+      logger.warn('priceGroup alerts scan fallback failed', {
+        groupId: event.params.groupId,
+        error: scanErr.message,
+      });
+      return;
+    }
   }
   logger.info('PRICE_ALERT_QUERY_RESULT_COUNT', {
     productId,
