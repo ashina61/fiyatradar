@@ -1635,9 +1635,13 @@ class AppState extends ChangeNotifier {
       final notifBody = requiresPhotoReview
           ? 'Fotoğraflı fiyat katkın kontrol edildikten sonra yayına alınacak.'
           : '${p.name} için eklediğin fiyat topluluğa katkı sağladı.';
+      // Fotoğraflı katkı admin onayı beklediği için ayrı tip yazıyoruz;
+      // Bildirim Merkezi ikonları da bu iki durumu farklı gösteriyor.
+      final notifType =
+          requiresPhotoReview ? 'price_report_pending' : 'price_report_created';
       await createUserNotification(
         uid: uid,
-        type: 'price_report_created',
+        type: notifType,
         title: notifTitle,
         body: notifBody,
         productId: productId,

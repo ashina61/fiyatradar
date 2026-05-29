@@ -69,8 +69,20 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
   const productId = event.params.productId;
   const productName = (after.name || 'Ürün').toString();
 
+  logger.info('PRICE_ALERT_NEW_PRICE', {
+    productId,
+    source: 'products.priceHistory',
+    direction,
+    newPrice,
+    oldPrice: hasComparableOld ? oldPrice : null,
+  });
+
   // ÖNCE: full collectionGroup scan + client-side `d.id === productId`.
   // SONRA: `productId` field'ı üzerinden indexli sorgu.
+  logger.info('PRICE_ALERT_QUERY_START', {
+    productId,
+    source: 'products.priceHistory',
+  });
   let interested = [];
   try {
     const alertsSnap = await db
@@ -86,6 +98,11 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
     const scan = await db.collectionGroup('productAlerts').get();
     interested = scan.docs.filter((d) => d.id === productId);
   }
+  logger.info('PRICE_ALERT_QUERY_RESULT_COUNT', {
+    productId,
+    source: 'products.priceHistory',
+    count: interested.length,
+  });
   if (interested.length === 0) {
     logger.info('Fiyat değişti ama alarm kuran kullanıcı yok.', {
       productId,
@@ -236,6 +253,8 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
       const priceAlertsEnabled = settings.priceAlertsEnabled !== false;
       if (fcmToken) {
         logger.info('FCM_TOKEN_FOUND', { uid: userId });
+      } else {
+        logger.info('FCM_TOKEN_MISSING', { uid: userId });
       }
       if (fcmToken && pushEnabled && priceAlertsEnabled) {
         pushQueue.push({
@@ -425,6 +444,14 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       ? 'drop'
       : (newPrice > Number(oldPrice) ? 'rise' : 'flat');
 
+  logger.info('PRICE_ALERT_NEW_PRICE', {
+    productId,
+    groupId: event.params.groupId,
+    direction,
+    newPrice,
+    oldPrice: hasComparableOld ? Number(oldPrice) : null,
+  });
+
   logger.info('PRICE_ALERT_PRODUCT_MATCH', {
     productId,
     groupId: event.params.groupId,
@@ -433,7 +460,13 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     oldPrice: hasComparableOld ? Number(oldPrice) : null,
   });
 
-  // Sadece bu ürünü takip eden kullanıcıları çek (indexed).
+  // Sadece bu ürünü takip eden kullanıcıları çek (indexed). Tek-alan
+  // collection-group index'i (productId) firestore.indexes.json'da tanımlı;
+  // index yoksa aşağıda full-scan fallback'ine düşüyoruz.
+  logger.info('PRICE_ALERT_QUERY_START', {
+    productId,
+    groupId: event.params.groupId,
+  });
   let alerts;
   try {
     const snap = await db
@@ -448,6 +481,11 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     });
     return;
   }
+  logger.info('PRICE_ALERT_QUERY_RESULT_COUNT', {
+    productId,
+    groupId: event.params.groupId,
+    count: alerts.length,
+  });
   if (alerts.length === 0) {
     try {
       const scan = await db.collectionGroup('productAlerts').get();
@@ -499,7 +537,7 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     // Self-notification politikası: kullanıcı kendi raporladığı fiyat için
     // bildirim almamalı (zaten ekledikleri anda biliyorlar).
     if (lastReporterId && lastReporterId === userId) {
-      logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
+      logger.info('SELF_NOTIFICATION_SKIPPED', {
         productId,
         uid: userId,
         reason: 'self_reporter',
@@ -677,6 +715,8 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
     const respectRegionalToggle = mode === 'price_drop';
     if (fcmToken) {
       logger.info('FCM_TOKEN_FOUND', { uid: userId });
+    } else {
+      logger.info('FCM_TOKEN_MISSING', { uid: userId });
     }
     if (
       fcmToken &&
