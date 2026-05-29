@@ -315,13 +315,19 @@ IconData _iconForType(AppNotification n) {
         return Icons.add_alert_outlined;
       case 'price_report_created':
         return Icons.local_offer_outlined;
+      case 'price_report_pending':
+        return Icons.hourglass_bottom_outlined;
       case 'price_rise':
         return Icons.trending_up_rounded;
       case 'price_verified':
+      case 'price_report_approved':
       case 'product_request_approved':
+      case 'product_image_approved':
         return Icons.verified_rounded;
       case 'price_rejected':
+      case 'price_report_rejected':
       case 'product_request_rejected':
+      case 'product_image_rejected':
         return Icons.gpp_maybe_rounded;
       case 'weekly_summary':
         return Icons.insights_rounded;
@@ -346,16 +352,24 @@ IconData _iconForType(AppNotification n) {
       return Icons.add_alert_rounded;
     case 'price_report_created':
       return Icons.local_offer_rounded;
+    case 'price_report_pending':
+      return Icons.hourglass_bottom_rounded;
     case 'price_rise':
       return Icons.trending_up_rounded;
     case 'price_verified':
+    case 'price_report_approved':
       return Icons.thumb_up_alt_rounded;
     case 'price_rejected':
+    case 'price_report_rejected':
       return Icons.thumb_down_alt_rounded;
     case 'product_request_approved':
+    case 'product_image_approved':
       return Icons.verified_rounded;
     case 'product_request_rejected':
+    case 'product_image_rejected':
       return Icons.gpp_maybe_rounded;
+    case 'generic':
+      return Icons.notifications_none_rounded;
     case 'weekly_summary':
       return Icons.insights_rounded;
     case 'badge_earned':
