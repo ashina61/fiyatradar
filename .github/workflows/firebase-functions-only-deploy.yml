@@ -46,7 +46,7 @@ jobs:
       # Yalnızca functions deploy edilir — firestore:rules / firestore:indexes
       # bu workflow'da BİLEREK yok. Index deploy'u ayrı tutuyoruz.
       - name: Deploy Cloud Functions only
-        run: firebase deploy --project fiyatradar-611967 --only functions --non-interactive
+        run: firebase deploy --project fiyatradar-611967 --only functions --non-interactive --force
 
       - name: Clean up credentials
         if: always()
