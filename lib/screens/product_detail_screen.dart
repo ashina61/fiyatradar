@@ -512,7 +512,7 @@ class _DetailTitleBlock extends StatelessWidget {
                 children: [
                   Icon(Icons.verified_rounded, color: FR.gold, size: 12),
                   const SizedBox(width: 5),
-                  Text('Katalog onaylı',
+                  Text('Katalog ürünü',
                       style: frText(10.5, FontWeight.w800, color: FR.gold)),
                 ],
               ),
