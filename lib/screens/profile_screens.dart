@@ -958,6 +958,27 @@ class ReleaseNotesScreen extends StatelessWidget {
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
+        version: 'v1.0.8',
+        date: '30 Mayıs 2026',
+        items: [
+          'Bildirim Merkezi deneyimi yenilendi; her bildirim tipi artık kendi '
+              'anlamına uygun yeni bir ikonla geliyor.',
+          'Fiyat alarmı bildirimleri daha güvenilir hale getirildi.',
+          'Aynı alarm için tekrar eden bildirimler engellendi; aynı olay artık '
+              'tek bildirim olarak görünüyor.',
+          'Fiyat katkısı ve alarm işlemleri artık Bildirim Merkezi’nde daha '
+              'net görünüyor; kendi yaptığın işlemler için telefonuna gereksiz '
+              'sistem bildirimi düşmüyor.',
+          'Bildirimler için silme ve “tümünü temizle” desteği eklendi; '
+              'bildirimi sola kaydırarak da silebilirsin.',
+          'Ürün detayından fiyat eklerken ürün artık otomatik seçili geliyor; '
+              'tekrar arama yapman gerekmiyor.',
+          'Ayarlar ekranı bölümlere ayrılarak daha düzenli ve anlaşılır hale '
+              'getirildi.',
+          'Haftalık özet bildirimleri için yönetim altyapısı hazırlandı.',
+        ],
+      ),
+      (
         version: 'v1.0.7',
         date: '27 Mayıs 2026',
         items: [
@@ -1679,6 +1700,8 @@ class SettingsHubScreen extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
         children: [
+          // ── Hesap ──────────────────────────────────────────────────────
+          const _HubSectionHeader(label: 'HESAP'),
           _HubRow(
             icon: Icons.person_outline_rounded,
             title: 'Profil bilgileri',
@@ -1696,15 +1719,35 @@ class SettingsHubScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _HubRow(
+            icon: Icons.local_offer_outlined,
+            title: 'Katkılarım',
+            subtitle: 'Paylaştığın fiyatlar',
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ContributionsScreen())),
+          ),
+
+          // ── Bildirimler ────────────────────────────────────────────────
+          const _HubSectionHeader(label: 'BİLDİRİMLER'),
+          _HubRow(
             icon: Icons.notifications_none_rounded,
             title: 'Bildirim tercihleri',
-            subtitle: 'Push, alarm, özet',
+            subtitle: 'Push, fiyat alarmı ve haftalık özet',
             onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
                     builder: (_) => const NotificationPrefsScreen())),
           ),
           const SizedBox(height: 10),
+          _HubRow(
+            icon: Icons.notifications_active_outlined,
+            title: 'Fiyat alarmlarım',
+            subtitle: 'Takip ettiğin ürün alarmları',
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const AlertsScreen())),
+          ),
+
+          // ── Uygulama ───────────────────────────────────────────────────
+          const _HubSectionHeader(label: 'UYGULAMA'),
           _HubRow(
             icon: Icons.language_rounded,
             title: 'Dil / Language',
@@ -1725,7 +1768,9 @@ class SettingsHubScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (_) => const ReleaseNotesScreen())),
           ),
-          const SizedBox(height: 10),
+
+          // ── Yardım ve yasal ────────────────────────────────────────────
+          const _HubSectionHeader(label: 'YARDIM VE YASAL'),
           _HubRow(
             icon: Icons.help_outline_rounded,
             title: 'Yardım ve SSS',
@@ -1749,19 +1794,12 @@ class SettingsHubScreen extends StatelessWidget {
             onTap: () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => const AboutScreen())),
           ),
-          const SizedBox(height: 10),
-          _HubRow(
-            icon: Icons.local_offer_outlined,
-            title: 'Katkılarım',
-            subtitle: 'Paylaştığın fiyatlar',
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const ContributionsScreen())),
-          ),
-          const SizedBox(height: 10),
-          _HubRow(
+
+          // ── Keşfe dön (ikincil aksiyon) ────────────────────────────────
+          const SizedBox(height: 22),
+          _SecondaryHubAction(
             icon: Icons.grid_view_rounded,
-            title: 'Keşfe dön',
-            subtitle: 'Radarı incele',
+            label: 'Keşfe dön',
             onTap: () => Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                   builder: (_) => const MainScreen(initialIndex: 1)),
@@ -2201,6 +2239,58 @@ class _ToggleRow extends StatelessWidget {
             onChanged: onChanged,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Ayarlar listesindeki grup başlığı. Büyük redesign değil; sade overline
+/// etiketiyle uzun listeyi anlamlı bölümlere ayırır.
+class _HubSectionHeader extends StatelessWidget {
+  const _HubSectionHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 20, 0, 10),
+      child: Text(label, style: frOverline()),
+    );
+  }
+}
+
+/// "Keşfe dön" gibi ikincil aksiyon — kart yerine daha sade, düşük vurgulu
+/// bir satır olarak en altta durur.
+class _SecondaryHubAction extends StatelessWidget {
+  const _SecondaryHubAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: FR.surfaceLo,
+          borderRadius: FRRad.all(FRRad.l),
+          border: Border.all(color: FR.hairline),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: FR.ink2, size: 18),
+            const SizedBox(width: 8),
+            Text(label, style: frText(13, FontWeight.w800, color: FR.ink2)),
+          ],
+        ),
       ),
     );
   }

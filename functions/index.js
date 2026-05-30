@@ -204,6 +204,19 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
       newPrice,
     });
 
+    // Çift bildirim önleme: aynı alarm olayı priceGroups tetikleyicisinden de
+    // gelebilir. İlk kapan yazar, diğeri atlar.
+    const claim = await claimAlertNotification({
+      userId,
+      notificationType,
+      productId,
+      price: newPrice,
+    });
+    if (!claim.claimed) {
+      // Push da yazılmaz — sadece ilk bildirim için gönderilir.
+      return;
+    }
+
     logger.info('IN_APP_NOTIFICATION_WRITE_START', {
       uid: userId,
       mode,
@@ -235,12 +248,26 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
         mode,
         source: 'products.priceHistory',
       });
+      logger.info('PRICE_ALERT_NOTIFICATION_WRITTEN_ONCE', {
+        uid: userId,
+        type: notificationType,
+        source: 'products.priceHistory',
+      });
     } catch (e) {
       logger.error('In-app notification write failed', {
         productId,
         uid: userId,
         error: e.message,
       });
+      // Yazım başarısızsa dedupe kilidini geri al ki bir sonraki tetikleyici
+      // gerçek bildirimi yazabilsin (in-app yazımı korunmalı).
+      if (claim.dedupeRef) {
+        try {
+          await claim.dedupeRef.delete();
+        } catch (_) {
+          // best-effort
+        }
+      }
       return;
     }
 
@@ -398,6 +425,72 @@ function buildAlertNotificationCopy({
     title: 'Yeni fiyat bildirimi',
     body: `${productName}${venue} için yeni fiyat eklendi: ₺${formattedPrice}`,
   };
+}
+
+/**
+ * Fiyat alarmı bildirim dedupe'i.
+ *
+ * Aynı fiyat alarm olayı hem `onProductPriceDrop` (products.priceHistory) hem
+ * `onPriceGroupUpdate` (priceGroups) tarafından tetikleniyor; ikisi de aynı
+ * kullanıcıya bildirim yazınca Bildirim Merkezi'nde çift kayıt oluşuyordu.
+ *
+ * Çözüm: bildirim yazmadan ÖNCE `users/{uid}/notificationDedupes/{key}`
+ * dokümanını `create()` ile atomik olarak "kapatıyoruz". `create()` doküman
+ * zaten varsa ALREADY_EXISTS fırlatır → ikinci tetikleyici bunu görüp atlar.
+ * Böylece yarış (race) durumunda bile yalnızca ilk tetikleyici yazar.
+ *
+ * Anahtar: notificationType + productId + fiyat(kuruş) + gün (uid path'te).
+ * Fiyat ve gün anahtarda olduğu için gerçekten FARKLI bildirimler (farklı
+ * fiyat, farklı tip, başka gün) engellenmez.
+ *
+ * Dönüş: { claimed, dedupeRef }. `claimed === false` → atla (HIT_SKIP).
+ * Dedupe altyapısı beklenmedik hata verirse bildirimi KAYBETMEMEK için
+ * yazmaya izin veririz (claimed=true, dedupeRef=null).
+ */
+const DEDUPE_RETENTION_DAYS = 3;
+async function claimAlertNotification({ userId, notificationType, productId, price }) {
+  const priceKey = Number.isFinite(price) ? Math.round(price * 100) : 'na';
+  const dayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+  const dedupeKey = `${notificationType}_${productId}_${priceKey}_${dayKey}`;
+  const dedupeRef = db
+    .collection('users')
+    .doc(userId)
+    .collection('notificationDedupes')
+    .doc(dedupeKey);
+
+  logger.info('PRICE_ALERT_DEDUPE_CHECK', { uid: userId, dedupeKey });
+  try {
+    await dedupeRef.create({
+      type: notificationType,
+      productId,
+      price: Number.isFinite(price) ? price : null,
+      day: dayKey,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      // Eski dedupe doc'ları temizlemek isteyen bir TTL/cron için ipucu;
+      // bugün için işlevi yok, ileride güvenle silinebilir olsun diye yazılır.
+      expiresAfterDays: DEDUPE_RETENTION_DAYS,
+    });
+    logger.info('PRICE_ALERT_DEDUPE_CREATED', { uid: userId, dedupeKey });
+    return { claimed: true, dedupeRef };
+  } catch (e) {
+    const code = e.code || (e.errorInfo && e.errorInfo.code);
+    const alreadyExists =
+      code === 6 ||
+      code === 'already-exists' ||
+      (typeof e.message === 'string' &&
+        e.message.toLowerCase().includes('already exists'));
+    if (alreadyExists) {
+      logger.info('PRICE_ALERT_DEDUPE_HIT_SKIP', { uid: userId, dedupeKey });
+      return { claimed: false, dedupeRef };
+    }
+    logger.warn('PRICE_ALERT_DEDUPE_ERROR_ALLOW', {
+      uid: userId,
+      dedupeKey,
+      error: e.message,
+    });
+    // Dedupe altyapısı hatasında bildirimi engellemektense yazmayı seç.
+    return { claimed: true, dedupeRef: null };
+  }
 }
 
 exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (event) => {
@@ -684,6 +777,19 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       newPrice,
     });
 
+    // Çift bildirim önleme: aynı alarm olayı products.priceHistory
+    // tetikleyicisinden de gelebilir. İlk kapan yazar, diğeri atlar.
+    const claim = await claimAlertNotification({
+      userId,
+      notificationType,
+      productId,
+      price: newPrice,
+    });
+    if (!claim.claimed) {
+      // Push da yazılmaz — sadece ilk bildirim için gönderilir.
+      return;
+    }
+
     logger.info('IN_APP_NOTIFICATION_WRITE_START', {
       uid: userId,
       mode,
@@ -711,14 +817,26 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
         });
       inAppSent++;
       logger.info('IN_APP_NOTIFICATION_WRITTEN', { uid: userId, mode });
+      logger.info('PRICE_ALERT_NOTIFICATION_WRITTEN_ONCE', {
+        uid: userId,
+        type: notificationType,
+        source: 'priceGroups',
+      });
     } catch (e) {
       logger.error('In-app notification write failed', {
         productId,
         uid: userId,
         error: e.message,
       });
-      // In-app yazılamadıysa push deneme — sessizce gizleyip raporlamak
-      // istemiyoruz; bir sonraki tetikleyici tekrar deneyecek.
+      // In-app yazılamadıysa dedupe kilidini geri al ki bir sonraki
+      // tetikleyici gerçek bildirimi yazabilsin; push da denenmez.
+      if (claim.dedupeRef) {
+        try {
+          await claim.dedupeRef.delete();
+        } catch (_) {
+          // best-effort
+        }
+      }
       return;
     }
 
@@ -1155,6 +1273,39 @@ exports.weeklySummary = onSchedule(
     timeZone: 'Europe/Istanbul',
   },
   async () => {
+    // Admin panelden yönetilebilir içerik konfigürasyonu. Doküman yoksa ya da
+    // okunamazsa güvenli varsayılanlar kullanılır (mevcut davranış korunur).
+    // NOT: schedule (gün/saat) cron olarak deploy anında sabitlenir; config'in
+    // dayOfWeek/hour alanları yalnız bilgilendirme amaçlıdır ve değişiklik
+    // ancak yeniden deploy ile cron'a yansır.
+    let cfg = {};
+    try {
+      const cfgSnap = await db.collection('appConfig').doc('weeklySummary').get();
+      if (cfgSnap.exists) cfg = cfgSnap.data() || {};
+    } catch (e) {
+      logger.warn('weeklySummary config okunamadı, varsayılanlar kullanılıyor', {
+        error: e.message,
+      });
+    }
+    const cfgEnabled = cfg.enabled !== false; // varsayılan: açık
+    if (!cfgEnabled) {
+      logger.info('weeklySummary: config ile devre dışı, atlandı.');
+      return;
+    }
+    const cfgTitle = (cfg.title || 'Haftalık özet').toString();
+    const cfgBodyTemplate = (
+      cfg.bodyTemplate ||
+      '{district} bölgesinde 7 günde {count} yeni fiyat bildirildi.'
+    ).toString();
+    const cfgOnlyPremium = cfg.onlyPremium !== false; // varsayılan: yalnız Pro
+    const cfgSendPush = cfg.sendPush !== false; // varsayılan: push açık
+    const cfgWriteInApp = cfg.writeInApp !== false; // varsayılan: in-app açık
+
+    const renderBody = (district, count) =>
+      cfgBodyTemplate
+        .replace(/\{district\}/g, district)
+        .replace(/\{count\}/g, String(count));
+
     const cutoff = admin.firestore.Timestamp.fromDate(
       new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     );
@@ -1168,9 +1319,8 @@ exports.weeklySummary = onSchedule(
       const settings = (m.settings || {}).notifications || {};
       const weeklyEnabled = settings.weeklySummaryEnabled !== false;
       const pushEnabled = settings.pushEnabled !== false;
-      // Haftalık özet bir Pro özelliği. Cloud Function tarafında
-      // `users/{uid}.isPremium === true` ve süresi geçmemiş olanlara
-      // gönderiyoruz. Client de Pro değilse paywall'a yönlendiriyor.
+      // Haftalık özet varsayılan olarak bir Pro özelliği. Admin config
+      // `onlyPremium: false` derse tüm kullanıcılara açılır.
       const isPremium = m.isPremium === true;
       const premiumUntilRaw = m.premiumUntil;
       const premiumUntil = premiumUntilRaw && premiumUntilRaw.toDate
@@ -1178,7 +1328,7 @@ exports.weeklySummary = onSchedule(
         : (premiumUntilRaw ? new Date(premiumUntilRaw) : null);
       const premiumActive =
         isPremium && (!premiumUntil || premiumUntil > new Date());
-      if (!premiumActive) continue;
+      if (cfgOnlyPremium && !premiumActive) continue;
       const cityName = (m.cityName || m.city || '').toString();
       const districtName = (m.district || m.neighborhood || '').toString();
       if (!cityName || !districtName) continue;
@@ -1205,30 +1355,31 @@ exports.weeklySummary = onSchedule(
       }
       if (count <= 0) continue;
 
-      // 1) In-app doc.
-      try {
-        await db
-          .collection('users')
-          .doc(u.id)
-          .collection('notifications')
-          .add({
-            title: 'Haftalık özet',
-            body:
-              `${districtName} bölgesinde 7 günde ${count} yeni fiyat bildirildi.`,
-            type: 'weekly_summary',
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      // 1) In-app doc (config ile kapatılabilir).
+      if (cfgWriteInApp) {
+        try {
+          await db
+            .collection('users')
+            .doc(u.id)
+            .collection('notifications')
+            .add({
+              title: cfgTitle,
+              body: renderBody(districtName, count),
+              type: 'weekly_summary',
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          inAppSent++;
+        } catch (e) {
+          logger.warn('weeklySummary in-app write failed', {
+            userId: u.id,
+            error: e.message,
           });
-        inAppSent++;
-      } catch (e) {
-        logger.warn('weeklySummary in-app write failed', {
-          userId: u.id,
-          error: e.message,
-        });
+        }
       }
 
-      // 2) Push token (opt-in).
+      // 2) Push token (opt-in + config ile kapatılabilir).
       const fcmToken = (m.fcmToken || '').toString().trim();
-      if (fcmToken && pushEnabled) {
+      if (cfgSendPush && fcmToken && pushEnabled) {
         tokens.push(fcmToken);
         if (!tokenToRefs.has(fcmToken)) tokenToRefs.set(fcmToken, []);
         tokenToRefs.get(fcmToken).push(u.ref);
@@ -1239,7 +1390,7 @@ exports.weeklySummary = onSchedule(
       const response = await messaging.sendEachForMulticast({
         tokens,
         notification: {
-          title: 'Haftalık özet',
+          title: cfgTitle,
           body: 'Bölgendeki son 7 günün fiyat raporu hazır.',
         },
         data: { type: 'weekly_summary' },
