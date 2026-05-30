@@ -854,6 +854,10 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final regionMissing = city.isEmpty || district.isEmpty;
     final priceVal = _parseTrPrice(_priceCtrl.text);
     final priceValid = priceVal != null && priceVal > 0;
+    // Market adımı, ürün/bölge adımlarıyla tutarlı olsun diye seçim
+    // yapıldığında özet karta çöker; arama kutusu + çip yığını gizlenir.
+    final storeSelected =
+        _selectedPlace != null || (_freeTextStoreName ?? '').trim().isNotEmpty;
 
     // Misafir hesaplar fiyat ekleyemez veya doğrulayamaz. Form yerine
     // hesap-yükseltme ekranı göster — kullanıcı "Üye ol" deyince Profil
@@ -1014,8 +1018,10 @@ class _AddPriceTabState extends State<AddPriceTab> {
 
                 // 3) Market — "Hangi markette gördün?"
                 _step(3, _isOnlineSource ? 'Hangi online markette?' : 'Hangi markette gördün?',
-                    completed: _selectedPlace != null ||
-                        (_freeTextStoreName ?? '').trim().isNotEmpty),
+                    completed: storeSelected),
+                // Seçim yapıldıysa arama/çip yığınını gizle; yalnızca özet
+                // kart gösterilir (özet kart üzerindeki ✕ ile yeniden açılır).
+                if (!storeSelected) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Wrap(
@@ -1226,7 +1232,7 @@ class _AddPriceTabState extends State<AddPriceTab> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
+                ],
                 _selectedStoreSummary(),
                 const SizedBox(height: 22),
 
@@ -1513,38 +1519,57 @@ class _AddPriceTabState extends State<AddPriceTab> {
         if (daysLabel.isNotEmpty) daysLabel,
       ].join(' · ');
       return Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
         decoration: BoxDecoration(
-          color: FR.surfaceLo,
+          color: FR.surface,
           borderRadius: FRRad.all(FRRad.m),
-          border: Border.all(color: FR.hairline),
+          border: Border.all(color: FR.gold.withOpacity(.55), width: 1.4),
+          boxShadow: frGoldGlow(opacity: .12),
         ),
         child: Row(children: [
-          Icon(
-            isBazaarSelected
-                ? Icons.calendar_today_rounded
-                : Icons.storefront_rounded,
-            color: FR.gold,
-            size: 16,
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: FR.gold.withOpacity(.16),
+              borderRadius: FRRad.all(12),
+              border: Border.all(color: FR.gold.withOpacity(.45)),
+            ),
+            child: Icon(
+              isBazaarSelected
+                  ? Icons.calendar_today_rounded
+                  : Icons.storefront_rounded,
+              color: FR.gold,
+              size: 19,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${p.displayName} · seçildi',
-                    style: frText(12, FontWeight.w800, color: FR.ink2)),
-                if (detail.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(detail,
-                      style: frText(10.5, FontWeight.w700, color: FR.ink3)),
-                ],
+                Text(p.displayName,
+                    style: frText(13.5, FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(detail.isNotEmpty ? detail : 'Kayıtlı yer · seçildi',
+                    style: frText(10.5, FontWeight.w700, color: FR.ink3)),
               ],
             ),
           ),
           InkWell(
             onTap: () => setState(() => _selectedPlace = null),
-            child: Icon(Icons.close_rounded, color: FR.ink3, size: 16),
+            borderRadius: FRRad.all(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+              decoration: BoxDecoration(
+                color: FR.bgElev,
+                borderRadius: FRRad.all(999),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Text('Değiştir',
+                  style: frText(11.5, FontWeight.w800, color: FR.gold)),
+            ),
           ),
         ]),
       );
@@ -1552,25 +1577,52 @@ class _AddPriceTabState extends State<AddPriceTab> {
     final freeText = (_freeTextStoreName ?? '').trim();
     if (freeText.isEmpty) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
-        color: FR.surfaceLo,
+        color: FR.surface,
         borderRadius: FRRad.all(FRRad.m),
-        border: Border.all(color: FR.warn.withOpacity(.4)),
+        border: Border.all(color: FR.warn.withOpacity(.45), width: 1.4),
       ),
       child: Row(children: [
-        Icon(Icons.edit_note_rounded, color: FR.warn, size: 16),
-        const SizedBox(width: 8),
+        Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: FR.warn.withOpacity(.14),
+            borderRadius: FRRad.all(12),
+            border: Border.all(color: FR.warn.withOpacity(.4)),
+          ),
+          child: Icon(Icons.edit_note_rounded, color: FR.warn, size: 19),
+        ),
+        const SizedBox(width: 12),
         Expanded(
-          child: Text('"$freeText" — moderasyon onayı bekleyecek.',
-              style: frText(11.5, FontWeight.w700, color: FR.ink2)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(freeText, style: frText(13.5, FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text('Moderasyon onayı bekleyecek',
+                  style: frText(10.5, FontWeight.w700, color: FR.ink3)),
+            ],
+          ),
         ),
         InkWell(
           onTap: () => setState(() {
             _freeTextStoreName = null;
             _freeTextChainId = null;
           }),
-          child: Icon(Icons.close_rounded, color: FR.ink3, size: 16),
+          borderRadius: FRRad.all(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+            decoration: BoxDecoration(
+              color: FR.bgElev,
+              borderRadius: FRRad.all(999),
+              border: Border.all(color: FR.hairline),
+            ),
+            child: Text('Değiştir',
+                style: frText(11.5, FontWeight.w800, color: FR.warn)),
+          ),
         ),
       ]),
     );
