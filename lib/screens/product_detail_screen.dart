@@ -134,10 +134,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 alertTarget: alert?.targetPrice,
                 onAlert: () =>
                     _openAlert(context, state, product, alert?.targetPrice),
-                onAdd: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                      builder: (_) => const MainScreen(initialIndex: 2)),
-                ),
+                onAdd: () {
+                  // Ürün detaydan fiyat eklemeye geçerken ürünü Fiyat Ekle
+                  // ekranına seçili taşı — kullanıcı yeniden aramasın.
+                  debugPrint(
+                    'ADD_PRICE_FROM_PRODUCT_DETAIL: productId=${product.id}',
+                  );
+                  try {
+                    state.setAddPricePreset(productId: product.id);
+                    debugPrint(
+                      'ADD_PRICE_PREFILL_PRODUCT_SUCCESS: productId=${product.id}',
+                    );
+                  } catch (e) {
+                    debugPrint(
+                      'ADD_PRICE_PREFILL_PRODUCT_FAILED: productId=${product.id} '
+                      'error=$e',
+                    );
+                  }
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                        builder: (_) => const MainScreen(initialIndex: 2)),
+                  );
+                },
                 onCart: () {
                   state.addToCart(product);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1191,7 +1209,20 @@ class _RegionalEmptyCta extends StatelessWidget {
                 label: 'Bu ürüne fiyat ekle · +10 PT',
                 icon: Icons.add_rounded,
                 onTap: () {
-                  state.setAddPricePreset(productId: product.id);
+                  debugPrint(
+                    'ADD_PRICE_FROM_PRODUCT_DETAIL: productId=${product.id}',
+                  );
+                  try {
+                    state.setAddPricePreset(productId: product.id);
+                    debugPrint(
+                      'ADD_PRICE_PREFILL_PRODUCT_SUCCESS: productId=${product.id}',
+                    );
+                  } catch (e) {
+                    debugPrint(
+                      'ADD_PRICE_PREFILL_PRODUCT_FAILED: productId=${product.id} '
+                      'error=$e',
+                    );
+                  }
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                         builder: (_) => const MainScreen(initialIndex: 2)),

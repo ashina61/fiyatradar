@@ -71,6 +71,16 @@ class _AddPriceTabState extends State<AddPriceTab> {
       Product? product;
       if (preset.productId != null) {
         product = state.findById(preset.productId!);
+        if (product != null) {
+          debugPrint(
+            'ADD_PRICE_PREFILL_PRODUCT_SUCCESS: productId=${product.id}',
+          );
+        } else {
+          debugPrint(
+            'ADD_PRICE_PREFILL_PRODUCT_FAILED: productId=${preset.productId} '
+            'reason=not_found_in_catalog',
+          );
+        }
       }
       final presetChainName = (preset.chainName ?? '').trim();
       if (product == null && presetChainName.isEmpty) return;

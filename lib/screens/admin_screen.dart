@@ -1974,6 +1974,23 @@ class _SystemTab extends StatelessWidget {
         ),
         const SizedBox(height: 22),
         const FRSectionHead(
+          eyebrow: 'BİLDİRİM',
+          title: 'Haftalık özet yönetimi',
+        ),
+        const SizedBox(height: 10),
+        _GenericRow(
+          title: 'Haftalık özet ayarları',
+          subtitle: 'Başlık, metin, gün/saat, hedef kitle ve gönderim',
+          icon: Icons.insights_rounded,
+          withActions: true,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const AdminWeeklySummaryScreen()),
+          ),
+        ),
+        const SizedBox(height: 22),
+        const FRSectionHead(
           eyebrow: 'KULLANICILAR',
           title: 'Topluluk yönetimi',
         ),
@@ -2698,6 +2715,406 @@ class _GenericRow extends StatelessWidget {
             ),
             if (withActions) Icon(Icons.chevron_right_rounded, color: FR.ink3),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Haftalık özet yönetimi (admin) ─────────────────────────────────────────
+
+/// Haftalık özet bildiriminin içerik ve hedef-kitle ayarlarını yönetir.
+///
+/// Ayarlar `appConfig/weeklySummary` dokümanına yazılır; `weeklySummary`
+/// Cloud Function'ı bu dokümanı okur (Admin SDK kurallardan bağımsız okur).
+///
+/// ÖNEMLİ — aktivasyon notu (yalnız admin görür):
+///   • Haftalık özet bir zamanlanmış görevdir; çalışması için Cloud Scheduler
+///     dağıtımı (IAM yetkisi dahil) gerekir. Dağıtım yapılmadıysa bu ekranda
+///     yapılan ayarlar saklanır ama özet otomatik gönderilmez.
+///   • Gün/saat alanları zamanlama cron'una dağıtım anında işlenir; buradan
+///     değiştirmek ancak yeniden dağıtımla etkinleşir (bilgilendirme amaçlı).
+///   • Yeni `appConfig` alanına yazma izni için tek seferlik güvenlik kuralı
+///     güncellemesi + dağıtım gerekir; aksi halde kayıt "izin yok" ile döner.
+class AdminWeeklySummaryScreen extends StatefulWidget {
+  const AdminWeeklySummaryScreen({super.key});
+
+  @override
+  State<AdminWeeklySummaryScreen> createState() =>
+      _AdminWeeklySummaryScreenState();
+}
+
+class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
+  final _titleCtrl = TextEditingController(text: 'Haftalık özet');
+  final _bodyCtrl = TextEditingController(
+      text: '{district} bölgesinde 7 günde {count} yeni fiyat bildirildi.');
+
+  bool _enabled = true;
+  bool _onlyPremium = true;
+  bool _sendPush = true;
+  bool _writeInApp = true;
+  int _dayOfWeek = 1; // 1 = Pazartesi
+  int _hour = 9;
+
+  bool _loading = true;
+  bool _saving = false;
+  String? _statusNote;
+
+  DocumentReference<Map<String, dynamic>> get _configRef =>
+      FirebaseService.instance.db.collection('appConfig').doc('weeklySummary');
+
+  static const _days = <int, String>{
+    1: 'Pazartesi',
+    2: 'Salı',
+    3: 'Çarşamba',
+    4: 'Perşembe',
+    5: 'Cuma',
+    6: 'Cumartesi',
+    7: 'Pazar',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _bodyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final snap = await _configRef.get();
+      final m = snap.data() ?? <String, dynamic>{};
+      if (!mounted) return;
+      setState(() {
+        _enabled = m['enabled'] != false;
+        _onlyPremium = m['onlyPremium'] != false;
+        _sendPush = m['sendPush'] != false;
+        _writeInApp = m['writeInApp'] != false;
+        if ((m['title'] ?? '').toString().trim().isNotEmpty) {
+          _titleCtrl.text = m['title'].toString();
+        }
+        if ((m['bodyTemplate'] ?? '').toString().trim().isNotEmpty) {
+          _bodyCtrl.text = m['bodyTemplate'].toString();
+        }
+        final d = int.tryParse('${m['dayOfWeek']}');
+        if (d != null && d >= 1 && d <= 7) _dayOfWeek = d;
+        final h = int.tryParse('${m['hour']}');
+        if (h != null && h >= 0 && h <= 23) _hour = h;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _statusNote =
+            'Mevcut ayar okunamadı. Varsayılanlar gösteriliyor. Yönetim '
+            'altyapısı henüz canlı değilse (kural + dağıtım), kayıt sırasında '
+            'bilgilendirileceksin.';
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _statusNote = null;
+    });
+    final payload = <String, dynamic>{
+      'enabled': _enabled,
+      'onlyPremium': _onlyPremium,
+      'sendPush': _sendPush,
+      'writeInApp': _writeInApp,
+      'title': _titleCtrl.text.trim().isEmpty
+          ? 'Haftalık özet'
+          : _titleCtrl.text.trim(),
+      'bodyTemplate': _bodyCtrl.text.trim().isEmpty
+          ? '{district} bölgesinde 7 günde {count} yeni fiyat bildirildi.'
+          : _bodyCtrl.text.trim(),
+      'dayOfWeek': _dayOfWeek,
+      'hour': _hour,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    try {
+      await _configRef.set(payload, SetOptions(merge: true));
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Haftalık özet ayarları kaydedildi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _statusNote =
+            'Kaydedilemedi: yönetim altyapısı henüz canlı değil. Bu ayarın '
+            'yazılabilmesi için tek seferlik güvenlik kuralı güncellemesi + '
+            'dağıtım gerekir. (Teknik: appConfig yazma izni)';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: FR.bg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Row(
+                children: [
+                  FRIconChip(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: FRPageHeader(
+                overline: 'BİLDİRİM',
+                title: 'Haftalık',
+                italicTail: ' özet',
+              ),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        18,
+                        20,
+                        20 + MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      children: [
+                        _internalNote(),
+                        if (_statusNote != null) ...[
+                          const SizedBox(height: 12),
+                          _warnNote(_statusNote!),
+                        ],
+                        const SizedBox(height: 16),
+                        _toggle(
+                          'Haftalık özet aktif',
+                          'Kapalıyken hiç özet gönderilmez.',
+                          _enabled,
+                          (v) => setState(() => _enabled = v),
+                        ),
+                        const SizedBox(height: 18),
+                        _sectionLabel('İÇERİK'),
+                        const SizedBox(height: 8),
+                        _label('Başlık'),
+                        _input(_titleCtrl, 'Haftalık özet'),
+                        const SizedBox(height: 12),
+                        _label('Metin şablonu'),
+                        _input(
+                          _bodyCtrl,
+                          '{district} bölgesinde 7 günde {count} yeni fiyat…',
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Kullanılabilir değişkenler: {district} (bölge), '
+                          '{count} (yeni fiyat sayısı).',
+                          style: frText(11, FontWeight.w600,
+                              color: FR.ink3, height: 1.45),
+                        ),
+                        const SizedBox(height: 18),
+                        _sectionLabel('ZAMANLAMA (bilgilendirme)'),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: _dayDropdown()),
+                            const SizedBox(width: 10),
+                            Expanded(child: _hourDropdown()),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Gün/saat değişiklikleri zamanlanmış görevin yeniden '
+                          'dağıtımıyla etkinleşir.',
+                          style: frText(11, FontWeight.w600,
+                              color: FR.ink3, height: 1.45),
+                        ),
+                        const SizedBox(height: 18),
+                        _sectionLabel('HEDEF KİTLE VE GÖNDERİM'),
+                        const SizedBox(height: 8),
+                        _toggle(
+                          'Yalnızca Premium üyeler',
+                          'Kapalıyken tüm uygun kullanıcılara gönderilir.',
+                          _onlyPremium,
+                          (v) => setState(() => _onlyPremium = v),
+                        ),
+                        const SizedBox(height: 10),
+                        _toggle(
+                          'Telefon bildirimi (push) gönder',
+                          'Bildirim iznine sahip kullanıcılara push.',
+                          _sendPush,
+                          (v) => setState(() => _sendPush = v),
+                        ),
+                        const SizedBox(height: 10),
+                        _toggle(
+                          'Bildirim Merkezi’ne yaz',
+                          'Uygulama içi bildirim olarak da görünür.',
+                          _writeInApp,
+                          (v) => setState(() => _writeInApp = v),
+                        ),
+                        const SizedBox(height: 22),
+                        FRCta(
+                          label: _saving ? 'Kaydediliyor…' : 'Ayarları kaydet',
+                          icon: Icons.save_rounded,
+                          onTap: _saving ? null : _save,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _internalNote() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FR.gold.withOpacity(.08),
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.gold.withOpacity(.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lock_outline_rounded, color: FR.gold, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Sadece admin: Haftalık özet sistemi Cloud Scheduler dağıtımı '
+              'gerektirir. Dağıtım yapılmadan bu ayarlar saklanır ama otomatik '
+              'gönderim başlamaz.',
+              style: frText(11, FontWeight.w600, color: FR.ink2, height: 1.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _warnNote(String text) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: FR.warn.withOpacity(.10),
+        borderRadius: FRRad.all(FRRad.m),
+        border: Border.all(color: FR.warn.withOpacity(.40)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: FR.warn, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style:
+                    frText(11, FontWeight.w600, color: FR.ink2, height: 1.45)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) => Text(text, style: frOverline());
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6, top: 4),
+        child: Text(text,
+            style: frText(11.5, FontWeight.w800, color: FR.ink3, letter: .4)),
+      );
+
+  Widget _input(TextEditingController c, String hint, {int maxLines = 1}) {
+    return TextField(
+      controller: c,
+      maxLines: maxLines,
+      style: frText(14, FontWeight.w700),
+      cursorColor: FR.gold,
+      decoration: InputDecoration(hintText: hint),
+    );
+  }
+
+  Widget _toggle(
+      String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: frSurface(radius: FRRad.l),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: frText(13.5, FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: FR.gold,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dayDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: frSurface(radius: FRRad.m),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _dayOfWeek,
+          isExpanded: true,
+          dropdownColor: FR.surface,
+          style: frText(13.5, FontWeight.w800),
+          items: [
+            for (final e in _days.entries)
+              DropdownMenuItem(value: e.key, child: Text('Gün: ${e.value}')),
+          ],
+          onChanged: (v) => setState(() => _dayOfWeek = v ?? _dayOfWeek),
+        ),
+      ),
+    );
+  }
+
+  Widget _hourDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: frSurface(radius: FRRad.m),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _hour,
+          isExpanded: true,
+          dropdownColor: FR.surface,
+          style: frText(13.5, FontWeight.w800),
+          items: [
+            for (var h = 0; h < 24; h++)
+              DropdownMenuItem(
+                value: h,
+                child: Text('Saat: ${h.toString().padLeft(2, '0')}:00'),
+              ),
+          ],
+          onChanged: (v) => setState(() => _hour = v ?? _hour),
         ),
       ),
     );

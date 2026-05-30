@@ -3090,6 +3090,45 @@ class AppState extends ChangeNotifier {
     await batch.commit();
   }
 
+  /// Tek bir bildirimi Bildirim Merkezi'nden kalıcı olarak siler. Hard delete
+  /// tercih edildi: model `isDeleted`/`deletedAt` taşımıyor ve query'ler
+  /// soft-delete filtrelemiyor; basit ve güvenli olan doc silme. Silme sonrası
+  /// stream snapshot listesi (ve unread sayısı) kendiliğinden güncellenir.
+  Future<void> deleteNotification(String notificationId) async {
+    if (user == null) return;
+    debugPrint('NOTIFICATION_DELETE_TAPPED: id=$notificationId');
+    try {
+      await _svc.userNotifications(user!.uid).doc(notificationId).delete();
+      debugPrint('NOTIFICATION_DELETED: id=$notificationId');
+    } catch (e) {
+      debugPrint('NOTIFICATION_DELETE_FAILED: id=$notificationId error=$e');
+      rethrow;
+    }
+  }
+
+  /// Tüm bildirimleri siler. Firestore batch limiti (500) güvenliği için
+  /// parça parça commit ediyoruz.
+  Future<void> clearAllNotifications() async {
+    if (user == null) return;
+    debugPrint('NOTIFICATIONS_CLEAR_ALL_TAPPED');
+    final ids = notifications.map((n) => n.id).toList();
+    if (ids.isEmpty) return;
+    try {
+      const chunkSize = 400;
+      for (var i = 0; i < ids.length; i += chunkSize) {
+        final batch = _svc.db.batch();
+        for (final id in ids.skip(i).take(chunkSize)) {
+          batch.delete(_svc.userNotifications(user!.uid).doc(id));
+        }
+        await batch.commit();
+      }
+      debugPrint('NOTIFICATIONS_CLEAR_ALL_SUCCESS: count=${ids.length}');
+    } catch (e) {
+      debugPrint('NOTIFICATIONS_CLEAR_ALL_FAILED: error=$e');
+      rethrow;
+    }
+  }
+
   ProductAlert? alertForProduct(String productId) => productAlerts[productId];
 
   /// Free planın tek seferde tutabileceği maksimum aktif alarm sayısı.
@@ -3158,8 +3197,10 @@ class AppState extends ChangeNotifier {
     }
 
     // Alarm kurulduğu anda Bildirim Merkezi'ne kullanıcının "hatırlatıcı"
-    // sinyali olarak bir doc yaz; ayrıca cihaz tepsisine küçük bir yerel
-    // bildirim çiz. Hata olursa alarm kurulumu yine başarılı sayılır.
+    // sinyali olarak bir doc yaz. Cihaz tepsisine yerel bildirim ÇİZMİYORUZ:
+    // kullanıcı bu aksiyonu uygulama içinde yeni yaptı, anlık teyidi snackbar
+    // veriyor; ayrıca telefona düşen sistem bildirimi fazla/gereksiz hissettiri-
+    // yordu. Hata olursa alarm kurulumu yine başarılı sayılır.
     final product = findById(productId);
     final productName = product?.name ?? 'Ürün';
     String alertBody;
@@ -3189,7 +3230,7 @@ class AppState extends ChangeNotifier {
       productName: productName,
       price: isBelowTarget ? targetPrice : null,
       data: {'mode': modeValue},
-      showLocalNotification: true,
+      showLocalNotification: false,
     );
     debugPrint(
       'PRICE_ALERT_CREATED_NOTIFICATION_WRITTEN: productId=$productId '
