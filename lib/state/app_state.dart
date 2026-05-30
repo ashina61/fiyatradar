@@ -132,12 +132,30 @@ class AppState extends ChangeNotifier {
   /// Set after the user explicitly picks "continue as guest" on the login
   /// screen. The auth gate treats an anonymous user with this flag off as
   /// logged-out so the login screen is still shown on cold start.
+  ///
+  /// Persisted to SharedPreferences (key [_guestAckPrefsKey]) so the choice
+  /// survives a cold start. Firebase keeps the anonymous session alive across
+  /// restarts; without persisting this flag too, a guest who returns after the
+  /// app was killed would be bounced back to the login screen even though they
+  /// already have a valid session.
   bool guestAcknowledged = false;
+
+  static const String _guestAckPrefsKey = 'guest_acknowledged';
 
   void setGuestAcknowledged(bool v) {
     if (guestAcknowledged == v) return;
     guestAcknowledged = v;
+    unawaited(_persistGuestAcknowledged(v));
     notifyListeners();
+  }
+
+  Future<void> _persistGuestAcknowledged(bool v) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_guestAckPrefsKey, v);
+    } catch (_) {
+      // Persistence best-effort; bir sonraki setGuestAcknowledged tekrar dener.
+    }
   }
 
   /// True when the current user is a fully registered (non-anonymous) user
@@ -695,6 +713,10 @@ class AppState extends ChangeNotifier {
       }
       _guestBasketComputeCount =
           prefs.getInt('guest_basket_compute_count') ?? 0;
+      // Misafir onayını geri yükle: oturum Firebase tarafında hâlâ canlıyken
+      // (uygulama uzun süre kapalı kaldıktan sonra) kullanıcının login
+      // ekranına geri atılmaması için bu bayrak da kalıcı okunmalı.
+      guestAcknowledged = prefs.getBool(_guestAckPrefsKey) ?? false;
     } catch (_) {
       // Persisted prefs opsiyonel; eksik olursa varsayılan değerler kullanılır.
     }
@@ -3554,6 +3576,10 @@ class AppState extends ChangeNotifier {
     _initialized = false;
     _productsSignature = 0;
     notifyListeners();
+    // init() bu bayrağı prefs'ten yeniden okuyacağı için, çıkıştan sonra
+    // yeni anonim kullanıcının yanlışlıkla "onaylı misafir" sayılıp login
+    // ekranını atlamaması adına kalıcı değeri init'ten önce temizle.
+    await _persistGuestAcknowledged(false);
     await _svc.auth.signOut();
     await init();
   }
@@ -3614,6 +3640,9 @@ class AppState extends ChangeNotifier {
     _initialized = false;
     _productsSignature = 0;
     notifyListeners();
+    // init() bayrağı prefs'ten yeniden okuyacağı için, çözülen değeri önce
+    // kalıcı yaz ki init eski bir değerle üzerine yazmasın.
+    await _persistGuestAcknowledged(guestAcknowledged);
     await init();
   }
 
