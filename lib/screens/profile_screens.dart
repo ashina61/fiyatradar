@@ -608,29 +608,95 @@ class NotificationPrefsScreen extends StatelessWidget {
                 verificationsEnabled: v),
           ),
           const SizedBox(height: 10),
-          // Haftalık özet — Pro özelliği. Non-Pro kullanıcılar için
-          // toggle kapalı görünüyor ve tıklayınca paywall'a yönlendiriyor.
-          // Cloud Function tarafında ek olarak `isPremium` kontrolü var
-          // (bk. functions/index.js weeklySummary).
-          _ToggleRow(
-            icon: Icons.summarize_rounded,
-            title: state.premium.isActive
-                ? 'Haftalık özet'
-                : 'Haftalık özet (Pro)',
-            subtitle: state.premium.isActive
-                ? 'Pazartesi sabahı fiyat özeti'
-                : 'Pro üyelik gerekir — bölgenin haftalık raporu',
-            value: state.premium.isActive && state.weeklySummaryEnabled,
-            onChanged: state.premium.isActive
-                ? (v) => state.updateNotificationSettings(
-                    weeklySummaryEnabled: v)
-                : (_) => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const PaywallScreen()),
-                    ),
-          ),
+          // Haftalık özet — kişisel tercih (admin panelindeki sistem ayarından
+          // ayrıdır). Pro kullanıcı açıp kapatabilir; Free kullanıcı kilitli
+          // Pro satırı görür ve dokununca Pro ekranına yönlenir.
+          _WeeklySummaryRow(state: state),
         ],
+      ),
+    );
+  }
+}
+
+/// Bildirim tercihlerindeki "Haftalık özet" satırı.
+///
+/// - Pro: çalışan toggle, `settings.weeklySummaryEnabled` alanına bağlı
+///   (varsayılan açık). Değişince snackbar ile teyit verir.
+/// - Free: kilitli/Pro görünür; toggle yerine PRO rozeti + kilit ikonu,
+///   tüm satır Pro ekranına yönlendirir, hiçbir ayar yazılmaz.
+class _WeeklySummaryRow extends StatelessWidget {
+  const _WeeklySummaryRow({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.premium.isActive) {
+      return _ToggleRow(
+        icon: Icons.summarize_rounded,
+        title: 'Haftalık özet',
+        subtitle:
+            'Haftalık fiyat hareketlerini ve fırsatları Bildirim Merkezi’nde gör.',
+        value: state.weeklySummaryEnabled,
+        onChanged: (v) async {
+          await state.updateNotificationSettings(weeklySummaryEnabled: v);
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  v ? 'Haftalık özet açıldı.' : 'Haftalık özet kapatıldı.'),
+            ),
+          );
+        },
+      );
+    }
+
+    // Free kullanıcı: kilitli Pro satırı.
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      ),
+      borderRadius: FRRad.all(FRRad.l),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: frSurface(radius: FRRad.l),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: FR.surfaceHi,
+                borderRadius: FRRad.all(12),
+                border: Border.all(color: FR.hairline),
+              ),
+              child: Icon(Icons.summarize_rounded, color: FR.ink3, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text('Haftalık özet',
+                            style: frText(13.5, FontWeight.w800)),
+                      ),
+                      const SizedBox(width: 8),
+                      const FRProBadge(compact: true),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text('Pro ile haftalık fiyat özetlerini al.',
+                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.lock_outline_rounded, color: FR.ink3, size: 18),
+          ],
+        ),
       ),
     );
   }
@@ -976,6 +1042,8 @@ class ReleaseNotesScreen extends StatelessWidget {
           'Ayarlar ekranı bölümlere ayrılarak daha düzenli ve anlaşılır hale '
               'getirildi.',
           'Haftalık özet bildirimleri için yönetim altyapısı hazırlandı.',
+          'Pro kullanıcılar için haftalık özet bildirimi tercihi Bildirim '
+              'ayarlarına eklendi; dilediğin zaman açıp kapatabilirsin.',
         ],
       ),
       (
