@@ -119,3 +119,5 @@ android/.gradle/
 android/gradle/wrapper/gradle-wrapper.jar
 # Node.js dependencies
 node_modules/
+# Lockfile generated when running the Firestore rules tests locally/CI
+firestore_rules_tests/package-lock.json
