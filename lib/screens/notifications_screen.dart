@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/product.dart';
 import '../services/messaging_service.dart';
 import '../state/app_state.dart';
@@ -25,6 +26,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final s = AppStrings.of(context);
     final all = state.notifications
         .where((n) => !_pendingDelete.contains(n.id))
         .toList();
@@ -51,12 +53,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       onPressed: () => state.markAllNotificationsRead(),
                       icon: Icon(Icons.done_all_rounded,
                           color: FR.gold, size: 18),
-                      label: Text('Tümünü okundu işaretle',
+                      label: Text(s.t('notifCenter.markAllRead'),
                           style: frText(12, FontWeight.w800, color: FR.gold)),
                     ),
                   if (all.isNotEmpty)
                     IconButton(
-                      tooltip: 'Tümünü sil',
+                      tooltip: s.t('notifCenter.clearAll'),
                       onPressed: () => _confirmClearAll(context, state),
                       icon: Icon(Icons.delete_sweep_rounded,
                           color: FR.ink3, size: 22),
@@ -64,12 +66,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(FRSpace.xl, 10, FRSpace.xl, 0),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                  FRSpace.xl, 10, FRSpace.xl, 0),
               child: FRPageHeader(
-                overline: 'RADAR SİNYALLERİ',
-                title: 'Bildirim',
-                italicTail: ' merkezi',
+                overline: s.t('notifCenter.overline'),
+                title: s.t('notifCenter.title'),
+                italicTail: s.t('notifCenter.titleTail'),
               ),
             ),
             Padding(
@@ -77,13 +80,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: Row(
                 children: [
                   _Pill(
-                    label: 'Tümü · ${all.length}',
+                    label: '${s.t('notifCenter.filter.all')} · ${all.length}',
                     active: !_onlyUnread,
                     onTap: () => setState(() => _onlyUnread = false),
                   ),
                   const SizedBox(width: 8),
                   _Pill(
-                    label: 'Okunmamış · $unreadCount',
+                    label:
+                        '${s.t('notifCenter.filter.unread')} · $unreadCount',
                     active: _onlyUnread,
                     onTap: () => setState(() => _onlyUnread = true),
                   ),
@@ -113,6 +117,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           onDismissed: (_) => _deleteOne(context, state, n.id),
                           child: _NotificationTile(
                             notification: n,
+                            strings: s,
                             onTap: () => state.markNotificationRead(n.id),
                             onDelete: () => _deleteOne(context, state, n.id),
                           ),
@@ -129,43 +134,45 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _deleteOne(
       BuildContext context, AppState state, String id) async {
     final messenger = ScaffoldMessenger.of(context);
+    final s = AppStrings.of(context);
     // Anında listeden düş — stream güncellemesi gelene kadar yeniden görünmesin
     // ve Dismissible assertion'ı atmasın.
     setState(() => _pendingDelete.add(id));
     try {
       await state.deleteNotification(id);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Bildirim silindi')),
+        SnackBar(content: Text(s.t('notifCenter.deleted'))),
       );
     } catch (_) {
       // Silme başarısızsa geri getir.
       if (mounted) setState(() => _pendingDelete.remove(id));
       messenger.showSnackBar(
-        const SnackBar(content: Text('Bildirim silinemedi. Lütfen tekrar dene.')),
+        SnackBar(content: Text(s.t('notifCenter.deleteFailed'))),
       );
     }
   }
 
   Future<void> _confirmClearAll(BuildContext context, AppState state) async {
+    final s = AppStrings.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FR.surface,
-        title: Text('Tüm bildirimleri sil',
+        title: Text(s.t('notifCenter.clearAll.title'),
             style: frText(15, FontWeight.w800)),
         content: Text(
-          'Tüm bildirimleri silmek istiyor musun? Bu işlem geri alınamaz.',
+          s.t('notifCenter.clearAll.confirm'),
           style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.45),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Vazgeç',
+            child: Text(s.t('common.dismiss'),
                 style: frText(13, FontWeight.w800, color: FR.ink2)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Tümünü sil',
+            child: Text(s.t('notifCenter.clearAll'),
                 style: frText(13, FontWeight.w800, color: FR.warn)),
           ),
         ],
@@ -179,13 +186,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       await state.clearAllNotifications();
       messenger.showSnackBar(
-        const SnackBar(content: Text('Tüm bildirimler silindi')),
+        SnackBar(content: Text(s.t('notifCenter.clearAll.done'))),
       );
     } catch (_) {
       if (mounted) setState(() => _pendingDelete.removeAll(ids));
       messenger.showSnackBar(
-        const SnackBar(
-            content: Text('Bildirimler silinemedi. Lütfen tekrar dene.')),
+        SnackBar(content: Text(s.t('notifCenter.clearAll.failed'))),
       );
     }
   }
@@ -233,8 +239,7 @@ class _PermissionBlockedBanner extends StatelessWidget {
             const SizedBox(width: FRSpace.s),
             Expanded(
               child: Text(
-                'Bildirim izni kapalı. Fiyat alarmlarını almak için '
-                'bildirimlere izin ver.',
+                AppStrings.of(context).t('notifCenter.permissionBlocked'),
                 style: frText(12, FontWeight.w700, color: FR.ink2, height: 1.4),
               ),
             ),
@@ -274,10 +279,12 @@ class _Pill extends StatelessWidget {
 class _NotificationTile extends StatelessWidget {
   const _NotificationTile({
     required this.notification,
+    required this.strings,
     required this.onTap,
     this.onDelete,
   });
   final AppNotification notification;
+  final AppStrings strings;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
 
@@ -358,7 +365,7 @@ class _NotificationTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  _ago(notification.createdAt),
+                  _ago(notification.createdAt, strings),
                   style: frText(10.5, FontWeight.w800, color: FR.ink3),
                 ),
                 if (onDelete != null) ...[
@@ -381,12 +388,17 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  static String _ago(DateTime date) {
+  static String _ago(DateTime date, AppStrings s) {
     final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'şimdi';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}dk';
-    if (diff.inHours < 24) return '${diff.inHours}sa';
-    return '${diff.inDays}g';
+    final isEn = s.locale.languageCode == 'en';
+    if (diff.inMinutes < 1) return s.t('notifCenter.time.now');
+    if (diff.inMinutes < 60) {
+      return isEn ? '${diff.inMinutes}m' : '${diff.inMinutes}dk';
+    }
+    if (diff.inHours < 24) {
+      return isEn ? '${diff.inHours}h' : '${diff.inHours}sa';
+    }
+    return isEn ? '${diff.inDays}d' : '${diff.inDays}g';
   }
 }
 
@@ -416,9 +428,10 @@ class _EmptyState extends StatelessWidget {
                   color: FR.ink3, size: 38),
             ),
             const SizedBox(height: 14),
-            Text('Henüz sinyal yok', style: frDisplay(20, FontWeight.w700)),
+            Text(AppStrings.of(context).t('notifCenter.empty.title'),
+                style: frDisplay(20, FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('Fiyat alarmların ve radar bildirimleri burada görünür.',
+            Text(AppStrings.of(context).t('notifCenter.empty.desc'),
                 textAlign: TextAlign.center,
                 style: frText(12.5, FontWeight.w600, color: FR.ink3, height: 1.45)),
           ],

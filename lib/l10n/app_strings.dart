@@ -78,6 +78,7 @@ class AppStrings {
     'common.required': {'tr': 'zorunlu', 'en': 'required'},
     'common.optional': {'tr': 'opsiyonel', 'en': 'optional'},
     'common.loadMore': {'tr': 'Daha fazla yükle', 'en': 'Load more'},
+    'common.dismiss': {'tr': 'Vazgeç', 'en': 'Dismiss'},
 
     // Language picker
     'lang.title': {'tr': 'Dil', 'en': 'Language'},
@@ -396,6 +397,166 @@ class AppStrings {
       'tr': 'İlk fiyatı sen ekleyebilirsin',
       'en': 'You can add the first price',
     },
+
+    // ── Settings hub ──────────────────────────────────────────────────────────
+    'settings.overline': {'tr': 'GENEL', 'en': 'GENERAL'},
+    'settings.title': {'tr': 'Ayarlar', 'en': 'Settings'},
+    'settings.section.account': {'tr': 'HESAP', 'en': 'ACCOUNT'},
+    'settings.section.notifications': {
+      'tr': 'BİLDİRİMLER',
+      'en': 'NOTIFICATIONS',
+    },
+    'settings.section.app': {'tr': 'UYGULAMA', 'en': 'APP'},
+    'settings.section.helpLegal': {
+      'tr': 'YARDIM VE YASAL',
+      'en': 'HELP & LEGAL',
+    },
+    'settings.profileInfo': {'tr': 'Profil bilgileri', 'en': 'Profile details'},
+    'settings.profileInfo.sub': {
+      'tr': 'Ad, kullanıcı adı, telefon',
+      'en': 'Name, username, phone',
+    },
+    'settings.account': {'tr': 'Hesap', 'en': 'Account'},
+    'settings.account.sub': {
+      'tr': 'E-posta doğrulama, hesap silme',
+      'en': 'Email verification, account deletion',
+    },
+    'settings.contributions': {'tr': 'Katkılarım', 'en': 'My contributions'},
+    'settings.contributions.sub': {
+      'tr': 'Paylaştığın fiyatlar',
+      'en': 'Prices you shared',
+    },
+    'settings.notificationPrefs': {
+      'tr': 'Bildirim tercihleri',
+      'en': 'Notification preferences',
+    },
+    'settings.notificationPrefs.sub': {
+      'tr': 'Push, fiyat alarmı ve haftalık özet',
+      'en': 'Push, price alerts and weekly summary',
+    },
+    'settings.myAlerts': {'tr': 'Fiyat alarmlarım', 'en': 'My price alerts'},
+    'settings.myAlerts.sub': {
+      'tr': 'Takip ettiğin ürün alarmları',
+      'en': 'Product alerts you follow',
+    },
+    'settings.languageRow': {'tr': 'Dil / Language', 'en': 'Language / Dil'},
+    'settings.releaseNotes': {
+      'tr': 'Güncelleme geçmişi',
+      'en': 'Release notes',
+    },
+    'settings.releaseNotes.sub': {
+      'tr': 'Yeni özellik ve düzeltmeler',
+      'en': 'New features and fixes',
+    },
+    'settings.helpFaq': {'tr': 'Yardım ve SSS', 'en': 'Help & FAQ'},
+    'settings.helpFaq.sub': {
+      'tr': 'Nasıl çalışır, güven, puan, alarm',
+      'en': 'How it works, trust, points, alerts',
+    },
+    'settings.contactSupport': {
+      'tr': 'İletişim ve Destek',
+      'en': 'Contact & support',
+    },
+    'settings.contactSupport.sub': {
+      'tr': 'Soru, öneri, geri bildirim',
+      'en': 'Questions, suggestions, feedback',
+    },
+    'settings.about': {'tr': 'Hakkında', 'en': 'About'},
+    'settings.about.sub': {
+      'tr': 'Sürüm ve yasal metinler',
+      'en': 'Version and legal texts',
+    },
+    'settings.backToExplore': {'tr': 'Keşfe dön', 'en': 'Back to explore'},
+
+    // ── Notification preferences ───────────────────────────────────────────────
+    'notifPrefs.overline': {'tr': 'RADAR SİNYALLERİ', 'en': 'RADAR SIGNALS'},
+    'notifPrefs.title': {'tr': 'Bildirim tercihleri', 'en': 'Notification preferences'},
+    'notifPrefs.push': {'tr': 'Push bildirimler', 'en': 'Push notifications'},
+    'notifPrefs.push.sub': {
+      'tr': 'Uygulamaya canlı sinyal gelsin',
+      'en': 'Get live signals in the app',
+    },
+    'notifPrefs.priceAlerts': {'tr': 'Fiyat alarmları', 'en': 'Price alerts'},
+    'notifPrefs.priceAlerts.sub': {
+      'tr': 'Takip ettiğin ürünün fiyatı düştüğünde veya yükseldiğinde haber al',
+      'en': 'Get notified when a product you follow goes up or down',
+    },
+    'notifPrefs.regional': {
+      'tr': 'Bölgesel fiyat hareketleri',
+      'en': 'Regional price moves',
+    },
+    'notifPrefs.regional.sub': {
+      'tr': 'Bölgendeki bir markette fiyat düştüğünde / yükseldiğinde push gelsin',
+      'en': 'Get a push when a store near you drops or raises a price',
+    },
+    'notifPrefs.verifications': {
+      'tr': 'Doğrulama bildirimleri',
+      'en': 'Verification notifications',
+    },
+    'notifPrefs.verifications.sub': {
+      'tr': 'Eklediğin fiyat topluluk tarafından doğrulandığında veya reddedildiğinde haber al',
+      'en': 'Get notified when a price you added is verified or rejected',
+    },
+    'notifPrefs.weekly': {'tr': 'Haftalık özet', 'en': 'Weekly summary'},
+    'notifPrefs.weekly.proSub': {
+      'tr': 'Haftalık fiyat hareketlerini ve fırsatları Bildirim Merkezi’nde gör.',
+      'en': 'See weekly price moves and deals in your Notification Center.',
+    },
+    'notifPrefs.weekly.freeSub': {
+      'tr': 'Pro ile haftalık fiyat özetlerini al.',
+      'en': 'Get weekly price summaries with Pro.',
+    },
+    'notifPrefs.weekly.on': {
+      'tr': 'Haftalık özet açıldı.',
+      'en': 'Weekly summary turned on.',
+    },
+    'notifPrefs.weekly.off': {
+      'tr': 'Haftalık özet kapatıldı.',
+      'en': 'Weekly summary turned off.',
+    },
+
+    // ── Notification center ─────────────────────────────────────────────────────
+    'notifCenter.overline': {'tr': 'RADAR SİNYALLERİ', 'en': 'RADAR SIGNALS'},
+    'notifCenter.title': {'tr': 'Bildirim', 'en': 'Notification'},
+    'notifCenter.titleTail': {'tr': ' merkezi', 'en': ' center'},
+    'notifCenter.markAllRead': {
+      'tr': 'Tümünü okundu işaretle',
+      'en': 'Mark all as read',
+    },
+    'notifCenter.clearAll': {'tr': 'Tümünü sil', 'en': 'Clear all'},
+    'notifCenter.filter.all': {'tr': 'Tümü', 'en': 'All'},
+    'notifCenter.filter.unread': {'tr': 'Okunmamış', 'en': 'Unread'},
+    'notifCenter.empty.title': {'tr': 'Henüz sinyal yok', 'en': 'No signals yet'},
+    'notifCenter.empty.desc': {
+      'tr': 'Fiyat alarmların ve radar bildirimleri burada görünür.',
+      'en': 'Your price alerts and radar signals will show up here.',
+    },
+    'notifCenter.permissionBlocked': {
+      'tr': 'Bildirim izni kapalı. Fiyat alarmlarını almak için bildirimlere izin ver.',
+      'en': 'Notifications are off. Allow notifications to receive price alerts.',
+    },
+    'notifCenter.deleted': {'tr': 'Bildirim silindi', 'en': 'Notification deleted'},
+    'notifCenter.deleteFailed': {
+      'tr': 'Bildirim silinemedi. Lütfen tekrar dene.',
+      'en': 'Could not delete the notification. Please try again.',
+    },
+    'notifCenter.clearAll.title': {
+      'tr': 'Tüm bildirimleri sil',
+      'en': 'Delete all notifications',
+    },
+    'notifCenter.clearAll.confirm': {
+      'tr': 'Tüm bildirimleri silmek istiyor musun? Bu işlem geri alınamaz.',
+      'en': 'Do you want to delete all notifications? This cannot be undone.',
+    },
+    'notifCenter.clearAll.done': {
+      'tr': 'Tüm bildirimler silindi',
+      'en': 'All notifications deleted',
+    },
+    'notifCenter.clearAll.failed': {
+      'tr': 'Bildirimler silinemedi. Lütfen tekrar dene.',
+      'en': 'Could not delete notifications. Please try again.',
+    },
+    'notifCenter.time.now': {'tr': 'şimdi', 'en': 'now'},
   };
 }
 

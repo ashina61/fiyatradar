@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/price_reporting.dart';
 import '../models/product.dart';
 import '../services/firebase_service.dart';
@@ -563,16 +564,17 @@ class NotificationPrefsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final s = AppStrings.of(context);
     return _ProfileSubScaffold(
-      overline: 'RADAR SİNYALLERİ',
-      title: 'Bildirim tercihleri',
+      overline: s.t('notifPrefs.overline'),
+      title: s.t('notifPrefs.title'),
       child: ListView(
         padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
         children: [
           _ToggleRow(
             icon: Icons.notifications_active_rounded,
-            title: 'Push bildirimler',
-            subtitle: 'Uygulamaya canlı sinyal gelsin',
+            title: s.t('notifPrefs.push'),
+            subtitle: s.t('notifPrefs.push.sub'),
             value: state.pushNotificationsEnabled,
             onChanged: (v) =>
                 state.updateNotificationSettings(pushEnabled: v),
@@ -580,9 +582,8 @@ class NotificationPrefsScreen extends StatelessWidget {
           const SizedBox(height: 10),
           _ToggleRow(
             icon: Icons.price_change_rounded,
-            title: 'Fiyat alarmları',
-            subtitle:
-                'Takip ettiğin ürünün fiyatı düştüğünde veya yükseldiğinde haber al',
+            title: s.t('notifPrefs.priceAlerts'),
+            subtitle: s.t('notifPrefs.priceAlerts.sub'),
             value: state.priceAlertsEnabled,
             onChanged: (v) =>
                 state.updateNotificationSettings(priceAlertsEnabled: v),
@@ -590,9 +591,8 @@ class NotificationPrefsScreen extends StatelessWidget {
           const SizedBox(height: 10),
           _ToggleRow(
             icon: Icons.radar_rounded,
-            title: 'Bölgesel fiyat hareketleri',
-            subtitle:
-                'Bölgendeki bir markette fiyat düştüğünde / yükseldiğinde push gelsin',
+            title: s.t('notifPrefs.regional'),
+            subtitle: s.t('notifPrefs.regional.sub'),
             value: state.regionalDropPushEnabled,
             onChanged: (v) => state.updateNotificationSettings(
                 regionalDropPushEnabled: v),
@@ -600,9 +600,8 @@ class NotificationPrefsScreen extends StatelessWidget {
           const SizedBox(height: 10),
           _ToggleRow(
             icon: Icons.verified_rounded,
-            title: 'Doğrulama bildirimleri',
-            subtitle:
-                'Eklediğin fiyat topluluk tarafından doğrulandığında veya reddedildiğinde haber al',
+            title: s.t('notifPrefs.verifications'),
+            subtitle: s.t('notifPrefs.verifications.sub'),
             value: state.verificationsEnabled,
             onChanged: (v) => state.updateNotificationSettings(
                 verificationsEnabled: v),
@@ -630,20 +629,20 @@ class _WeeklySummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     if (state.premium.isActive) {
       return _ToggleRow(
         icon: Icons.summarize_rounded,
-        title: 'Haftalık özet',
-        subtitle:
-            'Haftalık fiyat hareketlerini ve fırsatları Bildirim Merkezi’nde gör.',
+        title: s.t('notifPrefs.weekly'),
+        subtitle: s.t('notifPrefs.weekly.proSub'),
         value: state.weeklySummaryEnabled,
         onChanged: (v) async {
           await state.updateNotificationSettings(weeklySummaryEnabled: v);
           if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                  v ? 'Haftalık özet açıldı.' : 'Haftalık özet kapatıldı.'),
+              content: Text(s.t(
+                  v ? 'notifPrefs.weekly.on' : 'notifPrefs.weekly.off')),
             ),
           );
         },
@@ -680,7 +679,7 @@ class _WeeklySummaryRow extends StatelessWidget {
                   Row(
                     children: [
                       Flexible(
-                        child: Text('Haftalık özet',
+                        child: Text(s.t('notifPrefs.weekly'),
                             style: frText(13.5, FontWeight.w800)),
                       ),
                       const SizedBox(width: 8),
@@ -688,7 +687,7 @@ class _WeeklySummaryRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text('Pro ile haftalık fiyat özetlerini al.',
+                  Text(s.t('notifPrefs.weekly.freeSub'),
                       style: frText(11.5, FontWeight.w600, color: FR.ink3)),
                 ],
               ),
@@ -1044,6 +1043,8 @@ class ReleaseNotesScreen extends StatelessWidget {
           'Haftalık özet bildirimleri için yönetim altyapısı hazırlandı.',
           'Pro kullanıcılar için haftalık özet bildirimi tercihi Bildirim '
               'ayarlarına eklendi; dilediğin zaman açıp kapatabilirsin.',
+          'İngilizce dil desteği genişletildi: Ayarlar, Bildirim tercihleri '
+              've Bildirim Merkezi ekranları artık İngilizce de görüntülenebiliyor.',
         ],
       ),
       (
@@ -1762,44 +1763,46 @@ class SettingsHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final isEn = AppStateScope.of(context).localeCode == 'en';
     return _ProfileSubScaffold(
-      overline: 'GENEL',
-      title: 'Ayarlar',
+      overline: s.t('settings.overline'),
+      title: s.t('settings.title'),
       child: ListView(
         padding: EdgeInsets.fromLTRB(20, 4, 20, frBottomScrollPadding(context)),
         children: [
           // ── Hesap ──────────────────────────────────────────────────────
-          const _HubSectionHeader(label: 'HESAP'),
+          _HubSectionHeader(label: s.t('settings.section.account')),
           _HubRow(
             icon: Icons.person_outline_rounded,
-            title: 'Profil bilgileri',
-            subtitle: 'Ad, kullanıcı adı, telefon',
+            title: s.t('settings.profileInfo'),
+            subtitle: s.t('settings.profileInfo.sub'),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const ProfileInfoScreen())),
           ),
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.account_circle_outlined,
-            title: 'Hesap',
-            subtitle: 'E-posta doğrulama, hesap silme',
+            title: s.t('settings.account'),
+            subtitle: s.t('settings.account.sub'),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const AccountScreen())),
           ),
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.local_offer_outlined,
-            title: 'Katkılarım',
-            subtitle: 'Paylaştığın fiyatlar',
+            title: s.t('settings.contributions'),
+            subtitle: s.t('settings.contributions.sub'),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const ContributionsScreen())),
           ),
 
           // ── Bildirimler ────────────────────────────────────────────────
-          const _HubSectionHeader(label: 'BİLDİRİMLER'),
+          _HubSectionHeader(label: s.t('settings.section.notifications')),
           _HubRow(
             icon: Icons.notifications_none_rounded,
-            title: 'Bildirim tercihleri',
-            subtitle: 'Push, fiyat alarmı ve haftalık özet',
+            title: s.t('settings.notificationPrefs'),
+            subtitle: s.t('settings.notificationPrefs.sub'),
             onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -1808,20 +1811,18 @@ class SettingsHubScreen extends StatelessWidget {
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.notifications_active_outlined,
-            title: 'Fiyat alarmlarım',
-            subtitle: 'Takip ettiğin ürün alarmları',
+            title: s.t('settings.myAlerts'),
+            subtitle: s.t('settings.myAlerts.sub'),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const AlertsScreen())),
           ),
 
           // ── Uygulama ───────────────────────────────────────────────────
-          const _HubSectionHeader(label: 'UYGULAMA'),
+          _HubSectionHeader(label: s.t('settings.section.app')),
           _HubRow(
             icon: Icons.language_rounded,
-            title: 'Dil / Language',
-            subtitle: AppStateScope.of(context).localeCode == 'en'
-                ? 'English'
-                : 'Türkçe',
+            title: s.t('settings.languageRow'),
+            subtitle: isEn ? 'English' : 'Türkçe',
             onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -1830,35 +1831,35 @@ class SettingsHubScreen extends StatelessWidget {
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.history_rounded,
-            title: 'Güncelleme geçmişi',
-            subtitle: 'Yeni özellik ve düzeltmeler',
+            title: s.t('settings.releaseNotes'),
+            subtitle: s.t('settings.releaseNotes.sub'),
             onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ReleaseNotesScreen())),
           ),
 
           // ── Yardım ve yasal ────────────────────────────────────────────
-          const _HubSectionHeader(label: 'YARDIM VE YASAL'),
+          _HubSectionHeader(label: s.t('settings.section.helpLegal')),
           _HubRow(
             icon: Icons.help_outline_rounded,
-            title: 'Yardım ve SSS',
-            subtitle: 'Nasıl çalışır, güven, puan, alarm',
+            title: s.t('settings.helpFaq'),
+            subtitle: s.t('settings.helpFaq.sub'),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const HelpFaqScreen())),
           ),
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.support_agent_rounded,
-            title: 'İletişim ve Destek',
-            subtitle: 'Soru, öneri, geri bildirim',
+            title: s.t('settings.contactSupport'),
+            subtitle: s.t('settings.contactSupport.sub'),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const ContactSupportScreen())),
           ),
           const SizedBox(height: 10),
           _HubRow(
             icon: Icons.info_outline_rounded,
-            title: 'Hakkında',
-            subtitle: 'Sürüm ve yasal metinler',
+            title: s.t('settings.about'),
+            subtitle: s.t('settings.about.sub'),
             onTap: () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => const AboutScreen())),
           ),
@@ -1867,7 +1868,7 @@ class SettingsHubScreen extends StatelessWidget {
           const SizedBox(height: 22),
           _SecondaryHubAction(
             icon: Icons.grid_view_rounded,
-            label: 'Keşfe dön',
+            label: s.t('settings.backToExplore'),
             onTap: () => Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                   builder: (_) => const MainScreen(initialIndex: 1)),
