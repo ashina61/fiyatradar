@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -411,6 +413,21 @@ class FirebaseService {
   Future<User> ensureSignedIn() async {
     final cur = auth.currentUser;
     if (cur != null) return cur;
+    // Cold start yarışı: Firebase.initializeApp() döndükten sonra Auth,
+    // diskteki kalıcı oturumu ASENKRON geri yükler. Bu kısa pencerede
+    // currentUser bir an için null olabilir — kayıtlı kullanıcı olsa bile.
+    // Hemen signInAnonymously()'ye düşersek, geri yüklenmekte olan kayıtlı
+    // oturumu yeni bir anonim hesapla eziyoruz ve kullanıcı login ekranına
+    // atılıyor. Önce authStateChanges'in ilk non-null değerini kısa bir
+    // süre bekle; gerçekten oturum yoksa anonim olarak devam et.
+    final restored = await auth
+        .authStateChanges()
+        .firstWhere((u) => u != null, orElse: () => null)
+        .timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => auth.currentUser,
+        );
+    if (restored != null) return restored;
     final cred = await auth.signInAnonymously();
     return cred.user!;
   }
