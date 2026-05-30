@@ -204,7 +204,7 @@ class _DismissBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.centerRight,
-      padding: const EdgeInsets.symmetric(horizontal: 22),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 22),
       decoration: BoxDecoration(
         color: FR.warn.withOpacity(.16),
         borderRadius: FRRad.all(FRRad.l),
@@ -374,7 +374,7 @@ class _NotificationTile extends StatelessWidget {
                     onTap: onDelete,
                     borderRadius: FRRad.all(999),
                     child: Padding(
-                      padding: const EdgeInsets.all(2),
+                      padding: const EdgeInsetsDirectional.all(2),
                       child: Icon(Icons.close_rounded,
                           color: FR.ink3, size: 16),
                     ),
