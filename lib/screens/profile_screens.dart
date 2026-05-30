@@ -657,7 +657,7 @@ class _WeeklySummaryRow extends StatelessWidget {
       ),
       borderRadius: FRRad.all(FRRad.l),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsetsDirectional.all(14),
         decoration: frSurface(radius: FRRad.l),
         child: Row(
           children: [
@@ -2322,7 +2322,7 @@ class _HubSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 20, 0, 10),
+      padding: const EdgeInsetsDirectional.fromSTEB(2, FRSpace.xl, 0, 10),
       child: Text(label, style: frOverline()),
     );
   }
@@ -2346,7 +2346,10 @@ class _SecondaryHubAction extends StatelessWidget {
       onTap: onTap,
       borderRadius: FRRad.all(FRRad.l),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
         decoration: BoxDecoration(
           color: FR.surfaceLo,
           borderRadius: FRRad.all(FRRad.l),

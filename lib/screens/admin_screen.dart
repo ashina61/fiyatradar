@@ -2867,7 +2867,12 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                FRSpace.xl,
+                FRSpace.m,
+                FRSpace.xl,
+                0,
+              ),
               child: Row(
                 children: [
                   FRIconChip(
@@ -2878,7 +2883,12 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
               ),
             ),
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
+              padding: EdgeInsetsDirectional.fromSTEB(
+                FRSpace.xl,
+                14,
+                FRSpace.xl,
+                0,
+              ),
               child: FRPageHeader(
                 overline: 'BİLDİRİM',
                 title: 'Haftalık',
@@ -2889,11 +2899,11 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView(
-                      padding: EdgeInsets.fromLTRB(
-                        20,
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                        FRSpace.xl,
                         18,
-                        20,
-                        20 + MediaQuery.of(context).viewInsets.bottom,
+                        FRSpace.xl,
+                        FRSpace.xl + MediaQuery.of(context).viewInsets.bottom,
                       ),
                       children: [
                         _internalNote(),
@@ -2984,7 +2994,7 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
 
   Widget _internalNote() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsetsDirectional.all(FRSpace.m),
       decoration: BoxDecoration(
         color: FR.gold.withOpacity(.08),
         borderRadius: FRRad.all(FRRad.m),
@@ -3010,7 +3020,7 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
 
   Widget _warnNote(String text) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsetsDirectional.all(FRSpace.m),
       decoration: BoxDecoration(
         color: FR.warn.withOpacity(.10),
         borderRadius: FRRad.all(FRRad.m),
@@ -3034,7 +3044,7 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
   Widget _sectionLabel(String text) => Text(text, style: frOverline());
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6, top: 4),
+        padding: const EdgeInsetsDirectional.only(bottom: 6, top: FRSpace.xs),
         child: Text(text,
             style: frText(11.5, FontWeight.w800, color: FR.ink3, letter: .4)),
       );
@@ -3052,7 +3062,10 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
   Widget _toggle(
       String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: 14,
+        vertical: FRSpace.m,
+      ),
       decoration: frSurface(radius: FRRad.l),
       child: Row(
         children: [
@@ -3079,7 +3092,10 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
 
   Widget _dayDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: FRSpace.m,
+        vertical: FRSpace.xs,
+      ),
       decoration: frSurface(radius: FRRad.m),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
@@ -3099,7 +3115,10 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
 
   Widget _hourDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: FRSpace.m,
+        vertical: FRSpace.xs,
+      ),
       decoration: frSurface(radius: FRRad.m),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
