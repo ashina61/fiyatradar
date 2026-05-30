@@ -200,6 +200,37 @@ describe('products rules', () => {
     const snap = await getDoc(doc(db, 'products/p2'));
     assert.equal(snap.exists(), true);
   });
+
+  // Regression: seed products are imported WITHOUT a `priceHistory` field, so
+  // the very first community price appends to a non-existent array. This must
+  // be allowed — otherwise every product's first price fails permission-denied.
+  test('verified user can append first priceHistory entry on a seed product (no priceHistory field)', async () => {
+    await withDisabledRules(async (adminDb) => {
+      await setDoc(doc(adminDb, 'products/pSeed'), { name: 'Çay' });
+    });
+    const db = testEnv
+      .authenticatedContext('userSeed', { email_verified: true })
+      .firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'products/pSeed'), {
+        priceHistory: [{ price: 45, reportedByUid: 'userSeed' }],
+      }),
+    );
+  });
+
+  test('verified user cannot append a priceHistory entry impersonating another user', async () => {
+    await withDisabledRules(async (adminDb) => {
+      await setDoc(doc(adminDb, 'products/pSeed2'), { name: 'Kahve' });
+    });
+    const db = testEnv
+      .authenticatedContext('userSeed2', { email_verified: true })
+      .firestore();
+    await assertFails(
+      updateDoc(doc(db, 'products/pSeed2'), {
+        priceHistory: [{ price: 45, reportedByUid: 'someoneElse' }],
+      }),
+    );
+  });
 });
 
 describe('priceReports rules', () => {

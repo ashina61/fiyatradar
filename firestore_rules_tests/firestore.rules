@@ -313,15 +313,18 @@ service cloud.firestore {
       //     the Firestore 1MB doc limit (≈800 entries × 1.2KB each).
       //   • Newly appended entries must have the caller as `reportedByUid`,
       //     so a user can't impersonate someone else.
-      return resource.data.priceHistory is list &&
-        request.resource.data.priceHistory is list &&
-        request.resource.data.priceHistory.size() >= resource.data.priceHistory.size() &&
-        request.resource.data.priceHistory.size() <= resource.data.priceHistory.size() + 1 &&
+      // Seed products are imported WITHOUT a `priceHistory` field, so the very
+      // first community price on a product appends to a non-existent array.
+      // We treat that absent case as a prior length of 0 — otherwise the first
+      // submission on every product would be denied (permission-denied).
+      return request.resource.data.priceHistory is list &&
+        request.resource.data.priceHistory.size() >= priorPriceHistorySize() &&
+        request.resource.data.priceHistory.size() <= priorPriceHistorySize() + 1 &&
         request.resource.data.priceHistory.size() <= 800 &&
         (
           // Vote case: same length, no impersonation check needed (transaction
           // enforces self-vote / duplicate-vote blocks).
-          request.resource.data.priceHistory.size() == resource.data.priceHistory.size() ||
+          request.resource.data.priceHistory.size() == priorPriceHistorySize() ||
           // Append case: the new tail entry must belong to the caller.
           (
             request.resource.data.priceHistory[request.resource.data.priceHistory.size() - 1] is map &&
@@ -329,6 +332,14 @@ service cloud.firestore {
               request.auth.uid
           )
         );
+    }
+
+    // Length of the existing `priceHistory` array, or 0 when the field is
+    // absent (seed products) so the first append is allowed.
+    function priorPriceHistorySize() {
+      return ('priceHistory' in resource.data) && resource.data.priceHistory is list
+        ? resource.data.priceHistory.size()
+        : 0;
     }
 
     match /users/{uid} {
