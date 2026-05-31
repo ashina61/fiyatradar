@@ -82,8 +82,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     _DetailTitleBlock(product: product),
                     const SizedBox(height: 16),
                     _DetailHero(product: product),
-                    const SizedBox(height: 14),
-                    _CommunityImageCta(product: product),
+                    // Onaylı fotoğrafı olan ürünlerde "fotoğraf öner" çağrısı
+                    // gizlenir; yalnızca henüz admin onaylı görseli olmayan
+                    // ürünlerde topluluk öneri kartı gösterilir.
+                    if (!product.hasApprovedImage) ...[
+                      const SizedBox(height: 14),
+                      _CommunityImageCta(product: product),
+                    ],
                     const SizedBox(height: 20),
                     _DetailHeadlinePrice(product: product, state: state),
                     const SizedBox(height: 24),
@@ -512,7 +517,7 @@ class _DetailTitleBlock extends StatelessWidget {
                 children: [
                   Icon(Icons.verified_rounded, color: FR.gold, size: 12),
                   const SizedBox(width: 5),
-                  Text('Katalog onaylı',
+                  Text('Katalog ürünü',
                       style: frText(10.5, FontWeight.w800, color: FR.gold)),
                 ],
               ),
@@ -539,8 +544,7 @@ class _DetailHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImage =
-        product.imageUrl != null && product.imageUrl!.isNotEmpty;
+    final hasImage = product.hasApprovedImage;
     return Container(
       height: 220,
       clipBehavior: Clip.antiAlias,
@@ -553,8 +557,11 @@ class _DetailHero extends StatelessWidget {
         borderRadius: FRRad.all(FRRad.xxl),
         border: Border.all(color: FR.hairline),
       ),
-      child: hasImage
-          ? Image.network(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasImage)
+            Image.network(
               product.imageUrl!,
               fit: BoxFit.cover,
               cacheWidth: 1200,
@@ -564,7 +571,45 @@ class _DetailHero extends StatelessWidget {
               errorBuilder: (_, __, ___) =>
                   _CategoryIllustrationFallback(product: product),
             )
-          : _CategoryIllustrationFallback(product: product),
+          else
+            _CategoryIllustrationFallback(product: product),
+          // Onaylı bir ürün fotoğrafı varsa köşede küçük bir "Onaylı
+          // fotoğraf" rozeti göster; illüstrasyon fallback'inde gösterilmez.
+          if (hasImage)
+            const Positioned(
+              left: 10,
+              bottom: 10,
+              child: _ApprovedPhotoBadge(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Küçük "Onaylı fotoğraf" rozeti — yalnızca admin onaylı gerçek ürün
+/// fotoğrafı olan ürün kahramanında (hero) gösterilir.
+class _ApprovedPhotoBadge extends StatelessWidget {
+  const _ApprovedPhotoBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      decoration: BoxDecoration(
+        color: FR.bg.withOpacity(.74),
+        borderRadius: FRRad.all(999),
+        border: Border.all(color: FR.gold.withOpacity(.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified_rounded, size: 12, color: FR.gold),
+          const SizedBox(width: 5),
+          Text('Onaylı fotoğraf',
+              style: frText(10, FontWeight.w800, color: FR.gold)),
+        ],
+      ),
     );
   }
 }
@@ -1901,7 +1946,6 @@ class _CommunityImageCtaState extends State<_CommunityImageCta> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final hasImage = (widget.product.imageUrl ?? '').isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1931,16 +1975,12 @@ class _CommunityImageCtaState extends State<_CommunityImageCta> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasImage
-                      ? 'Daha iyi bir fotoğrafın mı var?'
-                      : 'Bu ürüne fotoğraf ekle',
+                  'Bu ürüne fotoğraf ekle',
                   style: frText(13.5, FontWeight.w800),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  hasImage
-                      ? 'Profesyonel veya net çekim önerirsen admin onayından sonra ana görsel olur.'
-                      : 'Net, profesyonel bir çekim öner — admin onayından sonra bu üründe yayınlanır.',
+                  'Net, profesyonel bir çekim öner — admin onayından sonra bu üründe yayınlanır.',
                   style: frText(11.5, FontWeight.w600,
                       color: FR.ink3, height: 1.4),
                 ),

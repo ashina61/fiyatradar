@@ -121,3 +121,6 @@ android/gradle/wrapper/gradle-wrapper.jar
 node_modules/
 # Lockfile generated when running the Firestore rules tests locally/CI
 firestore_rules_tests/package-lock.json
+# Flutter gen-l10n output (regenerated from lib/l10n/*.arb on every build)
+lib/l10n/app_localizations.dart
+lib/l10n/app_localizations_tr.dart

@@ -8,6 +8,14 @@
       ]
     },
     {
+      "collectionGroup": "product_image_submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "priceReports",
       "queryScope": "COLLECTION",
       "fields": [

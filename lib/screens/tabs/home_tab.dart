@@ -56,9 +56,7 @@ class HomeTab extends StatelessWidget {
             child: _RegionScopeCard(state: state, hasRegion: hasRegion),
           ),
           const SizedBox(height: 14),
-          FRFadeSlideIn(delay: nextDelay(), child: const _QuickAddRow()),
-          const SizedBox(height: 12),
-          FRFadeSlideIn(delay: nextDelay(), child: const _BasketCompareRow()),
+          FRFadeSlideIn(delay: nextDelay(), child: const _HomeActionStrip()),
           if (state.banners.isNotEmpty) ...[
             const SizedBox(height: 24),
             FRFadeSlideIn(
@@ -423,49 +421,47 @@ class _RegionScopeCard extends StatelessWidget {
   }
 }
 
-// ─── Quick add price (Utility Row, low intensity) ────────────────────────────
+// ─── Birincil aksiyonlar (tek segmentli şerit) ───────────────────────────────
 
-class _QuickAddRow extends StatelessWidget {
-  const _QuickAddRow();
+/// Eskiden iki ayrı bordürlü kart olan "Fiyat ekle" ve "Sepet karşılaştır"
+/// aksiyonlarını tek bir yüzeyde, ince bir dikey ayraçla birleştirir. İki
+/// kutu yığılması yerine sakin, premium bir aksiyon şeridi verir. Davranış
+/// aynı: sol yarım fiyat ekleme (index 2), sağ yarım sepet (index 3).
+class _HomeActionStrip extends StatelessWidget {
+  const _HomeActionStrip();
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: FRRad.all(FRRad.l),
-      onTap: () => Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-            builder: (_) => const MainScreen(initialIndex: 2)),
-      ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-        decoration: frSurface(radius: FRRad.l),
+    return Container(
+      decoration: frSurface(radius: FRRad.l),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: FR.gold.withOpacity(.14),
-                borderRadius: FRRad.all(11),
-                border: Border.all(color: FR.gold.withOpacity(.4)),
-              ),
-              child: Icon(Icons.add_rounded, color: FR.gold, size: 19),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Fiyat gördün mü?',
-                      style: frText(13.5, FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  Text('20 saniyede ekle, bölgendeki kullanıcılar görsün.',
-                      style: frText(11.5, FontWeight.w600, color: FR.ink3)),
-                ],
+              child: _HomeAction(
+                icon: Icons.add_rounded,
+                title: 'Fiyat ekle',
+                subtitle: '20 saniyede paylaş',
+                onTap: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                      builder: (_) => const MainScreen(initialIndex: 2)),
+                ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: FR.ink3),
+            Container(width: 1, color: FR.hairlineSoft),
+            Expanded(
+              child: _HomeAction(
+                icon: Icons.compare_arrows_rounded,
+                title: 'Sepeti karşılaştır',
+                subtitle: 'En ucuz marketi bul',
+                onTap: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                      builder: (_) => const MainScreen(initialIndex: 3)),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -473,23 +469,27 @@ class _QuickAddRow extends StatelessWidget {
   }
 }
 
-/// Sepet karşılaştırması uygulamanın en güçlü özelliği; ana sayfada görünür
-/// ama sade bir CTA kartıyla öne çıkarılır. Sepet sekmesine (index 3) götürür.
-class _BasketCompareRow extends StatelessWidget {
-  const _BasketCompareRow();
+class _HomeAction extends StatelessWidget {
+  const _HomeAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: FRRad.all(FRRad.l),
-      onTap: () => Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-            builder: (_) => const MainScreen(initialIndex: 3)),
-      ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-        decoration: frSurface(radius: FRRad.l),
-        child: Row(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 36,
@@ -500,25 +500,15 @@ class _BasketCompareRow extends StatelessWidget {
                 borderRadius: FRRad.all(11),
                 border: Border.all(color: FR.gold.withOpacity(.4)),
               ),
-              child: Icon(Icons.compare_arrows_rounded,
-                  color: FR.gold, size: 19),
+              child: Icon(icon, color: FR.gold, size: 19),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Sepetini karşılaştır',
-                      style: frText(13.5, FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Aynı sepet hangi markette daha ucuz, saniyeler içinde gör.',
-                    style: frText(11.5, FontWeight.w600, color: FR.ink3),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: FR.ink3),
+            const SizedBox(height: 10),
+            Text(title, style: frText(13.5, FontWeight.w800)),
+            const SizedBox(height: 2),
+            Text(subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: frText(11.5, FontWeight.w600, color: FR.ink3)),
           ],
         ),
       ),
@@ -1026,17 +1016,9 @@ class _RadarHero extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Spacer(),
-                  if (state.unreadNotificationCount > 0)
-                    Text('${state.unreadNotificationCount} yeni sinyal',
-                        style:
-                            frText(11, FontWeight.w800, color: FR.gold)),
                 ],
               ),
               const SizedBox(height: 14),
-              Text('RADAR ÖZETİ',
-                  style: frOverline(color: FR.ink3, size: 9.5)),
-              const SizedBox(height: 4),
               Text(headline,
                   style: frDisplay(24, FontWeight.w700, height: 1.15)),
               const SizedBox(height: 8),

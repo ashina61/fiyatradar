@@ -1219,7 +1219,7 @@ class _AdminEntryActionRow extends StatelessWidget {
   String _statusLabel(PriceStatus s) {
     switch (s) {
       case PriceStatus.communityVerified:
-        return 'Katalog onaylı';
+        return 'Topluluk doğruladı';
       case PriceStatus.disputed:
         return 'İhtilaflı';
       case PriceStatus.rejected:
@@ -1289,7 +1289,7 @@ class _AdminEntryActionRow extends StatelessWidget {
             children: [
               Expanded(
                 child: _ActionPill(
-                  label: isVerified ? 'Onaylı' : 'Katalog onayla',
+                  label: isVerified ? 'Doğrulandı' : 'Doğrulanmış işaretle',
                   color: FR.good,
                   dimmed: isVerified,
                   onTap: isVerified

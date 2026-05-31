@@ -1045,6 +1045,12 @@ class ReleaseNotesScreen extends StatelessWidget {
               'ayarlarına eklendi; dilediğin zaman açıp kapatabilirsin.',
           'İngilizce dil desteği genişletildi: Ayarlar, Bildirim tercihleri '
               've Bildirim Merkezi ekranları artık İngilizce de görüntülenebiliyor.',
+          'Ürün ve fiyat doğrulama etiketleri daha anlaşılır hale getirildi.',
+          'Fiyat güven bilgileri topluluk doğrulamasını daha net gösterecek '
+              'şekilde düzenlendi.',
+          'Onaylı fotoğrafı olan ürünlerde fotoğraf önerme kartı artık '
+              'gizleniyor; onaylı görselin üzerinde küçük bir “Onaylı fotoğraf” '
+              'rozeti gösteriliyor.',
         ],
       ),
       (

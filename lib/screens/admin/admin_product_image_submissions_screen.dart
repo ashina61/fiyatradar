@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/product.dart';
@@ -66,9 +67,9 @@ class AdminProductImageSubmissionsScreen extends StatelessWidget {
                     return Padding(
                       padding: const EdgeInsets.all(20),
                       child: Text(
-                        'Liste yüklenemedi: ${snap.error}',
+                        _friendlyLoadError(snap.error),
                         style:
-                            frText(12.5, FontWeight.w700, color: FR.bad),
+                            frText(12.5, FontWeight.w700, color: FR.ink2),
                       ),
                     );
                   }
@@ -96,6 +97,30 @@ class AdminProductImageSubmissionsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Firestore akış hatasını sakin, Türkçe bir admin mesajına çevirir; gerçek
+/// [FirebaseException] code/message değeri debug log'unda kalır.
+///
+/// "Görsel onayları" sorgusu composite index ister
+/// (product_image_submissions: status ASC, createdAt ASC). Index yayına
+/// girene kadar Firestore `failed-precondition` fırlatır; bu durumda ham SDK
+/// linki yerine açıklayıcı bir ipucu gösteririz.
+String _friendlyLoadError(Object? error) {
+  if (error is FirebaseException) {
+    debugPrint(
+      'ADMIN_IMAGE_APPROVALS_LOAD_FAILED '
+      'code=${error.code} message=${error.message}',
+    );
+    if (error.code == 'failed-precondition') {
+      return 'Görsel onayları için gerekli veritabanı indeksi eksik. '
+          'Index oluşturulduktan sonra bu ekran çalışacaktır.';
+    }
+  } else {
+    debugPrint('ADMIN_IMAGE_APPROVALS_LOAD_FAILED error=$error');
+  }
+  return 'Görsel onayları şu anda yüklenemedi. Veritabanı indeksi '
+      'hazırlanıyor olabilir. Lütfen daha sonra tekrar deneyin.';
 }
 
 class _SubmissionTile extends StatefulWidget {

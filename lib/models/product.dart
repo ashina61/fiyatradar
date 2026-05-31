@@ -249,6 +249,17 @@ class Product {
     this.assignedIllustrationId,
   }) : priceHistory = priceHistory ?? [];
 
+  /// True when this product has an admin-approved (official/catalog) photo.
+  ///
+  /// A product's [imageUrl] is only ever written by admin-controlled paths —
+  /// catalog create/update, catalog request approval, or community photo
+  /// approval. Community photo suggestions land in a separate
+  /// `product_image_submissions` queue and never touch [imageUrl]. So a
+  /// non-empty URL means a moderator has approved the image, and the UI can
+  /// safely hide the "suggest a photo" call-to-action.
+  bool get hasApprovedImage =>
+      imageUrl != null && imageUrl!.trim().isNotEmpty;
+
   /// Entries deemed trustworthy enough to surface (not rejected).
   List<PriceEntry> get validEntries =>
       priceHistory.where((e) => e.status != PriceStatus.rejected).toList();
