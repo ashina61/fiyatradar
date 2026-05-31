@@ -595,7 +595,7 @@ class _ApprovedPhotoBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
       decoration: BoxDecoration(
         color: FR.bg.withOpacity(.74),
         borderRadius: FRRad.all(999),
