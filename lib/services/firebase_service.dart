@@ -410,26 +410,93 @@ class FirebaseService {
   CollectionReference<Map<String, dynamic>> userProductAlerts(String uid) =>
       users.doc(uid).collection('productAlerts');
 
-  Future<User> ensureSignedIn() async {
+  /// Cold-start oturum geri-yükleme yarışını yalnızca SÜREÇTE BİR KEZ bekleriz.
+  /// İlk `ensureSignedIn` çağrısı (uygulama açılışı) diskten oturum geri
+  /// yüklenmesini bekler; sonraki çağrılarda (ör. logout sonrası yeniden init)
+  /// currentUser zaten otoriterdir, gereksiz bekleme yapmayız.
+  bool _restoreWaitConsumed = false;
+
+  /// Mevcut oturumu döndürür; gerçekten oturum yoksa anonim oturum açar.
+  ///
+  /// Dönen değer `null` olabilir: SADECE hiç oturum yokken (ilk kurulum) VE
+  /// cihaz çevrimdışı olduğu için anonim oturum bile açılamadığında. Bu durum
+  /// çağıranlar tarafından "login ekranı göster" olarak yorumlanır — ASLA bir
+  /// hata ekranına / crash'e dönüşmez.
+  ///
+  /// Kayıtlı bir kullanıcının oturumu Firebase tarafından diske kalıcı yazılır
+  /// ve cold start'ta AĞ GEREKTİRMEDEN geri yüklenir; bu yüzden daha önce giriş
+  /// yapmış bir kullanıcı çevrimdışı açılışta da currentUser üzerinden gelir.
+  Future<User?> ensureSignedIn() async {
+    // 1) Oturum zaten geri yüklendiyse hemen dön — en sık yol.
     final cur = auth.currentUser;
-    if (cur != null) return cur;
-    // Cold start yarışı: Firebase.initializeApp() döndükten sonra Auth,
+    if (cur != null) {
+      _restoreWaitConsumed = true;
+      debugPrint(
+        'AUTH_CURRENT_USER_PRESENT: uid=${cur.uid} anon=${cur.isAnonymous}',
+      );
+      return cur;
+    }
+    // 2) Cold start yarışı: Firebase.initializeApp() döndükten sonra Auth,
     // diskteki kalıcı oturumu ASENKRON geri yükler. Bu kısa pencerede
     // currentUser bir an için null olabilir — kayıtlı kullanıcı olsa bile.
     // Hemen signInAnonymously()'ye düşersek, geri yüklenmekte olan kayıtlı
     // oturumu yeni bir anonim hesapla eziyoruz ve kullanıcı login ekranına
-    // atılıyor. Önce authStateChanges'in ilk non-null değerini kısa bir
-    // süre bekle; gerçekten oturum yoksa anonim olarak devam et.
-    final restored = await auth
-        .authStateChanges()
-        .firstWhere((u) => u != null, orElse: () => null)
-        .timeout(
-          const Duration(seconds: 2),
-          onTimeout: () => auth.currentUser,
-        );
-    if (restored != null) return restored;
-    final cred = await auth.signInAnonymously();
-    return cred.user!;
+    // atılıyor. Bu yüzden hem authStateChanges'i dinleyip hem currentUser'ı
+    // kısa aralıklarla yoklayarak oturumun geri yüklenmesini bekliyoruz.
+    // NOT: Bu bekleme yalnız ilk (cold start) çağrıda yapılır — logout sonrası
+    // currentUser gerçekten null'dur, beklemeden devam ederiz.
+    if (!_restoreWaitConsumed) {
+      debugPrint('AUTH_CURRENT_USER_NULL: SESSION_RECOVERY_ATTEMPT');
+      final restored = await _awaitRestoredUser(const Duration(seconds: 5));
+      _restoreWaitConsumed = true;
+      if (restored != null) {
+        debugPrint('SESSION_RECOVERY_SUCCESS: uid=${restored.uid}');
+        return restored;
+      }
+    }
+    // 3) Gerçekten kalıcı oturum yok. Katalog gezilebilsin diye anonim oturum
+    // aç. Çevrimdışıysak bu çağrı network-request-failed atar — yutup null
+    // dönüyoruz; auth gate hata ekranı yerine login ekranı gösterir.
+    debugPrint('SESSION_RECOVERY_FAILED: anonim oturum deneniyor');
+    try {
+      final cred = await auth.signInAnonymously();
+      return cred.user;
+    } catch (e) {
+      debugPrint('ANON_SIGN_IN_FAILED_SOFT: $e');
+      return null;
+    }
+  }
+
+  /// [timeout] süresi boyunca FirebaseAuth'un kalıcı oturumu geri yüklemesini
+  /// bekler. authStateChanges stream'ini dinler VE currentUser'ı periyodik
+  /// yoklar (bazı platformlar stream'e yeniden emit etmeden currentUser'ı
+  /// doldurabiliyor). İlk non-null değerde hemen döner; süre dolarsa son
+  /// currentUser değerini (null olabilir) döndürür.
+  Future<User?> _awaitRestoredUser(Duration timeout) async {
+    final completer = Completer<User?>();
+    StreamSubscription<User?>? sub;
+    Timer? poll;
+    Timer? deadline;
+    void finish(User? u) {
+      if (completer.isCompleted) return;
+      poll?.cancel();
+      deadline?.cancel();
+      unawaited(sub?.cancel());
+      completer.complete(u);
+    }
+
+    sub = auth.authStateChanges().listen(
+      (u) {
+        if (u != null) finish(u);
+      },
+      onError: (_) {/* stream hatası geri yüklemeyi engellemesin */},
+    );
+    poll = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      final u = auth.currentUser;
+      if (u != null) finish(u);
+    });
+    deadline = Timer(timeout, () => finish(auth.currentUser));
+    return completer.future;
   }
 
   Future<UserCredential> signInWithEmail({

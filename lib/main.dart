@@ -212,8 +212,12 @@ class _AuthGate extends StatelessWidget {
   }
 
   Widget _routeFor(User? user, AppState state) {
-    if (user == null) return const LoginScreen();
+    if (user == null) {
+      debugPrint('ROUTE_TO_LOGIN: currentUser null');
+      return const LoginScreen();
+    }
     if (user.isAnonymous && !state.guestAcknowledged) {
+      debugPrint('ROUTE_TO_LOGIN: misafir onayı yok');
       return const LoginScreen();
     }
     if (state.isBanned) {
@@ -225,6 +229,7 @@ class _AuthGate extends StatelessWidget {
     if (!user.isAnonymous && !user.emailVerified) {
       return const VerifyEmailScreen();
     }
+    debugPrint('ROUTE_TO_HOME: uid=${user.uid} anon=${user.isAnonymous}');
     return const MainScreen();
   }
 

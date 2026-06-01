@@ -598,6 +598,10 @@ class AppState extends ChangeNotifier {
   StreamSubscription? _productRequestsSub;
   StreamSubscription? _regionalPriceEntriesSub;
   bool _initialized = false;
+  /// init() yürürken true. authStateChanges dinleyicisinin (ör. anonim oturum
+  /// açılışı authStateChanges'i init'in ortasında tetiklediğinde) re-entrant
+  /// bir init() başlatmasını engeller.
+  bool _initInProgress = false;
   int _productsSignature = 0;
   bool get initialized => _initialized;
   final List<AppNotification> notifications = [];
@@ -703,6 +707,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> init() async {
+    _initInProgress = true;
     // Locale + misafir kotası önyüklemesi — auth akışından bağımsız,
     // çünkü onboarding/login ekranları da bu değerlere bakıyor.
     try {
@@ -720,15 +725,42 @@ class AppState extends ChangeNotifier {
     } catch (_) {
       // Persisted prefs opsiyonel; eksik olursa varsayılan değerler kullanılır.
     }
+    debugPrint('AUTH_GATE_START / APP_BOOTSTRAP_START');
     _authSub ??= _svc.auth.authStateChanges().listen((next) {
+      debugPrint(
+        'AUTH_STATE_CHANGED: uid=${next?.uid} anon=${next?.isAnonymous}',
+      );
       if (user?.uid == next?.uid &&
           user?.isAnonymous == next?.isAnonymous) {
         return;
       }
       user = next;
+      // Açılış sırasında oturum yok diye erken çıkıp (offline ilk kurulum)
+      // veri dinleyicilerini kuramadıysak ve oturum SONRADAN geri yüklendiyse,
+      // ana ekranı boş bırakmamak için tam kurulumu bir kez daha tetikle.
+      // `_productsSub == null`, kurulumun yapılmadığının işaretidir; init()
+      // içindeki `??=`/null-guard'lar tekrarlı çağrıyı güvenli kılar.
+      if (next != null && _productsSub == null && !_initInProgress) {
+        debugPrint('SESSION_RECOVERY_SUCCESS: geç oturum, tam init tetikleniyor');
+        unawaited(init());
+      }
       notifyListeners();
     });
+    debugPrint('AUTH_CURRENT_USER_CHECK');
     user = await _svc.ensureSignedIn();
+    if (user == null) {
+      // Hiç oturum yok (ilk kurulum + çevrimdışı gibi) — anonim oturum bile
+      // açılamadı. Bu bir HATA değil: auth gate login ekranını göstersin.
+      // Uid'e bağlı dinleyicileri kurmuyoruz; kullanıcı giriş yapınca
+      // refreshFromAuthSession → init tekrar çalışıp tam kurulumu yapar.
+      // _authSub yukarıda zaten bağlı; oturum geç geri yüklenirse gate
+      // otomatik ana ekrana geçer.
+      debugPrint('ROUTE_TO_LOGIN: currentUser yok, soft login state');
+      _initialized = true;
+      _initInProgress = false;
+      notifyListeners();
+      return;
+    }
     final currentUid = user?.uid;
     final authPhotoUrl = user?.photoURL?.trim();
     if (authPhotoUrl != null && authPhotoUrl.isNotEmpty) {
@@ -737,7 +769,13 @@ class AppState extends ChangeNotifier {
     if (currentUid != null) {
       await _hydrateCachedProfileImageUrl(currentUid);
     }
-    await _svc.bootstrap();
+    try {
+      await _svc.bootstrap();
+      debugPrint('APP_BOOTSTRAP_SUCCESS');
+    } catch (e) {
+      // Seed/bootstrap best-effort — bir hata oturumu DÜŞÜRMEMELİ.
+      debugPrint('APP_BOOTSTRAP_FAILED_SOFT: $e');
+    }
 
     _productsSub = _svc.products.snapshots().listen((snap) {
       final nextProducts =
@@ -871,11 +909,17 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Ensure user doc exists
+    // Ensure user doc exists. ÖNEMLİ: Bu blok best-effort — `get()`/`set()`
+    // çevrimdışı (unavailable / deadline-exceeded) veya geçici
+    // permission-denied ile patlayabilir. Bu durumda OTURUMU DÜŞÜRMÜYORUZ;
+    // hata yutulur, uygulama sınırlı modda açılır ve aşağıdaki realtime
+    // `_userSub` dinleyicisi ağ geri gelince doc'u otomatik hidrat eder.
+    debugPrint('USER_DOC_BIND_START: uid=${user!.uid}');
     final uref = _svc.userDoc(user!.uid);
-    final udoc = await uref.get();
-    if (!udoc.exists) {
-      await uref.set({
+    try {
+      final udoc = await uref.get();
+      if (!udoc.exists) {
+        await uref.set({
         'displayName': displayName,
         'username': username,
         'points': 0,
@@ -917,6 +961,11 @@ class AppState extends ChangeNotifier {
           // Best-effort; doğrulanmış kabul edip devam.
         }
       }
+    }
+    } catch (e) {
+      // Çevrimdışı / geçici Firestore hatası: oturumu DÜŞÜRME. Realtime
+      // dinleyici (_userSub) ağ geri gelince doc'u zaten hidrat edecek.
+      debugPrint('USER_DOC_BIND_FAILED_SOFT: $e');
     }
     _userSub = uref.snapshots().listen((snap) {
       final m = snap.data() ?? <String, dynamic>{};
@@ -1094,6 +1143,11 @@ class AppState extends ChangeNotifier {
         _bindRegionalPriceFeed();
       }
       if (changed) notifyListeners();
+    }, onError: (e) {
+      // Kullanıcı doc dinleyicisi geçici permission-denied / unavailable
+      // alabilir. Bu OTURUMU DÜŞÜRMEZ; sadece logla, dinleyici Firestore
+      // tarafından otomatik yeniden denenir.
+      debugPrint('USER_DOC_BIND_FAILED_SOFT (stream): $e');
     });
 
     _bindRegionalPriceFeed();
@@ -1168,6 +1222,8 @@ class AppState extends ChangeNotifier {
     });
 
     _initialized = true;
+    _initInProgress = false;
+    debugPrint('APP_BOOTSTRAP_SUCCESS / ROUTE_TO_HOME hazır');
     notifyListeners();
   }
 

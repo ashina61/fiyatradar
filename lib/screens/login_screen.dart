@@ -258,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _submitting = true);
     try {
       final guest = await FirebaseService.instance.ensureSignedIn();
-      if (!guest.isAnonymous) {
+      if (guest == null || !guest.isAnonymous) {
         throw FirebaseAuthException(
           code: 'guest-auth-failed',
           message: 'Misafir oturumu başlatılamadı.',
