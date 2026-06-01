@@ -1023,6 +1023,18 @@ class ReleaseNotesScreen extends StatelessWidget {
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
       (
+        version: 'v1.0.9',
+        date: '1 Haziran 2026',
+        items: [
+          'Oturum sürekliliği iyileştirildi; çıkış yapmadıkça oturumun '
+              'korunuyor, uygulamayı uzun süre sonra açsan bile giriş ekranına '
+              'düşmüyorsun.',
+          'Bağlantı sorunlarında uygulamanın gereksiz yere giriş ekranına '
+              'dönmesi engellendi; internet zayıfken bile kaldığın yerden '
+              'devam ediyorsun.',
+        ],
+      ),
+      (
         version: 'v1.0.8',
         date: '30 Mayıs 2026',
         items: [
