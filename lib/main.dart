@@ -17,8 +17,10 @@ import 'screens/main_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/verify_email_screen.dart';
 import 'services/ads_service.dart';
+import 'services/firebase_service.dart';
 import 'services/messaging_service.dart';
 import 'services/premium_service.dart';
+import 'services/session_diagnostics.dart';
 import 'state/app_state.dart';
 import 'ui/fr_theme.dart';
 import 'ui/tokens.dart';
@@ -153,57 +155,214 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
   }
 }
 
-/// Reactive auth gate: subscribes directly to [FirebaseAuth.authStateChanges]
-/// AND to [AppState] (for the guest-acknowledged flag). Either signal causes
-/// the gate to re-evaluate which screen to render, so a successful email
-/// sign-in immediately swaps the [LoginScreen] for the [MainScreen] without
-/// requiring an app restart.
-class _AuthGate extends StatelessWidget {
+/// Cold-start oturum geri-yükleme kontrolcüsü.
+///
+/// Force close sonrası en kritik akış: Firebase.initializeApp() döndükten
+/// sonra Auth, diskteki kalıcı oturumu ASENKRON geri yükler. Bu kısa pencerede
+/// currentUser bir an için null görünebilir — kayıtlı kullanıcı olsa bile.
+/// Bu kontrolcü, restore tamamlanana (ya da timeout'a) kadar `restoring=true`
+/// kalır; AuthGate bu sürede Splash gösterir ve LoginScreen'i ASLA göstermez.
+///
+/// Restore tamamlandıktan sonra da authStateChanges'i dinlemeye devam eder;
+/// böylece sonraki giriş/çıkışlarda route otomatik güncellenir.
+class _AuthRestoreController extends ChangeNotifier {
+  _AuthRestoreController() {
+    _start();
+  }
+
+  /// Spesifikasyon: currentUser 5-10 sn boyunca poll edilir. AuthGate'in
+  /// kendi beklemesi nadiren tetiklenir (AppState.init zaten restoreSession
+  /// ile beklemeyi yapar); bu yine de bağımsız bir emniyet ağı.
+  static const Duration _restoreTimeout = Duration(seconds: 8);
+
+  bool _restoring = true;
+  bool get restoring => _restoring;
+
+  User? user;
+  String? routeReason;
+
+  bool _resolved = false;
+  StreamSubscription<User?>? _sub;
+  Timer? _poll;
+  Timer? _deadline;
+
+  Future<void> _start() async {
+    final initial = FirebaseAuth.instance.currentUser;
+    debugPrint(
+      'AUTH_RESTORE_CURRENT_USER_INITIAL: uid=${initial?.uid} '
+      'anon=${initial?.isAnonymous}',
+    );
+
+    // authStateChanges'i KALICI dinle — restore sonrası login/logout da buradan
+    // gelir. Bu yüzden _resolved sonrası da abonelik açık kalır.
+    _sub = FirebaseAuth.instance.authStateChanges().listen(
+      _onAuthEvent,
+      onError: (_) {/* stream hatası restore'u engellemesin */},
+    );
+
+    if (initial != null) {
+      _resolveUser(initial, 'restored');
+      return;
+    }
+
+    // currentUser null. İki hızlı çıkış yolu (gereksiz beklemeyi atla):
+    //  1. Kullanıcı manuel çıkış yapmış/hesap silmişse → beklemeden login.
+    //  2. Cold-start restore beklemesi AppState.init içinde zaten yapıldıysa
+    //     (fresh install / logout sonrası) → tekrar bekleme, login göster.
+    final explicit = await SessionDiagnostics.isExplicitLogout();
+    if (_resolved) return; // bu arada stream user getirmiş olabilir.
+    if (explicit) {
+      debugPrint('AUTH_RESTORE_TIMEOUT_NO_USER: explicitLogout=true (beklenmeden login)');
+      _resolveLogin('explicit_logout');
+      return;
+    }
+    if (FirebaseService.instance.restoreAlreadyAttempted) {
+      debugPrint('AUTH_RESTORE_TIMEOUT_NO_USER: restore zaten denendi (beklenmeden login)');
+      _resolveLogin('no_user_after_restore');
+      return;
+    }
+
+    // Aksi halde restore'u poll + stream ile bekle.
+    debugPrint('AUTH_RESTORE_WAITING');
+    _poll = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      final u = FirebaseAuth.instance.currentUser;
+      if (u != null) _resolveUser(u, 'restored_poll');
+    });
+    _deadline = Timer(_restoreTimeout, () {
+      if (_resolved) return;
+      final u = FirebaseAuth.instance.currentUser;
+      if (u != null) {
+        _resolveUser(u, 'restored_late');
+      } else {
+        debugPrint('AUTH_RESTORE_TIMEOUT_NO_USER');
+        _resolveLogin('timeout');
+      }
+    });
+  }
+
+  void _onAuthEvent(User? u) {
+    if (!_resolved) {
+      if (u != null) {
+        _resolveUser(u, 'restored_event');
+      } else {
+        // Restore sürerken gelen null EVENT'i YOK SAY — kalıcı oturum hâlâ
+        // geri yükleniyor olabilir; login'e erken düşmeyi engeller.
+        debugPrint('AUTH_RESTORE_NULL_EVENT_IGNORED');
+      }
+      return;
+    }
+    // Restore tamamlandıktan SONRAKİ değişimler gerçek login/logout'tur.
+    user = u;
+    if (u == null) {
+      routeReason = 'auth_signed_out';
+    } else {
+      routeReason = 'auth_changed';
+      unawaited(SessionDiagnostics.recordAuthSeen(u));
+    }
+    notifyListeners();
+  }
+
+  void _resolveUser(User u, String reason) {
+    if (_resolved) return;
+    _resolved = true;
+    _restoring = false;
+    user = u;
+    routeReason = reason;
+    _poll?.cancel();
+    _deadline?.cancel();
+    debugPrint(
+      'AUTH_RESTORE_USER_FOUND: uid=${u.uid} anon=${u.isAnonymous} '
+      'reason=$reason',
+    );
+    unawaited(SessionDiagnostics.recordRestoreResult('user_found:$reason'));
+    unawaited(SessionDiagnostics.recordAuthSeen(u));
+    notifyListeners();
+  }
+
+  void _resolveLogin(String reason) {
+    if (_resolved) return;
+    _resolved = true;
+    _restoring = false;
+    user = null;
+    routeReason = reason;
+    _poll?.cancel();
+    _deadline?.cancel();
+    unawaited(SessionDiagnostics.recordRestoreResult('no_user:$reason'));
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    _deadline?.cancel();
+    unawaited(_sub?.cancel());
+    super.dispose();
+  }
+}
+
+/// Reactive auth gate. Üç fazlıdır:
+///  1. `initFuture` beklenirken → Splash.
+///  2. Onboarding tamamlanmamışsa → Onboarding.
+///  3. Oturum geri-yükleme ([_AuthRestoreController]) + [AppState] sinyallerine
+///     göre route: restore sürerken Splash, tamamlanınca route tablosu.
+///
+/// LoginScreen yalnızca restore TAMAMLANDIKTAN ve route sebebi belirlendikten
+/// sonra gösterilir — restore beklenirken ASLA gösterilmez.
+class _AuthGate extends StatefulWidget {
   const _AuthGate({required this.state, required this.initFuture});
   final AppState state;
   final Future<_Init> initFuture;
 
   @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  final _AuthRestoreController _restore = _AuthRestoreController();
+
+  @override
+  void dispose() {
+    _restore.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<_Init>(
-      future: initFuture,
+      future: widget.initFuture,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
+          debugPrint('ROUTE_TO_SPLASH: init/bootstrap devam ediyor');
           return const _SplashScreen();
         }
         if (snap.hasError) {
           return _ErrorScreen(error: '${snap.error}');
         }
         if (snap.data!.showOnboarding) return const OnboardingScreen();
-        return StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
-          initialData: FirebaseAuth.instance.currentUser,
-          builder: (_, authSnap) {
-            return AnimatedBuilder(
-              animation: state,
-              builder: (_, __) {
-                final user = authSnap.data ?? state.user;
-                final tree = _routeFor(user, state);
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 320),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.04),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  ),
-                  child: KeyedSubtree(
-                    key: ValueKey(_routeKey(user, state)),
-                    child: tree,
-                  ),
-                );
-              },
+        return AnimatedBuilder(
+          animation: Listenable.merge([_restore, widget.state]),
+          builder: (_, __) {
+            if (_restore.restoring) {
+              debugPrint('ROUTE_TO_SPLASH: oturum geri-yükleme bekleniyor');
+              return const _SplashScreen();
+            }
+            final user = _restore.user ?? widget.state.user;
+            final route = _routeFor(user, widget.state, _restore.routeReason);
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 320),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.04),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(key: ValueKey(route.key), child: route.screen),
             );
           },
         );
@@ -211,34 +370,46 @@ class _AuthGate extends StatelessWidget {
     );
   }
 
-  Widget _routeFor(User? user, AppState state) {
+  ({Widget screen, String key}) _routeFor(
+    User? user,
+    AppState state,
+    String? restoreReason,
+  ) {
     if (user == null) {
-      debugPrint('ROUTE_TO_LOGIN: currentUser null');
-      return const LoginScreen();
+      final reason = restoreReason ?? 'no_user';
+      debugPrint('ROUTE_TO_LOGIN');
+      debugPrint('ROUTE_TO_LOGIN_REASON: $reason');
+      unawaited(SessionDiagnostics.recordRoute('login', reason));
+      return (screen: const LoginScreen(), key: 'login');
     }
+    // guestAcknowledged YALNIZCA anonim kullanıcı için geçerli. Gerçek
+    // kullanıcı bu bayrak false olsa bile ASLA login'e atılmaz.
     if (user.isAnonymous && !state.guestAcknowledged) {
-      debugPrint('ROUTE_TO_LOGIN: misafir onayı yok');
-      return const LoginScreen();
+      debugPrint('ROUTE_TO_LOGIN');
+      debugPrint('ROUTE_TO_LOGIN_REASON: guest_not_acknowledged');
+      unawaited(SessionDiagnostics.recordRoute('login', 'guest_not_acknowledged'));
+      return (screen: const LoginScreen(), key: 'login');
     }
     if (state.isBanned) {
-      return _BannedScreen(reason: state.banReason);
+      unawaited(SessionDiagnostics.recordRoute('banned', 'banned'));
+      return (
+        screen: _BannedScreen(reason: state.banReason),
+        key: 'banned:${user.uid}',
+      );
     }
     // E-posta/şifre ile kayıtlı ama doğrulanmamış kullanıcı katkı
     // yapamasın — uygulamaya girmeden önce mail kutusundaki linke
     // tıklamalı. Google ile gelenler zaten verified=true gelir.
     if (!user.isAnonymous && !user.emailVerified) {
-      return const VerifyEmailScreen();
+      unawaited(SessionDiagnostics.recordRoute('verify_email', 'email_not_verified'));
+      return (screen: const VerifyEmailScreen(), key: 'verify:${user.uid}');
     }
     debugPrint('ROUTE_TO_HOME: uid=${user.uid} anon=${user.isAnonymous}');
-    return const MainScreen();
-  }
-
-  String _routeKey(User? user, AppState state) {
-    if (user == null) return 'login';
-    if (user.isAnonymous && !state.guestAcknowledged) return 'login';
-    if (state.isBanned) return 'banned:${user.uid}';
-    if (!user.isAnonymous && !user.emailVerified) return 'verify:${user.uid}';
-    return 'main:${user.uid}';
+    unawaited(SessionDiagnostics.recordRoute(
+      'home',
+      user.isAnonymous ? 'guest' : 'authenticated',
+    ));
+    return (screen: const MainScreen(), key: 'main:${user.uid}');
   }
 }
 

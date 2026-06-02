@@ -411,58 +411,91 @@ class FirebaseService {
       users.doc(uid).collection('productAlerts');
 
   /// Cold-start oturum geri-yükleme yarışını yalnızca SÜREÇTE BİR KEZ bekleriz.
-  /// İlk `ensureSignedIn` çağrısı (uygulama açılışı) diskten oturum geri
+  /// İlk `restoreSession` çağrısı (uygulama açılışı) diskten oturum geri
   /// yüklenmesini bekler; sonraki çağrılarda (ör. logout sonrası yeniden init)
   /// currentUser zaten otoriterdir, gereksiz bekleme yapmayız.
   bool _restoreWaitConsumed = false;
 
-  /// Mevcut oturumu döndürür; gerçekten oturum yoksa anonim oturum açar.
+  /// Cold start'ta oturum geri-yükleme beklemesi en az bir kez yapıldı mı?
+  /// AuthGate, currentUser null olduğunda ikinci bir bekleme yapmamak için
+  /// (ör. fresh install / manuel logout sonrası tekrar beklememek) bunu okur.
+  bool get restoreAlreadyAttempted => _restoreWaitConsumed;
+
+  /// Diskten kalıcı oturumu geri yükler ve döndürür.
   ///
-  /// Dönen değer `null` olabilir: SADECE hiç oturum yokken (ilk kurulum) VE
-  /// cihaz çevrimdışı olduğu için anonim oturum bile açılamadığında. Bu durum
-  /// çağıranlar tarafından "login ekranı göster" olarak yorumlanır — ASLA bir
-  /// hata ekranına / crash'e dönüşmez.
+  /// ÖNEMLİ: Bu metot ASLA otomatik anonim oturum AÇMAZ. Anonim (misafir)
+  /// oturum yalnızca kullanıcı login ekranında "Misafir olarak devam et"
+  /// butonuna basınca [signInAsGuestExplicitly] üzerinden açılır.
   ///
-  /// Kayıtlı bir kullanıcının oturumu Firebase tarafından diske kalıcı yazılır
-  /// ve cold start'ta AĞ GEREKTİRMEDEN geri yüklenir; bu yüzden daha önce giriş
+  /// Dönen değer:
+  ///  - non-null: kayıtlı/anonim oturum diskten geri yüklendi.
+  ///  - null: gerçekten oturum yok (ilk kurulum, manuel çıkış sonrası, ya da
+  ///    geri-yükleme [timeout] içinde tamamlanmadı). Çağıran bunu "login
+  ///    ekranı göster" olarak yorumlar — ASLA hata/crash değildir.
+  ///
+  /// Kayıtlı kullanıcı oturumu Firebase tarafından diske kalıcı yazılır ve
+  /// cold start'ta AĞ GEREKTİRMEDEN geri yüklenir; bu yüzden daha önce giriş
   /// yapmış bir kullanıcı çevrimdışı açılışta da currentUser üzerinden gelir.
-  Future<User?> ensureSignedIn() async {
+  Future<User?> restoreSession({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    debugPrint('AUTH_RESTORE_START');
     // 1) Oturum zaten geri yüklendiyse hemen dön — en sık yol.
     final cur = auth.currentUser;
+    debugPrint(
+      'AUTH_RESTORE_CURRENT_USER_INITIAL: uid=${cur?.uid} '
+      'anon=${cur?.isAnonymous}',
+    );
     if (cur != null) {
       _restoreWaitConsumed = true;
-      debugPrint(
-        'AUTH_CURRENT_USER_PRESENT: uid=${cur.uid} anon=${cur.isAnonymous}',
-      );
+      debugPrint('AUTH_RESTORE_USER_FOUND: uid=${cur.uid} (anlık)');
       return cur;
     }
     // 2) Cold start yarışı: Firebase.initializeApp() döndükten sonra Auth,
     // diskteki kalıcı oturumu ASENKRON geri yükler. Bu kısa pencerede
     // currentUser bir an için null olabilir — kayıtlı kullanıcı olsa bile.
-    // Hemen signInAnonymously()'ye düşersek, geri yüklenmekte olan kayıtlı
-    // oturumu yeni bir anonim hesapla eziyoruz ve kullanıcı login ekranına
-    // atılıyor. Bu yüzden hem authStateChanges'i dinleyip hem currentUser'ı
-    // kısa aralıklarla yoklayarak oturumun geri yüklenmesini bekliyoruz.
-    // NOT: Bu bekleme yalnız ilk (cold start) çağrıda yapılır — logout sonrası
-    // currentUser gerçekten null'dur, beklemeden devam ederiz.
+    // authStateChanges'i dinleyip currentUser'ı kısa aralıklarla yoklayarak
+    // oturumun geri yüklenmesini bekliyoruz. NOT: Bu bekleme yalnız ilk
+    // (cold start) çağrıda yapılır — manuel logout sonrası currentUser
+    // gerçekten null'dur, beklemeden döneriz.
     if (!_restoreWaitConsumed) {
-      debugPrint('AUTH_CURRENT_USER_NULL: SESSION_RECOVERY_ATTEMPT');
-      final restored = await _awaitRestoredUser(const Duration(seconds: 5));
+      debugPrint('AUTH_RESTORE_WAITING: currentUser null, geri yükleme bekleniyor');
+      final restored = await _awaitRestoredUser(timeout);
       _restoreWaitConsumed = true;
       if (restored != null) {
-        debugPrint('SESSION_RECOVERY_SUCCESS: uid=${restored.uid}');
+        debugPrint('AUTH_RESTORE_USER_FOUND: uid=${restored.uid}');
         return restored;
       }
+      debugPrint('AUTH_RESTORE_TIMEOUT_NO_USER: oturum geri yüklenemedi');
+      return null;
     }
-    // 3) Gerçekten kalıcı oturum yok. Katalog gezilebilsin diye anonim oturum
-    // aç. Çevrimdışıysak bu çağrı network-request-failed atar — yutup null
-    // dönüyoruz; auth gate hata ekranı yerine login ekranı gösterir.
-    debugPrint('SESSION_RECOVERY_FAILED: anonim oturum deneniyor');
+    // 3) Bekleme zaten tüketildi (ör. manuel logout sonrası yeniden init):
+    // currentUser gerçekten null. Otomatik anonim oturum AÇMIYORUZ.
+    debugPrint(
+      'ANON_AUTO_SIGN_IN_BLOCKED_ON_STARTUP: oturum yok, anonim açılmadı',
+    );
+    return null;
+  }
+
+  /// Kullanıcı login ekranında "Misafir olarak devam et"e bastığında çağrılır.
+  /// App başlangıcında ASLA otomatik tetiklenmez. Zaten anonim bir oturum
+  /// varsa onu döndürür; yoksa yeni bir anonim oturum açar. Çevrimdışıysa
+  /// `null` döner (UI net Türkçe hata gösterir).
+  Future<User?> signInAsGuestExplicitly() async {
+    debugPrint('GUEST_SIGN_IN_EXPLICIT_START');
+    final cur = auth.currentUser;
+    if (cur != null && cur.isAnonymous) {
+      debugPrint(
+        'GUEST_SIGN_IN_EXPLICIT_SUCCESS: mevcut anonim oturum uid=${cur.uid}',
+      );
+      return cur;
+    }
     try {
       final cred = await auth.signInAnonymously();
+      debugPrint('GUEST_SIGN_IN_EXPLICIT_SUCCESS: uid=${cred.user?.uid}');
       return cred.user;
     } catch (e) {
-      debugPrint('ANON_SIGN_IN_FAILED_SOFT: $e');
+      debugPrint('GUEST_SIGN_IN_EXPLICIT_FAILED: $e');
       return null;
     }
   }

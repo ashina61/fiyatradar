@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/firebase_service.dart';
+import '../services/session_diagnostics.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -110,6 +113,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(false);
+      // Başarılı giriş → manuel çıkış işaretini temizle (sonraki cold start'ta
+      // oturum geri-yükleme normal şekilde beklensin).
+      unawaited(SessionDiagnostics.clearExplicitLogout());
       await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
       if (!mounted) return;
       // E-posta/şifre kayıtlı kullanıcı doğrulamadan uygulamaya
@@ -209,6 +215,8 @@ class _LoginScreenState extends State<LoginScreen> {
     // (bootstrap) işlemler patlasa bile kullanıcıyı auth'tan ATMA.
     state.syncUserFromAuthSession();
     state.setGuestAcknowledged(false);
+    // Başarılı giriş → manuel çıkış işaretini temizle.
+    unawaited(SessionDiagnostics.clearExplicitLogout());
 
     var bootstrapOk = true;
     try {
@@ -257,7 +265,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final state = AppStateScope.of(context);
     setState(() => _submitting = true);
     try {
-      final guest = await FirebaseService.instance.ensureSignedIn();
+      // Anonim oturum YALNIZCA burada (kullanıcı açıkça "Misafir olarak devam
+      // et"e bastığında) açılır — app başlangıcında otomatik AÇILMAZ.
+      final guest = await FirebaseService.instance.signInAsGuestExplicitly();
       if (guest == null || !guest.isAnonymous) {
         throw FirebaseAuthException(
           code: 'guest-auth-failed',
@@ -266,6 +276,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       state.syncUserFromAuthSession();
       state.setGuestAcknowledged(true);
+      // Misafir de geçerli bir oturumdur → manuel çıkış işaretini temizle.
+      unawaited(SessionDiagnostics.clearExplicitLogout());
       await state.refreshFromAuthSession(preserveGuestAcknowledged: true);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
