@@ -801,7 +801,7 @@ class _SessionDiagnosticsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsetsDirectional.all(FRSpace.m),
       decoration: frSurface(radius: FRRad.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -842,7 +842,7 @@ class _SessionDiagnosticsCard extends StatelessWidget {
                 children: labels.entries.map((e) {
                   final value = data[e.key] ?? '—';
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsetsDirectional.only(bottom: FRSpace.xs),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
