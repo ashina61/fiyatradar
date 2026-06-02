@@ -18,6 +18,7 @@ import '../services/firebase_service.dart';
 import '../services/messaging_service.dart';
 import '../services/premium_service.dart';
 import '../services/price_report_service.dart';
+import '../services/session_diagnostics.dart';
 
 // NOT: AppState god-class refactor (extension/part'lara bölme) Aşama 3+
 // backlog'unda kaldı. Test pasta olmadan private state alanlarını
@@ -747,20 +748,25 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     });
     debugPrint('AUTH_CURRENT_USER_CHECK');
-    user = await _svc.ensureSignedIn();
+    // Diskten kalıcı oturumu geri yükle. ÖNEMLİ: Bu çağrı otomatik anonim
+    // oturum AÇMAZ — login/home kararını vermez, sadece oturumu geri yükler.
+    // Route kararını AuthGate verir.
+    user = await _svc.restoreSession();
     if (user == null) {
-      // Hiç oturum yok (ilk kurulum + çevrimdışı gibi) — anonim oturum bile
-      // açılamadı. Bu bir HATA değil: auth gate login ekranını göstersin.
+      // Hiç oturum yok (ilk kurulum, manuel çıkış sonrası ya da geri-yükleme
+      // tamamlanamadı). Bu bir HATA değil ve init bir route kararı VERMEZ —
+      // sessizce çıkarız; AuthGate splash/login kararını kendisi verir.
       // Uid'e bağlı dinleyicileri kurmuyoruz; kullanıcı giriş yapınca
       // refreshFromAuthSession → init tekrar çalışıp tam kurulumu yapar.
       // _authSub yukarıda zaten bağlı; oturum geç geri yüklenirse gate
       // otomatik ana ekrana geçer.
-      debugPrint('ROUTE_TO_LOGIN: currentUser yok, soft login state');
+      debugPrint('APP_BOOTSTRAP_SUCCESS: oturum yok, sessiz mod (AuthGate karar verir)');
       _initialized = true;
       _initInProgress = false;
       notifyListeners();
       return;
     }
+    unawaited(SessionDiagnostics.recordAuthSeen(user!));
     final currentUid = user?.uid;
     final authPhotoUrl = user?.photoURL?.trim();
     if (authPhotoUrl != null && authPhotoUrl.isNotEmpty) {
@@ -3636,6 +3642,9 @@ class AppState extends ChangeNotifier {
     // yeni anonim kullanıcının yanlışlıkla "onaylı misafir" sayılıp login
     // ekranını atlamaması adına kalıcı değeri init'ten önce temizle.
     await _persistGuestAcknowledged(false);
+    // MANUEL çıkış işareti: bir sonraki cold start'ta AuthGate, oturum
+    // geri-yüklemeyi beklemeden doğrudan login ekranı gösterebilsin.
+    await SessionDiagnostics.markExplicitLogout();
     await _svc.auth.signOut();
     await init();
   }

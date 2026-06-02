@@ -12,6 +12,7 @@ import '../models/price_reporting.dart';
 import '../models/product.dart';
 import '../services/firebase_service.dart';
 import '../services/messaging_service.dart';
+import '../services/session_diagnostics.dart';
 import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
@@ -778,6 +779,93 @@ class AboutScreen extends StatelessWidget {
             onTap: () => _openExternalLink(
                 context, 'https://support.google.com/googleplay/answer/7018481'),
           ),
+          // Oturum tanılama — yalnızca debug build'de veya admin hesapta görünür.
+          // PC/logcat olmadan "neden login'e düştüm?" sorusunu cihaz üstünde
+          // yanıtlamak için. Login/route kararını ETKİLEMEZ.
+          if (kDebugMode || AppStateScope.of(context).isAdmin) ...[
+            const SizedBox(height: 10),
+            const _SessionDiagnosticsCard(),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Ayarlar > Hakkında içinde gösterilen küçük oturum tanılama alanı.
+/// [SessionDiagnostics.snapshot] üstünden son route sebebini ve kimlik
+/// bilgilerini okur. Salt-okunur, debug amaçlı.
+class _SessionDiagnosticsCard extends StatelessWidget {
+  const _SessionDiagnosticsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsetsDirectional.all(FRSpace.m),
+      decoration: frSurface(radius: FRRad.l),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bug_report_outlined, size: 16, color: FR.ink3),
+              const SizedBox(width: 6),
+              Text('OTURUM TANILAMA', style: frOverline(color: FR.ink3)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FutureBuilder<Map<String, String>>(
+            future: SessionDiagnostics.snapshot(),
+            builder: (context, snap) {
+              final data = snap.data;
+              if (data == null) {
+                return Text('Yükleniyor…',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3));
+              }
+              if (data.isEmpty) {
+                return Text('Tanılama kaydı yok.',
+                    style: frText(11.5, FontWeight.w600, color: FR.ink3));
+              }
+              const labels = <String, String>{
+                'lastRoute': 'Son ekran',
+                'lastRouteReason': 'Sebep',
+                'lastAuthRestoreResult': 'Geri yükleme',
+                'lastExplicitLogout': 'Manuel çıkış',
+                'lastAuthProvider': 'Sağlayıcı',
+                'lastAuthEmail': 'E-posta',
+                'lastAuthUid': 'UID',
+                'lastAuthSeenAt': 'Son görülme',
+                'lastLogoutAt': 'Son çıkış',
+              };
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: labels.entries.map((e) {
+                  final value = data[e.key] ?? '—';
+                  return Padding(
+                    padding: const EdgeInsetsDirectional.only(bottom: FRSpace.xs),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 96,
+                          child: Text(
+                            e.value,
+                            style: frText(11, FontWeight.w700, color: FR.ink3),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            value,
+                            style: frText(11, FontWeight.w600, color: FR.ink2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1022,6 +1110,15 @@ class ReleaseNotesScreen extends StatelessWidget {
     // user-facing language so the changelog reads like a customer release
     // note rather than an internal commit list.
     const notes = <({String version, String date, List<String> items})>[
+      (
+        version: 'v1.1.0',
+        date: '2 Haziran 2026',
+        items: [
+          'Oturum sürekliliği güçlendirildi.',
+          'Uygulama kapatılıp açıldığında gereksiz giriş ekranına dönme '
+              'sorunu giderildi.',
+        ],
+      ),
       (
         version: 'v1.0.9',
         date: '1 Haziran 2026',
@@ -2103,6 +2200,9 @@ class _AccountScreenState extends State<AccountScreen> {
         await FirebaseService.instance.userDoc(uid).delete();
       } catch (_) {}
       await user.delete();
+      // Hesap silindi → login'e gidilecek. Manuel çıkışla aynı: bir sonraki
+      // cold start'ta oturum geri-yüklemesi beklenmeden login gösterilebilsin.
+      await SessionDiagnostics.markExplicitLogout();
       // Clear state and rebuild auth gate.
       await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
       if (!mounted) return;
