@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Cloud Functions dependencies
         working-directory: functions
@@ -42,7 +42,10 @@ jobs:
         # NOT: firestore:indexes daha önce eksikti — step adı "indexes" dese de
         # komut deploy etmiyordu (audit Y2). productAlerts collection-group
         # index'i olmadan alarm sorguları FAILED_PRECONDITION alıyordu.
-        run: firebase deploy --project fiyatradar-611967 --only functions,firestore:rules,firestore:indexes --non-interactive
+        run: >-
+          firebase deploy --project fiyatradar-611967
+          --only functions:onProductPriceDrop,functions:onPriceGroupUpdate,functions:onPriceVerificationChange,functions:verifyPurchase,functions:enforceFreeAlertLimit,functions:processAccountDeletion,firestore:rules,firestore:indexes
+          --non-interactive --force
 
       - name: Clean up credentials
         if: always()
