@@ -1,13 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "productAlerts",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "productId", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "store_places",
       "queryScope": "COLLECTION",
       "fields": [
@@ -620,5 +613,14 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "productAlerts",
+      "fieldPath": "productId",
+      "indexes": [
+        { "queryScope": "COLLECTION", "order": "ASCENDING" },
+        { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
+      ]
+    }
+  ]
 }
