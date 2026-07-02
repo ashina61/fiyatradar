@@ -57,10 +57,33 @@ class SessionDiagnostics {
     }
   }
 
+  /// Cold start'ta geri yüklenmesi BEKLENEN bir oturum var mı?
+  /// `true` → daha önce bir kullanıcı görüldü ve manuel çıkış yapılmadı;
+  /// AuthGate restore timeout'unda login'e düşmek yerine beklemeyi uzatır.
+  /// (Ör. Play Store güncellemesi sonrası ilk soğuk açılışta restore 8 sn'yi
+  /// aşabiliyor — kullanıcı "otomatik çıkış yapıldı" sanıyordu.)
+  static Future<bool> expectsPersistedSession() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final explicit = p.getBool(_kExplicitLogout) ?? false;
+      if (explicit) return false;
+      final lastUid = p.getString(_kLastAuthUid) ?? '';
+      return lastUid.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Oturumdaki kullanıcı görüldüğünde son kimlik bilgilerini kaydeder.
+  /// Canlı bir oturum görülmesi, önceki manuel çıkış işaretini de geçersiz
+  /// kılar — yarım kalmış logout (işaret yazıldı ama signOut tamamlanmadı)
+  /// senaryosunda bayat bayrak bir sonraki açılışta login'e düşürmesin.
   static Future<void> recordAuthSeen(User user) async {
     try {
       final p = await SharedPreferences.getInstance();
+      if (p.getBool(_kExplicitLogout) ?? false) {
+        await p.setBool(_kExplicitLogout, false);
+      }
       await p.setString(_kLastAuthUid, user.uid);
       await p.setString(
         _kLastAuthEmail,

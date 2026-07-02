@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Yedekleme/aktarım tamamen kapalı (Android 12+).
+
+     Neden: Android Auto Backup, Firebase Auth'un diskteki oturum durumunu ve
+     uygulamanın SharedPreferences bayraklarını (explicit-logout, misafir
+     onayı vb.) yedekleyip geri yükleyebiliyor. Cihaz değişimi / yeniden
+     kurulum sonrası BAYAT bir auth-state geri geldiğinde oturum bozuk
+     başlıyor ve kullanıcı "otomatik çıkış yapıldı" görüyordu. Oturum tek
+     otorite olarak Firebase Auth'un canlı deposunda kalmalı. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

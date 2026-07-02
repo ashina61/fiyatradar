@@ -110,7 +110,10 @@ class HomeTab extends StatelessWidget {
                         return _TrendCard(
                           product: p,
                           isFavorite: state.isFavorite(p.id),
-                          onFavorite: () => state.toggleFavorite(p.id),
+                          onFavorite: () {
+                            frHaptic();
+                            state.toggleFavorite(p.id);
+                          },
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1637,11 +1640,14 @@ class _DailyStreakCard extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           InkWell(
-            onTap: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => MainScreen(initialIndex: ctaTabIndex),
-              ),
-            ),
+            onTap: () {
+              frHaptic();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => MainScreen(initialIndex: ctaTabIndex),
+                ),
+              );
+            },
             borderRadius: FRRad.all(999),
             child: Container(
               padding: const EdgeInsetsDirectional.symmetric(

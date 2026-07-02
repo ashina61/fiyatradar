@@ -57,6 +57,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Future<void> _purchase(ProductDetails p) async {
     if (_purchasing) return;
+    frHaptic();
     debugPrint('🛒 START_PURCHASE: ${p.id}');
     setState(() => _purchasing = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -86,6 +87,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         case PremiumPurchaseOutcome.verified:
           // Premium state listener üzerinden zaten "aktif" karta geçer;
           // kullanıcıya net onay ver.
+          frHapticSuccess();
           messenger.showSnackBar(
             const SnackBar(content: Text('Premium üyeliğin aktif. Teşekkürler!')),
           );

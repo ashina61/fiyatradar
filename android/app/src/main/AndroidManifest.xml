@@ -24,11 +24,20 @@
     <!-- Play Billing (FiyatRadar Pro abonelik) -->
     <uses-permission android:name="com.android.vending.BILLING"/>
 
+    <!-- allowBackup=false: Auto Backup, Firebase Auth oturum durumunu ve
+         SharedPreferences bayraklarını bayat şekilde geri yükleyip
+         "kendiliğinden çıkış yapılmış" oturumlara yol açabiliyordu.
+         Android 12+ için ayrıntı: res/xml/data_extraction_rules.xml.
+         enableOnBackInvokedCallback: Android 14+ predictive back desteği. -->
     <application
         android:label="FiyatRadar"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="false">
 
         <activity

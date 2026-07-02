@@ -324,4 +324,37 @@ Mevcut Pro seti **yeterli ve gerçek** (hepsi kodda doğrulandı): reklamsız de
 
 ---
 
-*Bu rapor ve 10. bölümdeki düzeltmeler `claude/kanka-app-review-w25ca9` branch'indedir.*
+## 11. OTURUM KALICILIĞI + 2026 UI/UX TURU (2026-07-02, ikinci geçiş)
+
+### 11a. "Uygulamaya girmeyince otomatik çıkış" bug'ı — kök neden analizi ve düzeltmeler
+Semptom: uygulama bir süre açılmayınca sonraki soğuk açılışta login ekranı geliyor.
+Tespit edilen üç ayrı mekanizma, üçü de kapatıldı:
+
+1. **Yavaş restore + 8 sn timeout** — Play Store uygulamayı arka planda güncellediğinde bir sonraki açılış "ilk soğuk açılış"tır ve Firebase Auth'un disk restore'u 8 sn sınırını aşabiliyordu → AuthGate `timeout` ile login'e düşüyordu. Düzeltme: `SessionDiagnostics.expectsPersistedSession()` (daha önce kullanıcı görüldü + manuel çıkış yok) true iken deadline login'e düşmek yerine **2 kez 10'ar sn uzatılır**; `restoreAlreadyAttempted` hızlı-login kısayolu da aynı korumaya bağlandı.
+2. **Bayat explicit-logout bayrağı** — logout'un yarıda kalması (işaret yazıldı, signOut tamamlanmadı) durumunda bayrak sonsuza dek true kalıp her açılışta login'i öne alıyordu. Düzeltme: `recordAuthSeen` canlı bir oturum gördüğü anda bayrağı temizler.
+3. **Android Auto Backup bayat auth-state geri yüklüyordu** — `allowBackup` hiç set edilmemişti (default **true**): cihaz değişimi/yeniden kurulumda Firebase Auth'un disk durumu + uygulamanın kendi bayrakları (explicit-logout dahil!) eski haliyle geri gelebiliyordu. Düzeltme: `android:allowBackup="false"` + `fullBackupContent="false"` + Android 12+ için `dataExtractionRules` (cloud-backup ve device-transfer tamamen kapalı).
+
+### 11b. 2026 UI/UX cilası
+Mevcut tasarım sistemi zaten üst seviye (espresso+altın palet, global Dialog/SnackBar/BottomSheet/PageTransitions temaları, fade-through geçişler, giriş animasyonları). Eksik olan üç modern katman eklendi:
+- **Edge-to-edge**: `SystemUiMode.edgeToEdge` + şeffaf status/navigation bar, ikon parlaklığı temaya bağlı (`fr_theme` `systemOverlayStyle` + MaterialApp seviyesinde senkron). Android 15'in zorunlu kıldığı görünüm artık tüm sürümlerde tutarlı.
+- **Predictive back** (Android 14+): `android:enableOnBackInvokedCallback="true"`.
+- **Dokunsal geri bildirim**: `frHaptic()` / `frHapticSuccess()` token helper'ları; favori, oy, "Ben de gördüm", yorum beğenisi, fiyat gönderimi başarısı, streak CTA ve satın alma akışına bağlandı.
+
+Tutarlılık notu: sayfalardaki ham `AlertDialog`/`SnackBar` kullanımları global tema (DialogTheme/SnackBarTheme) sayesinde zaten tek stile iniyor — ekran ekran müdahale gerekmedi.
+
+### 11c. Play Store final eksik listesi (kod dışı — Console işleri)
+Kod tarafı blocker'ları bu branch'te kapandı. Kalanlar operasyonel:
+1. `firebase deploy --only functions,firestore:rules,firestore:indexes` çalıştır (yeni CF'ler + kurallar + index'ler canlıya insin).
+2. Play Console: `fr_pro_monthly` / `fr_pro_yearly` aboneliklerini tanımla + servis hesabına **Finance** rolü (yoksa premium doğrulama çalışmaz).
+3. **Data Safety formu** — `docs/play_console_readiness.md`'deki veri listesi hazır; artık "users okuması owner-only" olduğu için beyanlar tutarlı.
+4. **Hesap silme URL'i** — Play, uygulama dışından erişilebilir bir silme talep sayfası ister; netlify sitesine basit bir "hesap silme talebi" sayfası ekle (uygulama içi silme artık gerçek çalışıyor).
+5. Gizlilik politikası URL'ini Console'a gir (sayfa zaten canlı).
+6. **IARC içerik derecelendirme** anketi: UGC var + moderasyon/şikayet mekanizması var olarak beyan et.
+7. AdMob: alan adına `app-ads.txt`, ödeme profili.
+8. Yeni geliştirici hesabıysa: **kapalı test şartı** (12 test kullanıcısı / 14 gün) — planla.
+9. Lansman verisi: pilot il/ilçe için seed fiyat verisi (boş feed'le çıkma).
+10. İlk sürüm sonrası pre-launch report + Crashlytics'i izle.
+
+---
+
+*Bu rapor ve 10-11. bölümlerdeki düzeltmeler `claude/kanka-app-review-w25ca9` branch'indedir.*

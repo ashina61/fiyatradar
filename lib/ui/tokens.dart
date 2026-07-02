@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +8,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// [FR] exposes live static getters bound to the active palette via
 /// [FRThemeController]. Callsites stay mostly identical — do not wrap
 /// decorations in `const` when they embed `FR.*`.
+
+/// Premium dokunuş geri bildirimi — kısa, tutarlı, tek noktadan.
+/// Hafif seçim tıklaması: favori, oy, doğrulama gibi mikro aksiyonlarda.
+void frHaptic() {
+  HapticFeedback.selectionClick();
+}
+
+/// Başarı vurgusu: fiyat gönderildi, satın alma tamamlandı gibi
+/// "iş bitti" anlarında.
+void frHapticSuccess() {
+  HapticFeedback.mediumImpact();
+}
 
 enum FRThemeMode { dark, light }
 
