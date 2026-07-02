@@ -164,9 +164,7 @@ void runBannerRoute(BuildContext context, AppState state, String route) {
   final lower = route.trim().toLowerCase();
   if (lower.isEmpty) return;
   if (lower == 'home') {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 0)),
-    );
+    MainScreen.switchTab(context, 0);
     return;
   }
   if (lower == 'explore' || lower == 'cheapest' || lower == 'newest' ||
@@ -180,27 +178,19 @@ void runBannerRoute(BuildContext context, AppState state, String route) {
     } else {
       state.setExplorePresetFilter(0);
     }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
-    );
+    MainScreen.switchTab(context, 1);
     return;
   }
   if (lower == 'add' || lower == 'addprice') {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
-    );
+    MainScreen.switchTab(context, 2);
     return;
   }
   if (lower == 'basket' || lower == 'cart' || lower == 'compare') {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 3)),
-    );
+    MainScreen.switchTab(context, 3);
     return;
   }
   if (lower == 'profile') {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 4)),
-    );
+    MainScreen.switchTab(context, 4);
     return;
   }
   if (lower == 'favorites') {

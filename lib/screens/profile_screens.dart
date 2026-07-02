@@ -1985,10 +1985,7 @@ class SettingsHubScreen extends StatelessWidget {
           _SecondaryHubAction(
             icon: Icons.grid_view_rounded,
             label: s.t('settings.backToExplore'),
-            onTap: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                  builder: (_) => const MainScreen(initialIndex: 1)),
-            ),
+            onTap: () => MainScreen.switchTab(context, 1),
           ),
         ],
       ),

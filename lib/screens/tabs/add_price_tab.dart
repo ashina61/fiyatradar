@@ -2520,11 +2520,7 @@ class _GuestAddPriceBlock extends StatelessWidget {
             FRCta(
               label: s.t('addPrice.guest.cta'),
               icon: Icons.person_add_alt_1_rounded,
-              onTap: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => const MainScreen(initialIndex: 4),
-                ),
-              ),
+              onTap: () => MainScreen.switchTab(context, 4),
             ),
           ],
         ),

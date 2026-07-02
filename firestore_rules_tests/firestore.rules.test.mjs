@@ -1187,3 +1187,116 @@ describe('users.points delta cap', () => {
     );
   });
 });
+
+describe('users streak/badge caps (hasSafeStreakBadgeMutation)', () => {
+  before(async () => {
+    await withDisabledRules(async (adminDb) => {
+      await setDoc(doc(adminDb, 'users/streaker'), {
+        isAdmin: false,
+        role: 'user',
+        points: 0,
+        currentStreak: 12,
+        longestStreak: 12,
+        verifyContributions: 3,
+        photoContributions: 2,
+        badges: ['first_report', 'streak_3', 'streak_7'],
+      });
+    });
+  });
+
+  const streakerDb = () =>
+    testEnv.authenticatedContext('streaker', { email_verified: true }).firestore();
+
+  test('cannot jump currentStreak by more than +1', async () => {
+    await assertFails(
+      updateDoc(doc(streakerDb(), 'users/streaker'), { currentStreak: 999 }),
+    );
+  });
+
+  test('day-over-day +1 streak advance succeeds', async () => {
+    await assertSucceeds(
+      updateDoc(doc(streakerDb(), 'users/streaker'), {
+        currentStreak: 13,
+        longestStreak: 13,
+      }),
+    );
+  });
+
+  test('streak reset to 1 (missed days) succeeds', async () => {
+    await assertSucceeds(
+      updateDoc(doc(streakerDb(), 'users/streaker'), { currentStreak: 1 }),
+    );
+  });
+
+  test('longestStreak cannot shrink', async () => {
+    await assertFails(
+      updateDoc(doc(streakerDb(), 'users/streaker'), { longestStreak: 1 }),
+    );
+  });
+
+  test('verify/photo contribution counters capped at +1', async () => {
+    await assertFails(
+      updateDoc(doc(streakerDb(), 'users/streaker'), { verifyContributions: 50 }),
+    );
+    await assertFails(
+      updateDoc(doc(streakerDb(), 'users/streaker'), { photoContributions: 50 }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(streakerDb(), 'users/streaker'), { verifyContributions: 4 }),
+    );
+  });
+
+  test('cannot self-award unknown badge id', async () => {
+    await assertFails(
+      updateDoc(doc(streakerDb(), 'users/streaker'), {
+        badges: ['first_report', 'streak_3', 'streak_7', 'legend_of_fiyat'],
+      }),
+    );
+  });
+
+  test('cannot bulk-award more than 4 new badges in one update', async () => {
+    await assertFails(
+      updateDoc(doc(streakerDb(), 'users/streaker'), {
+        badges: [
+          'first_report', 'ten_reports', 'fifty_reports',
+          'first_verify', 'ten_verifies', 'first_photo',
+          'streak_3', 'streak_7', 'streak_30',
+        ],
+      }),
+    );
+  });
+
+  test('cannot remove already-earned badges', async () => {
+    await assertFails(
+      updateDoc(doc(streakerDb(), 'users/streaker'), { badges: [] }),
+    );
+  });
+
+  test('legit single badge unlock succeeds', async () => {
+    await assertSucceeds(
+      updateDoc(doc(streakerDb(), 'users/streaker'), {
+        badges: ['first_report', 'streak_3', 'streak_7', 'ten_reports'],
+      }),
+    );
+  });
+});
+
+describe('appConfig rules', () => {
+  test('admin can write weeklySummary config', async () => {
+    const db = testEnv.authenticatedContext('admin1').firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'appConfig/weeklySummary'), {
+        enabled: true,
+        title: 'Haftalık özet',
+      }),
+    );
+  });
+
+  test('non-admin cannot read or write appConfig', async () => {
+    const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
+    await assertFails(getDoc(doc(db, 'appConfig/weeklySummary')));
+    await assertFails(
+      setDoc(doc(db, 'appConfig/weeklySummary'), { enabled: false }),
+    );
+  });
+});

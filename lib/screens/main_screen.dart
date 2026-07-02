@@ -13,6 +13,30 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key, this.initialIndex = 0});
   final int initialIndex;
 
+  /// Kök [MainScreen]'deki sekmeyi YERİNDE değiştirir.
+  ///
+  /// Eski desen `Navigator.pushReplacement(MainScreen(initialIndex: X))` idi:
+  /// tüm sekme state'leri (scroll konumu, form içeriği) sıfırlanıyor ve
+  /// pushed bir route'tan (örn. ürün detayı) çağrıldığında stack'te kök
+  /// MainScreen'in ÜZERİNE ikinci bir MainScreen birikiyordu — geri tuşu
+  /// kullanıcıyı "aynı ekranın eski kopyasına" düşürüyordu.
+  ///
+  /// Bu helper önce köke döner (pushed route'lar kapanır), sonra aktif
+  /// MainScreen state'inde sekmeyi değiştirir. Aktif state yoksa (teorik
+  /// edge case) eski davranışa geri düşer.
+  static void switchTab(BuildContext context, int index) {
+    final navigator = Navigator.of(context);
+    navigator.popUntil((route) => route.isFirst);
+    final state = _MainScreenState._active;
+    if (state != null && state.mounted) {
+      state._go(index);
+    } else {
+      navigator.pushReplacement(
+        MaterialPageRoute(builder: (_) => MainScreen(initialIndex: index)),
+      );
+    }
+  }
+
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
@@ -22,11 +46,22 @@ class _MainScreenState extends State<MainScreen> {
   late int _previousIndex;
   static const _tabs = [HomeTab(), ExploreTab(), AddPriceTab(), BasketTab(), ProfileTab()];
 
+  /// AuthGate `home:` olarak tek bir MainScreen yaşatır; [MainScreen.switchTab]
+  /// pushed route'lardan bu instance'a erişmek için kullanır.
+  static _MainScreenState? _active;
+
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex;
     _previousIndex = widget.initialIndex;
+    _active = this;
+  }
+
+  @override
+  void dispose() {
+    if (identical(_active, this)) _active = null;
+    super.dispose();
   }
 
   void _go(int i) {
