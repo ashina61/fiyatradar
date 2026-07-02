@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../product_detail_screen.dart';
+import '../product_request_screen.dart';
 import '../widgets/product_visual.dart';
 
 class ExploreTab extends StatefulWidget {
@@ -146,7 +147,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         isCollapsed: true,
-                        hintText: 'Ürün, marka veya mağaza…',
+                        hintText: 'Ürün veya marka ara…',
                         hintStyle: frText(13, FontWeight.w600, color: FR.ink3),
                       ),
                     ),
@@ -243,7 +244,9 @@ class _ExploreTabState extends State<ExploreTab> {
                           Icon(
                             _filter == 4
                                 ? Icons.location_off_outlined
-                                : Icons.radar_rounded,
+                                : _query.trim().isNotEmpty
+                                    ? Icons.search_off_rounded
+                                    : Icons.radar_rounded,
                             color: FR.ink3,
                             size: 36,
                           ),
@@ -257,10 +260,29 @@ class _ExploreTabState extends State<ExploreTab> {
                                 ? 'Bölgeni seç — yakınındaki ürünler bu listede görünür.'
                                 : _filter == 4
                                     ? 'Bu bölgede henüz fiyat paylaşımı olan ürün yok.'
-                                    : 'Radar bu filtrede ürün bulamadı.',
+                                    : _query.trim().isNotEmpty
+                                        ? '"${_query.trim()}" katalogda bulunamadı.'
+                                        : 'Radar bu filtrede ürün bulamadı.',
                             textAlign: TextAlign.center,
                             style: frText(13, FontWeight.w700, color: FR.ink3),
                           ),
+                          // Aranan ürün katalogda yoksa çıkmaz sokak bırakma —
+                          // kullanıcıyı ürün talebi akışına yönlendir (talep
+                          // ekranı daha önce yalnız Profil'den bulunabiliyordu).
+                          if (_filter != 4 && _query.trim().isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            FRCta(
+                              label: 'Ürün talebi oluştur',
+                              icon: Icons.playlist_add_rounded,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProductRequestScreen(
+                                      initialName: _query.trim()),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

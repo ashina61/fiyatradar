@@ -452,11 +452,17 @@ class _PanelTab extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _QuickJump(
-                icon: Icons.storefront_rounded,
-                label: 'Mağaza',
-                badge: 0,
-                onTap: () => onJump(3),
+              // Bekleyen şube önerisi sayısı — operasyonel öncelik panelde
+              // görünsün (eskiden rozet sabit 0'dı, bekleyen onaylar
+              // yalnız Mağaza sekmesine girince fark ediliyordu).
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: state.watchAdminPendingStorePlaces(limit: 12),
+                builder: (_, snap) => _QuickJump(
+                  icon: Icons.storefront_rounded,
+                  label: 'Mağaza',
+                  badge: snap.data?.length ?? 0,
+                  onTap: () => onJump(3),
+                ),
               ),
             ),
           ],

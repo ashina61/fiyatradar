@@ -11,14 +11,19 @@ import 'widgets/barcode_scanner_sheet.dart';
 /// document lands in `product_requests` with status=pending. Admins approve
 /// or reject from the admin console.
 class ProductRequestScreen extends StatefulWidget {
-  const ProductRequestScreen({super.key});
+  const ProductRequestScreen({super.key, this.initialName});
+
+  /// Arama/ürün seçici boş sonuç verdiğinde kullanıcının yazdığı sorguyla
+  /// ön-doldurulur — talebi sıfırdan yazdırmamak için.
+  final String? initialName;
 
   @override
   State<ProductRequestScreen> createState() => _ProductRequestScreenState();
 }
 
 class _ProductRequestScreenState extends State<ProductRequestScreen> {
-  final _nameCtrl = TextEditingController();
+  late final _nameCtrl =
+      TextEditingController(text: widget.initialName?.trim() ?? '');
   final _brandCtrl = TextEditingController();
   final _unitCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
