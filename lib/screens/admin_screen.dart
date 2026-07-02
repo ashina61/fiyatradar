@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'admin/admin_crud_screens.dart';
+import 'admin/admin_photo_review_screen.dart';
 import 'admin/admin_price_groups_screen.dart';
 import 'admin/admin_price_reports_screen.dart';
 import 'admin/admin_product_image_submissions_screen.dart';
@@ -260,6 +261,9 @@ class _AdminModuleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 6 modül dar ekranda (≤360dp) sabit Row'a sığmıyor ve etiketler
+    // kırpılıyordu ("İstatistik" → "İstat…"). Geniş ekranda eşit dağıt,
+    // dara düşünce yatay kaydırmaya geç.
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -267,17 +271,42 @@ class _AdminModuleBar extends StatelessWidget {
         borderRadius: FRRad.all(FRRad.xl),
         border: Border.all(color: FR.hairline),
       ),
-      child: Row(
-        children: [
-          for (final m in modules)
-            Expanded(
-              child: _AdminModuleTile(
-                module: m,
-                active: m.index == active,
-                onTap: () => onSelect(m.index),
-              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const minTileWidth = 62.0;
+          final fits = constraints.maxWidth >= modules.length * minTileWidth;
+          if (fits) {
+            return Row(
+              children: [
+                for (final m in modules)
+                  Expanded(
+                    child: _AdminModuleTile(
+                      module: m,
+                      active: m.index == active,
+                      onTap: () => onSelect(m.index),
+                    ),
+                  ),
+              ],
+            );
+          }
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                for (final m in modules)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 76),
+                    child: _AdminModuleTile(
+                      module: m,
+                      active: m.index == active,
+                      onTap: () => onSelect(m.index),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -424,11 +453,17 @@ class _PanelTab extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _QuickJump(
-                icon: Icons.storefront_rounded,
-                label: 'Mağaza',
-                badge: 0,
-                onTap: () => onJump(3),
+              // Bekleyen şube önerisi sayısı — operasyonel öncelik panelde
+              // görünsün (eskiden rozet sabit 0'dı, bekleyen onaylar
+              // yalnız Mağaza sekmesine girince fark ediliyordu).
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: state.watchAdminPendingStorePlaces(limit: 12),
+                builder: (_, snap) => _QuickJump(
+                  icon: Icons.storefront_rounded,
+                  label: 'Mağaza',
+                  badge: snap.data?.length ?? 0,
+                  onTap: () => onJump(3),
+                ),
               ),
             ),
           ],
@@ -1113,6 +1148,32 @@ class _PriceFlowTabState extends State<_PriceFlowTab> {
             context,
             MaterialPageRoute(builder: (_) => const AdminPriceReportsScreen()),
           ),
+        ),
+        const SizedBox(height: 10),
+        // Fotoğraflı fiyatlar onaylanana kadar yayına girmez; kuyruğun
+        // sayısı canlı gösterilir ki bekleyen iş gözden kaçmasın.
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseService.instance.db
+              .collection('priceReports')
+              .where('status', isEqualTo: 'pending_photo_review')
+              .limit(100)
+              .snapshots(),
+          builder: (_, snap) {
+            final count = snap.data?.docs.length ?? 0;
+            return _GenericRow(
+              title: 'Fotoğraf moderasyonu',
+              subtitle: count == 0
+                  ? 'Bekleyen fotoğraflı fiyat yok'
+                  : '$count fotoğraflı fiyat onay bekliyor',
+              icon: Icons.photo_camera_outlined,
+              withActions: true,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const AdminPhotoReviewScreen()),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 10),
         _GenericRow(
@@ -2443,6 +2504,7 @@ class _BannerAdminRow extends StatelessWidget {
   }
 
   Future<void> _delete(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -2467,10 +2529,19 @@ class _BannerAdminRow extends StatelessWidget {
       ),
     );
     if (ok != true) return;
-    if (banner.imagePath != null && banner.imagePath!.isNotEmpty) {
-      await FirebaseService.instance.deleteStorageFile(banner.imagePath!);
+    try {
+      if (banner.imagePath != null && banner.imagePath!.isNotEmpty) {
+        await FirebaseService.instance.deleteStorageFile(banner.imagePath!);
+      }
+      await FirebaseService.instance.banners.doc(banner.id).delete();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Banner silindi.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Banner silinemedi: $e')),
+      );
     }
-    await FirebaseService.instance.banners.doc(banner.id).delete();
   }
 
   @override
@@ -2734,8 +2805,8 @@ class _GenericRow extends StatelessWidget {
 ///     yapılan ayarlar saklanır ama özet otomatik gönderilmez.
 ///   • Gün/saat alanları zamanlama cron'una dağıtım anında işlenir; buradan
 ///     değiştirmek ancak yeniden dağıtımla etkinleşir (bilgilendirme amaçlı).
-///   • Yeni `appConfig` alanına yazma izni için tek seferlik güvenlik kuralı
-///     güncellemesi + dağıtım gerekir; aksi halde kayıt "izin yok" ile döner.
+///   • `appConfig` yazma izni firestore.rules'ta tanımlı (admin-only);
+///     kuralların canlıya dağıtılmış olması gerekir.
 class AdminWeeklySummaryScreen extends StatefulWidget {
   const AdminWeeklySummaryScreen({super.key});
 
@@ -2852,9 +2923,9 @@ class _AdminWeeklySummaryScreenState extends State<AdminWeeklySummaryScreen> {
       setState(() {
         _saving = false;
         _statusNote =
-            'Kaydedilemedi: yönetim altyapısı henüz canlı değil. Bu ayarın '
-            'yazılabilmesi için tek seferlik güvenlik kuralı güncellemesi + '
-            'dağıtım gerekir. (Teknik: appConfig yazma izni)';
+            'Kaydedilemedi. Bağlantını kontrol edip tekrar dene. Sorun '
+            'sürerse güvenlik kuralları henüz dağıtılmamış olabilir '
+            '(firebase deploy --only firestore:rules). Teknik detay: $e';
       });
     }
   }

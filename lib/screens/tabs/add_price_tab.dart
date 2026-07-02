@@ -16,6 +16,7 @@ import '../../ui/components.dart';
 import '../../ui/tokens.dart';
 import '../../l10n/app_strings.dart';
 import '../main_screen.dart';
+import '../product_request_screen.dart';
 import '../widgets/region_picker_sheet.dart';
 
 class AddPriceTab extends StatefulWidget {
@@ -2341,7 +2342,9 @@ class _ProductPickerState extends State<_ProductPicker> {
             ),
           ),
           Expanded(
-            child: ListView.separated(
+            child: items.isEmpty
+                ? _ProductPickerEmptyState(query: _q, scrollCtrl: scrollCtrl)
+                : ListView.separated(
               controller: scrollCtrl,
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 30), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
               itemCount: items.length,
@@ -2385,6 +2388,57 @@ class _ProductPickerState extends State<_ProductPicker> {
   }
 }
 
+
+/// Ürün seçici boş sonuç verdiğinde çıkmaz sokak bırakma: kullanıcıyı
+/// ürün talebi akışına yönlendir (sorgu ön-doldurulmuş olarak). Ürün talebi
+/// ekranı daha önce yalnız Profil sekmesinden keşfedilebiliyordu.
+class _ProductPickerEmptyState extends StatelessWidget {
+  const _ProductPickerEmptyState({required this.query, required this.scrollCtrl});
+  final String query;
+  final ScrollController scrollCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasQuery = query.trim().isNotEmpty;
+    return ListView(
+      controller: scrollCtrl,
+      padding: const EdgeInsetsDirectional.fromSTEB(FRSpace.xl, FRSpace.xl, FRSpace.xl, FRSpace.xxl),
+      children: [
+        Icon(Icons.search_off_rounded, color: FR.ink3, size: 34),
+        const SizedBox(height: 12),
+        Text(
+          hasQuery
+              ? '"${query.trim()}" katalogda bulunamadı'
+              : 'Katalog henüz boş',
+          textAlign: TextAlign.center,
+          style: frText(14, FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Ürün talebi oluştur — ekip onaylayınca katalogda görünür ve '
+          'fiyatını ekleyebilirsin.',
+          textAlign: TextAlign.center,
+          style: frText(12, FontWeight.w600, color: FR.ink3, height: 1.5),
+        ),
+        const SizedBox(height: 16),
+        FRCta(
+          label: 'Ürün talebi oluştur',
+          icon: Icons.playlist_add_rounded,
+          onTap: () {
+            final nav = Navigator.of(context);
+            nav.pop();
+            nav.push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    ProductRequestScreen(initialName: query.trim()),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
 
 class _ProofPhotoPicker extends StatelessWidget {
   const _ProofPhotoPicker({
@@ -2520,11 +2574,7 @@ class _GuestAddPriceBlock extends StatelessWidget {
             FRCta(
               label: s.t('addPrice.guest.cta'),
               icon: Icons.person_add_alt_1_rounded,
-              onTap: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => const MainScreen(initialIndex: 4),
-                ),
-              ),
+              onTap: () => MainScreen.switchTab(context, 4),
             ),
           ],
         ),

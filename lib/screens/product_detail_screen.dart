@@ -156,10 +156,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       'error=$e',
                     );
                   }
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                        builder: (_) => const MainScreen(initialIndex: 2)),
-                  );
+                  MainScreen.switchTab(context, 2);
                 },
                 onCart: () {
                   state.addToCart(product);
@@ -1162,11 +1159,7 @@ class _RegionalGroupCard extends StatelessWidget {
                         chainName: group.chainName,
                       );
                       if (!ctx.mounted) return;
-                      Navigator.of(ctx).pushReplacement(
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                const MainScreen(initialIndex: 2)),
-                      );
+                      MainScreen.switchTab(ctx, 2);
                     },
                   ),
                 ),
@@ -1270,10 +1263,7 @@ class _RegionalEmptyCta extends StatelessWidget {
                       'error=$e',
                     );
                   }
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                        builder: (_) => const MainScreen(initialIndex: 2)),
-                  );
+                  MainScreen.switchTab(context, 2);
                 },
               ),
             ],

@@ -135,11 +135,11 @@ service cloud.firestore {
     // (örn. hesap reset senaryosu — pratikte kullanılmıyor). Anahtar
     // değişmiyorsa sınır geçerli değil.
     function hasSafeEmailVerifiedMutation() {
-      return (!request.resource.data.diff(resource.data).changedKeys().hasAny(['emailVerified']) ||
+      return (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified']) ||
           (request.resource.data.emailVerified is bool &&
             (request.resource.data.emailVerified == false ||
               request.auth.token.email_verified == true))) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['emailVerifiedAt']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerifiedAt']) ||
           request.auth.token.email_verified == true);
     }
 
@@ -148,7 +148,7 @@ service cloud.firestore {
     // profil alanlarını" (ad, ilçe, dil, bildirim tercihi, vb.) ve
     // emailVerified senkronizasyonunu yapabilir.
     function touchesVerifiedOnlyUserFields() {
-      return request.resource.data.diff(resource.data).changedKeys().hasAny([
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'photoUrl',
         'profileImageUrl',
         'profileImagePath',
@@ -168,16 +168,16 @@ service cloud.firestore {
     }
 
     function hasSafeProfileImageMutation(uid) {
-      return (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImageUrl']) ||
+      return (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['profileImageUrl']) ||
           (request.resource.data.profileImageUrl is string &&
             request.resource.data.profileImageUrl.size() <= 2048)) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['photoUrl']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['photoUrl']) ||
           (request.resource.data.photoUrl is string &&
             request.resource.data.photoUrl.size() <= 2048)) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImagePath']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['profileImagePath']) ||
           (request.resource.data.profileImagePath is string &&
             request.resource.data.profileImagePath.matches('^user_profiles/' + uid + '/[^/]+\\.(jpg|png|webp)$'))) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['avatarUrl']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['avatarUrl']) ||
           (request.resource.data.avatarUrl is string &&
             request.resource.data.avatarUrl.size() <= 2048));
     }
@@ -271,7 +271,7 @@ service cloud.firestore {
       let before = (('likedBy' in resource.data) && resource.data.likedBy is list)
         ? resource.data.likedBy : [];
       let after = request.resource.data.likedBy;
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'likes',
           'likedBy',
           'updatedAt'
@@ -298,6 +298,17 @@ service cloud.firestore {
       return (field in data && data[field] is int) ? data[field] : 0;
     }
 
+    // Ucuz ön kontrol: puan/güven/katkı sayaçlarına hiç dokunulmuyorsa
+    // pahalı delta validasyonunu hiç çalıştırma. Kullanıcı update kuralı
+    // Firestore'un 1000-expression değerlendirme limitine yakın seyrediyor;
+    // bu kapılar tipik profil güncellemelerini ucuz tutar.
+    function touchesGamificationCounterFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'points', 'trustTotalVotes', 'trustVerifiedTotal',
+        'trustWrongTotal', 'contributions'
+      ]);
+    }
+
     function hasSafeUserGamificationMutation() {
       // Per-call delta caps:
       //   points          : <= +50  (single action: addProduct=25, addPrice=10, etc.)
@@ -305,24 +316,94 @@ service cloud.firestore {
       //   contributions   : <= +1   (one report at a time)
       // Without these caps any signed-in user can self-set `points: 9_999_999`
       // in a single update — the leaderboard / trust UI would silently lie.
+      // `let` bağlamaları expression bütçesi için: her intFieldOrZero çağrısı
+      // tek sefer değerlendirilir. (Fonksiyon başına en fazla 10 let!)
+      let nPoints = intFieldOrZero(request.resource.data, 'points');
+      let oPoints = intFieldOrZero(resource.data, 'points');
+      let nTotal = intFieldOrZero(request.resource.data, 'trustTotalVotes');
+      let oTotal = intFieldOrZero(resource.data, 'trustTotalVotes');
+      let nVerified = intFieldOrZero(request.resource.data, 'trustVerifiedTotal');
+      let oVerified = intFieldOrZero(resource.data, 'trustVerifiedTotal');
+      let nWrong = intFieldOrZero(request.resource.data, 'trustWrongTotal');
+      let oWrong = intFieldOrZero(resource.data, 'trustWrongTotal');
+      let nContrib = intFieldOrZero(request.resource.data, 'contributions');
+      let oContrib = intFieldOrZero(resource.data, 'contributions');
       return intFieldOrMissing(request.resource.data, 'points') &&
         intFieldOrMissing(request.resource.data, 'trustTotalVotes') &&
         intFieldOrMissing(request.resource.data, 'trustVerifiedTotal') &&
         intFieldOrMissing(request.resource.data, 'trustWrongTotal') &&
         intFieldOrMissing(request.resource.data, 'contributions') &&
-        intFieldOrZero(request.resource.data, 'points') >= 0 &&
-        intFieldOrZero(request.resource.data, 'points') >= intFieldOrZero(resource.data, 'points') &&
-        intFieldOrZero(request.resource.data, 'points') <= intFieldOrZero(resource.data, 'points') + 50 &&
-        intFieldOrZero(request.resource.data, 'trustTotalVotes') >= intFieldOrZero(resource.data, 'trustTotalVotes') &&
-        intFieldOrZero(request.resource.data, 'trustTotalVotes') <= intFieldOrZero(resource.data, 'trustTotalVotes') + 1 &&
-        intFieldOrZero(request.resource.data, 'trustVerifiedTotal') >= intFieldOrZero(resource.data, 'trustVerifiedTotal') &&
-        intFieldOrZero(request.resource.data, 'trustVerifiedTotal') <= intFieldOrZero(resource.data, 'trustVerifiedTotal') + 1 &&
-        intFieldOrZero(request.resource.data, 'trustWrongTotal') >= intFieldOrZero(resource.data, 'trustWrongTotal') &&
-        intFieldOrZero(request.resource.data, 'trustWrongTotal') <= intFieldOrZero(resource.data, 'trustWrongTotal') + 1 &&
-        intFieldOrZero(request.resource.data, 'trustVerifiedTotal') + intFieldOrZero(request.resource.data, 'trustWrongTotal') ==
-          intFieldOrZero(request.resource.data, 'trustTotalVotes') &&
-        intFieldOrZero(request.resource.data, 'contributions') >= intFieldOrZero(resource.data, 'contributions') &&
-        intFieldOrZero(request.resource.data, 'contributions') <= intFieldOrZero(resource.data, 'contributions') + 1;
+        nPoints >= 0 && nPoints >= oPoints && nPoints <= oPoints + 50 &&
+        nTotal >= oTotal && nTotal <= oTotal + 1 &&
+        nVerified >= oVerified && nVerified <= oVerified + 1 &&
+        nWrong >= oWrong && nWrong <= oWrong + 1 &&
+        nVerified + nWrong == nTotal &&
+        nContrib >= oContrib && nContrib <= oContrib + 1;
+    }
+
+    function badgeListOrEmpty(data) {
+      return (('badges' in data) && data.badges is list) ? data.badges : [];
+    }
+
+    // Streak / rozet / katkı-türü sayaçları için per-call üst sınırlar.
+    // Bu alanlar hasOnlyUserWritableKeys'te yazılabilir listede ama önceden
+    // hiçbir delta kontrolü yoktu — doğrulanmış bir istemci tek update ile
+    // `currentStreak: 999` + tüm rozetleri yazabiliyordu (gamification.dart
+    // içindeki TODO). Meşru istemci davranışı (_awardContributionRewards):
+    //   • currentStreak: aynı gün değişmez, ertesi gün +1, ara verilince 1'e
+    //     reset → 0 <= next <= prev+1 hepsini kapsar.
+    //   • longestStreak: max(prev, yeni streak) → asla düşmez, en çok +1.
+    //   • verify/photoContributions: tek katkıda +1.
+    //   • badges: yalnız bilinen rozet id'leri eklenebilir, silinemez; tek
+    //     katkıda en fazla 4 rozet aynı anda açılabilir (örn. 10. rapor +
+    //     ilk fotoğraf + streak_3).
+    //   • lastContributionDay: timestamp ve ileri tarihli olamaz (UTC gün
+    //     başı yazılır; +1 gün tolerans).
+    // Ucuz ön kontrol — bkz. touchesGamificationCounterFields notu.
+    function touchesStreakBadgeFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'currentStreak', 'longestStreak', 'verifyContributions',
+        'photoContributions', 'badges', 'lastContributionDay'
+      ]);
+    }
+
+    function hasSafeStreakBadgeMutation() {
+      let nCur = intFieldOrZero(request.resource.data, 'currentStreak');
+      let oCur = intFieldOrZero(resource.data, 'currentStreak');
+      let nLong = intFieldOrZero(request.resource.data, 'longestStreak');
+      let oLong = intFieldOrZero(resource.data, 'longestStreak');
+      let nVerify = intFieldOrZero(request.resource.data, 'verifyContributions');
+      let oVerify = intFieldOrZero(resource.data, 'verifyContributions');
+      let nPhoto = intFieldOrZero(request.resource.data, 'photoContributions');
+      let oPhoto = intFieldOrZero(resource.data, 'photoContributions');
+      return intFieldOrMissing(request.resource.data, 'currentStreak') &&
+        intFieldOrMissing(request.resource.data, 'longestStreak') &&
+        intFieldOrMissing(request.resource.data, 'verifyContributions') &&
+        intFieldOrMissing(request.resource.data, 'photoContributions') &&
+        nCur >= 0 && nCur <= oCur + 1 &&
+        nLong >= oLong && nLong <= oLong + 1 &&
+        nVerify >= oVerify && nVerify <= oVerify + 1 &&
+        nPhoto >= oPhoto && nPhoto <= oPhoto + 1 &&
+        hasSafeBadgeMutation() &&
+        (!request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['lastContributionDay']) ||
+          (request.resource.data.lastContributionDay is timestamp &&
+            request.resource.data.lastContributionDay <=
+              request.time + duration.value(1, 'd')));
+    }
+
+    function hasSafeBadgeMutation() {
+      let before = badgeListOrEmpty(resource.data);
+      let after = badgeListOrEmpty(request.resource.data);
+      return after.size() <= before.size() + 4 &&
+        // Silme yok: mevcut rozetlerin tamamı korunmalı.
+        before.toSet().difference(after.toSet()).size() == 0 &&
+        // Yalnız bilinen rozet id'leri eklenebilir.
+        after.toSet().difference(before.toSet()).hasOnly([
+          'first_report', 'ten_reports', 'fifty_reports',
+          'first_verify', 'ten_verifies', 'first_photo',
+          'streak_3', 'streak_7', 'streak_30'
+        ]);
     }
 
     function hasSafePriceHistoryMutation() {
@@ -384,7 +465,9 @@ service cloud.firestore {
           hasNoImmutableUserChanges() &&
           hasSafeProfileImageMutation(uid) &&
           hasSafeUsernameCooldown() &&
-          hasSafeUserGamificationMutation() &&
+          (!touchesGamificationCounterFields() ||
+            hasSafeUserGamificationMutation()) &&
+          (!touchesStreakBadgeFields() || hasSafeStreakBadgeMutation()) &&
           hasSafeEmailVerifiedMutation() &&
           // Profil fotoğrafı / puan / streak gibi katkı alanlarına dokunmak
           // istiyorsa kullanıcı doğrulanmış olmalı. Ad/ilçe/dil/bildirim
@@ -766,7 +849,7 @@ service cloud.firestore {
 
     match /priceReports/{priceId} {
       function hasOnlyPriceReportOwnerWritableKeys() {
-        return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'price',
           'storeName',
           'chainId',
@@ -874,6 +957,21 @@ service cloud.firestore {
         (!('confidence' in request.resource.data) || request.resource.data.confidence in ['low', 'medium', 'high']);
     }
 
+    // "Ben de gördüm" doğrulama akışı: yalnız verifiedCount (+1) ve
+    // updatedAt değişir. Bu yol lastReporterId == auth.uid ŞARTINA TABİ
+    // DEĞİL — doğrulayan kişi neredeyse hiçbir zaman son raporlayan
+    // değildir; eski kural bu yüzden tüm doğrulama transaction'larını
+    // permission-denied ile düşürüyordu. Sayaç yine +1 ile sınırlı ve
+    // onPriceGroupReconcile Cloud Function'ı sahte artışları dedupe
+    // kayıtlarından yeniden hesaplayarak geri alır.
+    function hasSafeVerifyOnlyPriceGroupBump() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['verifiedCount', 'updatedAt']) &&
+        request.resource.data.verifiedCount is int &&
+        request.resource.data.verifiedCount >= intFieldOrZero(resource.data, 'verifiedCount') &&
+        request.resource.data.verifiedCount <= intFieldOrZero(resource.data, 'verifiedCount') + 1;
+    }
+
     match /priceGroups/{groupId} {
       allow read: if true;
       // First-write: yalnız doğrulanmış kullanıcı (counter 0 varsayılır).
@@ -885,7 +983,9 @@ service cloud.firestore {
       // verify at a time). Stops `verifiedCount: 99999` style attacks.
       // Admin bypass: moderasyon reset'i (verifiedCount=0'a çekme) monotonik
       // sayaç kuralına takılmasın diye admin'e tam yetki (audit K5).
-      allow update: if isAdmin() || (isVerified() &&
+      allow update: if isAdmin() ||
+        (isVerified() && hasSafeVerifyOnlyPriceGroupBump()) ||
+        (isVerified() &&
         hasSafePriceGroupPayload() &&
         priceGroupCounterMonotonic('reportCount') &&
         priceGroupCounterMonotonic('verifiedCount') &&
@@ -896,6 +996,15 @@ service cloud.firestore {
         request.resource.data.cityId == resource.data.cityId &&
         request.resource.data.districtId == resource.data.districtId);
       allow delete: if isAdmin();
+    }
+
+    // Uygulama yapılandırması (ör. appConfig/weeklySummary). Admin paneli
+    // yazar; Cloud Function'lar Admin SDK ile okur (rules'tan bağımsız).
+    // Bu match eklenmeden önce koleksiyon catch-all deny'a takılıyordu ve
+    // AdminWeeklySummaryScreen'in kaydetme butonu her zaman izin hatası
+    // veriyordu.
+    match /appConfig/{configId} {
+      allow read, write: if isAdmin();
     }
 
     // Hesap silme talepleri (audit K1). Kullanıcı kendi uid'iyle bir talep

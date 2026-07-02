@@ -227,7 +227,8 @@ class GamificationSnapshot {
 class StreakCalculator {
   /// Yeni katkı geldiğinde mevcut snapshot'tan beklenen yeni streak
   /// değerlerini üretir. Üst sınırlar Firestore rules tarafında
-  /// `currentStreak +1` olarak korunmalı (TODO: rules update).
+  /// `hasSafeStreakBadgeMutation` ile korunur (currentStreak ≤ prev+1,
+  /// longestStreak monotonik, rozet yalnız bilinen id ve silinemez).
   ///
   /// Mantık:
   ///   - Aynı gün ikinci katkı → streak değişmez.

@@ -44,10 +44,7 @@ class HomeTab extends StatelessWidget {
             delay: nextDelay(),
             child: _RadarHero(
               state: state,
-              onInspect: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                    builder: (_) => const MainScreen(initialIndex: 1)),
-              ),
+              onInspect: () => MainScreen.switchTab(context, 1),
             ),
           ),
           const SizedBox(height: 14),
@@ -84,10 +81,7 @@ class HomeTab extends StatelessWidget {
               eyebrow: 'BU HAFTA',
               title: 'Fiyatı düşenler',
               action: TextButton(
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                      builder: (_) => const MainScreen(initialIndex: 1)),
-                ),
+                onPressed: () => MainScreen.switchTab(context, 1),
                 child: Text('Tümü',
                     style: frText(12, FontWeight.w800, color: FR.goldDeep)),
               ),
@@ -228,10 +222,7 @@ class _HomeHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         InkWell(
-          onTap: () => Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-                builder: (_) => const MainScreen(initialIndex: 4)),
-          ),
+          onTap: () => MainScreen.switchTab(context, 4),
           borderRadius: FRRad.all(16),
           child: Container(
             width: 52,
@@ -452,10 +443,7 @@ class _HomeActionStrip extends StatelessWidget {
                 icon: Icons.add_rounded,
                 title: 'Fiyat ekle',
                 subtitle: '20 saniyede paylaş',
-                onTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                      builder: (_) => const MainScreen(initialIndex: 2)),
-                ),
+                onTap: () => MainScreen.switchTab(context, 2),
               ),
             ),
             Container(width: 1, color: FR.hairlineSoft),
@@ -464,10 +452,7 @@ class _HomeActionStrip extends StatelessWidget {
                 icon: Icons.compare_arrows_rounded,
                 title: 'Sepeti karşılaştır',
                 subtitle: 'En ucuz marketi bul',
-                onTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                      builder: (_) => const MainScreen(initialIndex: 3)),
-                ),
+                onTap: () => MainScreen.switchTab(context, 3),
               ),
             ),
           ],
@@ -1120,11 +1105,7 @@ class _CategoryStrip extends StatelessWidget {
             onTap: () {
               final state = AppStateScope.read(context);
               state.setExplorePresetCategory(c);
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => const MainScreen(initialIndex: 1),
-                ),
-              );
+              MainScreen.switchTab(context, 1);
             },
           );
         },
@@ -1487,10 +1468,7 @@ class _FeedEmptyState extends StatelessWidget {
           FRCta(
             label: 'Fiyat ekle',
             icon: Icons.add_rounded,
-            onTap: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                  builder: (_) => const MainScreen(initialIndex: 2)),
-            ),
+            onTap: () => MainScreen.switchTab(context, 2),
           ),
           const SizedBox(height: 10),
           FRCta(
@@ -1642,11 +1620,7 @@ class _DailyStreakCard extends StatelessWidget {
           InkWell(
             onTap: () {
               frHaptic();
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => MainScreen(initialIndex: ctaTabIndex),
-                ),
-              );
+              MainScreen.switchTab(context, ctaTabIndex);
             },
             borderRadius: FRRad.all(999),
             child: Container(

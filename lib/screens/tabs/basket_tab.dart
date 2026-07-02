@@ -249,9 +249,7 @@ class _EmptyCart extends StatelessWidget {
               child: FRCta(
                 label: 'Ürün keşfet',
                 icon: Icons.radar_rounded,
-                onTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
-                ),
+                onTap: () => MainScreen.switchTab(context, 1),
               ),
             ),
           ],
@@ -577,9 +575,7 @@ class _ComparePanelState extends State<_ComparePanel> {
           return _CompareEmptyData(
             city: state.cityName!.trim(),
             district: state.districtName!.trim(),
-            onAddPrice: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
-            ),
+            onAddPrice: () => MainScreen.switchTab(context, 2),
             onPickRegion: () => _pickRegion(state),
           );
         }
@@ -679,9 +675,7 @@ class _ComparePanelState extends State<_ComparePanel> {
       productIds: estimate.missingProductIds,
       chainName: estimate.chainName,
     );
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
-    );
+    MainScreen.switchTab(context, 2);
   }
 }
 
@@ -805,9 +799,7 @@ class _GuestQuotaPill extends StatelessWidget {
     final low = remaining <= 1;
     final color = low ? FR.warn : FR.gold;
     return InkWell(
-      onTap: () => Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 4)),
-      ),
+      onTap: () => MainScreen.switchTab(context, 4),
       borderRadius: FRRad.all(FRRad.m),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -880,9 +872,7 @@ class _GuestLimitReached extends StatelessWidget {
               child: FRCta(
                 label: s.t('basket.guest.signupCta'),
                 icon: Icons.person_add_alt_1_rounded,
-                onTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 4)),
-                ),
+                onTap: () => MainScreen.switchTab(context, 4),
               ),
             ),
             const SizedBox(height: 10),
@@ -1512,9 +1502,7 @@ class _SingleStoreCard extends StatelessWidget {
       productId: firstId,
       chainName: estimate.chainName,
     );
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
-    );
+    MainScreen.switchTab(context, 2);
   }
 
   @override

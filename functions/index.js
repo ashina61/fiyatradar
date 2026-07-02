@@ -1737,3 +1737,252 @@ exports.premiumExpirySweep = onSchedule(
     logger.info('premiumExpirySweep tamamlandı', { downgraded: expired.size });
   },
 );
+
+/**
+ * ─── priceGroups sunucu-otoriter aggregation (audit K4) ─────────────────────
+ *
+ * priceGroups aggregate'leri istemci transaction'ında yazılıyor; rules
+ * (monotonik sayaç + kimlik kilidi) saldırı yüzeyini daraltsa da kötü
+ * niyetli bir istemci trustedPrice/avgPrice gibi alanlara izin verilen
+ * aralıkta sahte değer basabiliyordu. Bu reconciliation katmanı grubu
+ * HER zaman kaynak koleksiyonlardan (priceReports + priceReportDedupes)
+ * yeniden hesaplar ve fark varsa düzeltir:
+ *
+ *   • priceReports yazımı (create/update/delete) → grup yeniden hesaplanır.
+ *     Böylece admin'in rapor silmesi/onaylaması aggregate'e otomatik yansır
+ *     (fotoğraf onayı: pending_photo_review → active geçişi grubu günceller).
+ *   • priceGroups yazımı → tamper koruması: doğrudan grup dokümanına
+ *     yapılan sahte yazımlar saniyeler içinde gerçek değerlerle ezilir.
+ *     Sonsuz döngü koruması: yeniden hesaplanan değerler mevcutla aynıysa
+ *     yazma atlanır.
+ *
+ * Not: client'ın transaction'daki iyimser grup yazımı korunur (anında UI);
+ * bu katman yalnızca düzeltici otoritedir.
+ */
+
+function computeGroupConfidence(reportCount, verifiedCount) {
+  const signal = reportCount + verifiedCount;
+  if (signal >= 10) return 'high';
+  if (signal >= 4) return 'medium';
+  return 'low';
+}
+
+function nearlyEqual(a, b) {
+  if (a === null || b === null) return a === b;
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return a === b;
+  return Math.abs(na - nb) < 0.005;
+}
+
+async function reconcilePriceGroup(groupId) {
+  if (!groupId) return;
+  const groupRef = db.collection('priceGroups').doc(groupId);
+
+  const [reportsSnap, dedupesSnap, groupSnap] = await Promise.all([
+    db.collection('priceReports').where('groupId', '==', groupId).get(),
+    db.collection('priceReportDedupes').where('groupId', '==', groupId).get(),
+    groupRef.get(),
+  ]);
+
+  const active = [];
+  for (const doc of reportsSnap.docs) {
+    const m = doc.data() || {};
+    if ((m.status || 'active') !== 'active') continue;
+    const price = Number(m.price);
+    if (!Number.isFinite(price) || price <= 0) continue;
+    active.push({
+      price,
+      createdAt: m.createdAt instanceof admin.firestore.Timestamp ? m.createdAt : null,
+      sourceType: (m.sourceType || '').toString(),
+      hasPhoto: typeof m.photoUrl === 'string' && m.photoUrl.trim().length > 0,
+      userId: (m.userId || '').toString(),
+      productId: (m.productId || '').toString(),
+      productName: (m.productName || '').toString(),
+      chainId: (m.chainId || '').toString(),
+      chainName: (m.chainName || '').toString(),
+      cityId: (m.cityId || '').toString(),
+      cityName: (m.cityName || '').toString(),
+      districtId: (m.districtId || '').toString(),
+      districtName: (m.districtName || '').toString(),
+    });
+  }
+
+  if (active.length === 0) {
+    if (groupSnap.exists) {
+      logger.info('reconcilePriceGroup: aktif rapor kalmadı, grup siliniyor', { groupId });
+      await groupRef.delete();
+    }
+    return;
+  }
+
+  active.sort((a, b) => {
+    const ta = a.createdAt ? a.createdAt.toMillis() : 0;
+    const tb = b.createdAt ? b.createdAt.toMillis() : 0;
+    return ta - tb;
+  });
+  const first = active[0];
+  const latest = active[active.length - 1];
+
+  // Client semantiği: trustedPrice ilk fiyatla başlar, yalnız branchNear
+  // kaynaklı yeni fiyat onu günceller → son branchNear raporu, yoksa ilk
+  // rapor.
+  let trusted = first.price;
+  for (const r of active) {
+    if (r.sourceType === 'branchNear') trusted = r.price;
+  }
+
+  let sum = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  let photoCount = 0;
+  for (const r of active) {
+    sum += r.price;
+    if (r.price < min) min = r.price;
+    if (r.price > max) max = r.price;
+    if (r.hasPhoto) photoCount++;
+  }
+
+  // Grup verifiedCount = Σ (dedupe.verifiedCount - 1): dedupe doğumda 1
+  // (raporlayanın kendisi) ile başlar, her "ben de gördüm" +1 ekler.
+  let verified = 0;
+  for (const doc of dedupesSnap.docs) {
+    const c = Number((doc.data() || {}).verifiedCount);
+    if (Number.isFinite(c) && c > 1) verified += c - 1;
+  }
+
+  const computed = {
+    productId: latest.productId,
+    productName: latest.productName,
+    chainId: latest.chainId,
+    chainName: latest.chainName,
+    cityId: latest.cityId,
+    cityName: latest.cityName,
+    districtId: latest.districtId,
+    districtName: latest.districtName,
+    latestPrice: latest.price,
+    trustedPrice: trusted,
+    avgPrice: sum / active.length,
+    minPrice: min,
+    maxPrice: max,
+    reportCount: active.length,
+    verifiedCount: verified,
+    photoReportCount: photoCount,
+    lastReporterId: latest.userId,
+    confidence: computeGroupConfidence(active.length, verified),
+    sourceType: latest.sourceType,
+    displayTitle: `${latest.chainName} · ${latest.districtName} / ${latest.cityName}`,
+  };
+
+  const current = groupSnap.exists ? groupSnap.data() || {} : {};
+  const numericKeys = [
+    'latestPrice', 'trustedPrice', 'avgPrice', 'minPrice', 'maxPrice',
+    'reportCount', 'verifiedCount', 'photoReportCount',
+  ];
+  const stringKeys = [
+    'productId', 'productName', 'chainId', 'chainName',
+    'cityId', 'cityName', 'districtId', 'districtName',
+    'lastReporterId', 'confidence', 'sourceType', 'displayTitle',
+  ];
+  let differs = !groupSnap.exists;
+  if (!differs) {
+    for (const k of numericKeys) {
+      if (!nearlyEqual(current[k] ?? null, computed[k])) { differs = true; break; }
+    }
+  }
+  if (!differs) {
+    for (const k of stringKeys) {
+      if ((current[k] ?? '').toString() !== computed[k]) { differs = true; break; }
+    }
+  }
+  if (!differs) return; // no-op — döngü koruması
+
+  const lastCreated = latest.createdAt;
+  await groupRef.set(
+    {
+      ...computed,
+      ...(lastCreated ? { lastReportedAt: lastCreated } : {}),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  logger.info('reconcilePriceGroup: grup düzeltildi', {
+    groupId,
+    reportCount: computed.reportCount,
+    verifiedCount: computed.verifiedCount,
+  });
+}
+
+/**
+ * priceReports yazıldığında grup aggregate'lerini yeniden hesaplar ve
+ * fotoğraf moderasyonu karar bildirimlerini gönderir.
+ */
+exports.onPriceReportWritten = onDocumentWritten('priceReports/{reportId}', async (event) => {
+  const before = event.data.before.exists ? event.data.before.data() || {} : null;
+  const after = event.data.after.exists ? event.data.after.data() || {} : null;
+
+  const groupId = ((after && after.groupId) || (before && before.groupId) || '').toString();
+  // Legacy şema raporlarında (uid_entryId) groupId yok — reconcile edilmez.
+  if (groupId) {
+    try {
+      await reconcilePriceGroup(groupId);
+    } catch (e) {
+      logger.error('onPriceReportWritten reconcile failed', {
+        groupId,
+        error: e.message,
+      });
+    }
+  }
+
+  // Fotoğraf moderasyonu karar bildirimi: pending_photo_review → active|rejected.
+  const beforeStatus = before ? (before.status || '').toString() : '';
+  const afterStatus = after ? (after.status || '').toString() : '';
+  if (beforeStatus !== 'pending_photo_review' || beforeStatus === afterStatus || !after) {
+    return;
+  }
+  const reporterUid = (after.userId || '').toString();
+  if (!reporterUid) return;
+  const productName = (after.productName || 'Ürün').toString();
+  const approved = afterStatus === 'active';
+  const rejected = afterStatus === 'rejected';
+  if (!approved && !rejected) return;
+  try {
+    await db
+      .collection('users')
+      .doc(reporterUid)
+      .collection('notifications')
+      .add({
+        title: approved ? 'Fiyat katkın yayında' : 'Fiyat katkın yayınlanmadı',
+        body: approved
+          ? `${productName} için fotoğraflı fiyatın onaylandı ve topluluğa açıldı.`
+          : `${productName} için gönderdiğin fotoğraflı fiyat moderasyondan geçemedi.`,
+        type: approved ? 'price_report_approved' : 'price_report_rejected',
+        productId: (after.productId || '').toString(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+  } catch (e) {
+    logger.warn('photo review decision notification failed', {
+      reporterUid,
+      error: e.message,
+    });
+  }
+});
+
+/**
+ * priceGroups tamper koruması: gruba yapılan HER yazım sonrası kaynaktan
+ * yeniden hesapla. Meşru yazımlarda değerler zaten eşit çıkar ve yazma
+ * atlanır (no-op); sahte yazımlar saniyeler içinde düzeltilir.
+ */
+exports.onPriceGroupReconcile = onDocumentWritten('priceGroups/{groupId}', async (event) => {
+  const after = event.data.after.exists ? event.data.after.data() || {} : null;
+  const before = event.data.before.exists ? event.data.before.data() || {} : null;
+  if (!after && !before) return;
+  try {
+    await reconcilePriceGroup(event.params.groupId);
+  } catch (e) {
+    logger.error('onPriceGroupReconcile failed', {
+      groupId: event.params.groupId,
+      error: e.message,
+    });
+  }
+});
