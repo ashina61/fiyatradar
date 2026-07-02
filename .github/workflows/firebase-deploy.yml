@@ -44,7 +44,7 @@ jobs:
         # index'i olmadan alarm sorguları FAILED_PRECONDITION alıyordu.
         run: >-
           firebase deploy --project fiyatradar-611967
-          --only functions:onProductPriceDrop,functions:onPriceGroupUpdate,functions:onPriceVerificationChange,functions:verifyPurchase,functions:enforceFreeAlertLimit,functions:processAccountDeletion,firestore:rules,firestore:indexes
+          --only functions:onProductPriceDrop,functions:onPriceGroupUpdate,functions:onPriceVerificationChange,functions:verifyPurchase,functions:enforceFreeAlertLimit,functions:processAccountDeletion,functions:onPriceReportWritten,functions:onPriceGroupReconcile,firestore:rules,firestore:indexes
           --non-interactive --force
 
       - name: Clean up credentials
