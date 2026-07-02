@@ -103,7 +103,6 @@ class _PhotoReviewRowState extends State<_PhotoReviewRow> {
       context: context,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsetsDirectional.all(FRSpace.l),
         child: InteractiveViewer(
           child: ClipRRect(
             borderRadius: FRRad.all(FRRad.l),
