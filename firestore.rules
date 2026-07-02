@@ -193,17 +193,16 @@ service cloud.firestore {
       let nextHandle = ('usernameHandle' in next) ? next.usernameHandle : '';
       let prevHandle = ('usernameHandle' in prev) ? prev.usernameHandle : '';
       let handleChanged = nextHandle != prevHandle;
-      let lastChange = ('usernameChangedAt' in prev) ? prev.usernameChangedAt : null;
       return !handleChanged ||
         (
           ('usernameChangedAt' in next) &&
           next.usernameChangedAt is timestamp &&
           (
-            lastChange == null ||
-            !(lastChange is timestamp) ||
+            !('usernameChangedAt' in prev) ||
+            !(prev.usernameChangedAt is timestamp) ||
             // 90 gün = 7,776,000,000,000 mikrosaniye. Firestore rules
             // duration aritmetiği üzerinden ifade edersek:
-            request.time >= lastChange + duration.value(90, 'd')
+            request.time >= prev.usernameChangedAt + duration.value(90, 'd')
           )
         );
     }
