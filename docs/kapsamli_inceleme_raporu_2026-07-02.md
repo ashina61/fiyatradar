@@ -357,4 +357,40 @@ Kod tarafı blocker'ları bu branch'te kapandı. Kalanlar operasyonel:
 
 ---
 
-*Bu rapor ve 10-11. bölümlerdeki düzeltmeler `claude/kanka-app-review-w25ca9` branch'indedir.*
+## 12. KAPANIŞ — TESLİMAT ÖZETİ
+
+Bu inceleme-ve-düzeltme turunun tam dökümü:
+
+### Kapatılan bulgular
+| Kod | Bulgu | Durum |
+|---|---|---|
+| K1 | Hesap silme veri silmiyordu | ✅ deletionRequests + processAccountDeletion CF |
+| K2 | Doğrulama sonrası stale token | ✅ getIdToken(true) |
+| K3 | Yorum beğenisi kırık | ✅ hasSafeCommentLikeToggle kuralı |
+| K5 | Admin priceGroup reset kendi kuralına takılıyor | ✅ isAdmin bypass |
+| K6 | Create'te sahte gamification | ✅ create defaults sıkılaştırıldı |
+| K7 | Telefon/fcmToken sızıntısı | ✅ users read owner/admin |
+| Y1 | productAlerts full-scan maliyet bombası | ✅ fallback'ler kaldırıldı |
+| Y2 | Index'ler deploy edilmiyordu | ✅ workflow'a firestore:indexes |
+| Y3 | Admin şubeler index eksik | ✅ index eklendi |
+| Y4 | Premium expiry süpürücüsü yok | ✅ premiumExpirySweep cron |
+| Y9 | Yorum boyut tutarsızlığı | ✅ 2-1000 hizalandı |
+| — | "Girmeyince otomatik çıkış" | ✅ 3 kök neden (timeout uzatma, bayat bayrak, Auto Backup) |
+| — | Splash dark flaşı, ölü checkout, EN etiket, 760KB asset | ✅ |
+
+### Eklenen özellikler
+- Günlük Seri kartı (ana sayfa, retention)
+- Edge-to-edge + predictive back + haptics (2026 UI katmanları)
+- Paywall'da 2 ek Pro ayrıcalığı görünür kılındı
+
+### Bilinçli açık bırakılanlar (sonraki sprint)
+- K4: priceGroups aggregation'ının Cloud Function'a taşınması (büyük refactor)
+- Y5-Y8: weeklySummary N+1, katalog tam indirme, priceReports çift şema, çoklu FCM token
+
+### Merge + deploy prosedürü
+1. Bu branch (`claude/kanka-app-review-w25ca9`) → default branch (`claude/fiyatradar-app-oKr5R`) PR ile merge edilir (CI: Flutter analyze+test, Engineering Guardrails, Firestore rules testleri).
+2. Merge sonrası **Firebase Deploy** workflow'u default branch'ten `workflow_dispatch` ile tetiklenir → functions + firestore:rules + firestore:indexes canlıya iner.
+3. Deploy sonrası doğrulama: (a) Firebase Console → Functions'ta `processAccountDeletion` ve `premiumExpirySweep` listelenmeli, (b) Firestore → Indexes'te yeni 3 index "Building/Enabled" olmalı, (c) test cihazında hesap silme → `deletionRequests` doc'u `processed` olmalı.
+4. Play Console operasyon listesi: Bölüm 11c (SKU'lar + Finance rolü, Data Safety, hesap silme URL'i, IARC, app-ads.txt, kapalı test, seed veri).
+
+*Bu rapor ve 10-12. bölümlerdeki tüm düzeltmeler `claude/kanka-app-review-w25ca9` branch'indedir.*
