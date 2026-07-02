@@ -424,8 +424,12 @@ class _SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Keep Flutter boot visually continuous with the native launch
-    // background: warm cream field, restrained premium wordmark.
-    final bg = FRPalette.light.bg;
+    // background. Tema koyu ise koyu paleti kullan — eskiden her zaman
+    // açık krem geliyordu ve dark mode kullanıcısı açılışta beyaz flaş
+    // görüyordu.
+    final bg = FRThemeController.instance.isDark
+        ? FRPalette.dark.bg
+        : FRPalette.light.bg;
     return Scaffold(
       backgroundColor: bg,
       body: Center(

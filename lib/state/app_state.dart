@@ -321,6 +321,17 @@ class AppState extends ChangeNotifier {
     user = fresh;
     final verified = fresh?.emailVerified == true && fresh?.isAnonymous != true;
     if (verified && fresh != null) {
+      // KRİTİK: Firestore/Storage kuralları `request.auth.token.email_verified`
+      // CLAIM'ine bakar; `reload()` yalnız client-side bayrağı tazeler, ID
+      // token 1 saate kadar eski kalabilir. Token'ı zorla yenilemezsek yeni
+      // doğrulanan kullanıcının TÜM katkı yazımları (fiyat, yorum, alarm,
+      // aşağıdaki emailVerified doc yazımı dahil) permission-denied alır.
+      try {
+        await fresh.getIdToken(true);
+      } catch (_) {
+        // Best-effort; başarısızsa bir sonraki otomatik token yenilemesinde
+        // düzelir, akışı bloklamayalım.
+      }
       try {
         await _svc.userDoc(fresh.uid).set({
           'emailVerified': true,
@@ -349,10 +360,9 @@ class AppState extends ChangeNotifier {
     }
   }
   /// `regional_price_drop` push'larına abonelik. Cloud Function
-  /// `onPriceGroupUpdate` notification doc'unu yine yazar (in-app sinyali
-  /// kaybolmaması için), ama push gönderirken bu bayrağı kontrol etmesi
-  /// gerekiyor (TODO: functions/index.js bu alanı henüz okumuyor — bir
-  /// sonraki Cloud Functions deploy'unda eklenmeli).
+  /// `onPriceGroupUpdate` in-app notification doc'unu her durumda yazar;
+  /// push gönderirken bu bayrağı okuyup price_drop modunda respekt ediyor
+  /// (functions/index.js `regionalDropPushEnabled`).
   bool regionalDropPushEnabled = true;
 
   // Trust bookkeeping (0..1 used to weight this user's votes)
@@ -2332,13 +2342,13 @@ class AppState extends ChangeNotifier {
   /// Toggle a like on a comment. Uses an array transaction so concurrent
   /// likes don't drift the `likes` count from `likedBy` length.
   ///
-  /// NOTE: Firestore rules forbid non-owner updates to `likes`/`likedBy`
-  /// (see `hasOnlyCommentOwnerWritableKeys`). Until the rules expand to
-  /// allow signedIn users to like-toggle, this method will be denied for
-  /// non-owners — the UI surfaces the error.
+  /// Firestore rules (`hasSafeCommentLikeToggle`) yalnız doğrulanmış
+  /// kullanıcının kendi uid'ini ekleyip çıkarmasına izin verir; sayaç her
+  /// zaman likedBy uzunluğuna eşit tutulur.
   Future<void> toggleCommentLike(String commentId) async {
     final uid = user?.uid ?? '';
     if (uid.isEmpty) throw StateError('Beğenmek için giriş yapmalısın.');
+    _ensureEmailVerified('Yorum beğenmek');
     final ref = _svc.comments.doc(commentId);
     await _svc.db.runTransaction((tx) async {
       final snap = await tx.get(ref);
@@ -3028,52 +3038,11 @@ class AppState extends ChangeNotifier {
 
   int get cartItemCount => cart.fold(0, (a, c) => a + c.quantity);
 
-  // The fields below (deliveryFee / redeemDiscount / cartTotal /
-  // pointsEarnedForCart / setRedeemPoints / checkout) are scaffolding for
-  // a real checkout flow that hasn't shipped yet — there is no checkout UI
-  // anywhere in the app. They're kept so the future basket flow can wire
-  // them without revisiting the data layer. Do NOT call them from UI code
-  // until the checkout screen lands; the existing `BasketTab` only uses
-  // `cartSubtotal` and `cartSavings`.
-
-  @Deprecated('No checkout UI yet — see basket flow roadmap.')
-  double get deliveryFee => cartSubtotal >= 250 || cart.isEmpty ? 0 : 14.9;
-
-  @Deprecated('No checkout UI yet — see basket flow roadmap.')
-  double get redeemDiscount => pointsToRedeem * PointsRules.pointValueTl;
-
-  @Deprecated('No checkout UI yet — see basket flow roadmap.')
-  double get cartTotal {
-    // ignore: deprecated_member_use_from_same_package
-    final t = cartSubtotal + deliveryFee - redeemDiscount;
-    return t < 0 ? 0 : t;
-  }
-
-  @Deprecated('No checkout UI yet — see basket flow roadmap.')
-  int get pointsEarnedForCart => (cartSubtotal ~/ 10); // 1 puan per ₺10
-
-  @Deprecated('No checkout UI yet — see basket flow roadmap.')
-  void setRedeemPoints(int p) {
-    pointsToRedeem = p.clamp(0, points);
-    notifyListeners();
-  }
-
-  @Deprecated('No checkout UI yet — see basket flow roadmap.')
-  Future<void> checkout() async {
-    if (user == null || cart.isEmpty) return;
-    // ignore: deprecated_member_use_from_same_package
-    final earn = pointsEarnedForCart;
-    final redeem = pointsToRedeem;
-    final newPoints = (points - redeem + earn).clamp(0, 1 << 30);
-    await _svc.userDoc(user!.uid).update({
-      'points': newPoints,
-      'cart': <Map<String, dynamic>>[],
-      'lastCheckoutAt': FieldValue.serverTimestamp(),
-    });
-    cart.clear();
-    pointsToRedeem = 0;
-    notifyListeners();
-  }
+  // NOT: Eski checkout iskeleti (deliveryFee / redeemDiscount / cartTotal /
+  // pointsEarnedForCart / setRedeemPoints / checkout) kaldırıldı — hiçbir UI
+  // çağırmıyordu ve `checkout()` puanı doğrudan set ettiği için Firestore
+  // rules'un puan-azaltma yasağına takılıp sessizce kırılacaktı. Gerçek bir
+  // checkout akışı gelirse Cloud Function tabanlı tasarlanmalı.
 
   // --- Points helpers -----------------------------------------------------
 

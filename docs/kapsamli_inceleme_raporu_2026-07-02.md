@@ -284,4 +284,44 @@ Fikir doğru kategoride: Türkiye'de fiyat takibi talebi gerçek ve kanıtlanmı
 
 ---
 
-*Bu rapor `claude/kanka-app-review-w25ca9` branch'inde oluşturulmuştur; kod değişikliği yapılmamış, yalnızca inceleme çıktısıdır.*
+## 10. UYGULANAN DÜZELTMELER (2026-07-02, bu branch'te)
+
+Rapordaki bulguların önemli kısmı aynı branch'te koda işlendi:
+
+### Güvenlik / kural düzeltmeleri
+- **K1 — Hesap silme:** Yeni `deletionRequests/{uid}` koleksiyonu (rules) + `processAccountDeletion` Cloud Function'ı eklendi. Function, Admin SDK ile user doc + TÜM alt koleksiyonları (`recursiveDelete`), username rezervasyonunu, Storage klasörlerini (`user_profiles/`, `price_proofs/`, `product_image_submissions/`) ve Auth hesabını siler. Client akışı (`profile_screens._deleteAccount`) artık talep doc'u yazar; recent-login yoksa bile silme sunucuda tamamlanır.
+- **K2 — Stale token:** `reloadAndCheckVerification` artık doğrulama sonrası `getIdToken(true)` ile ID token'ı zorla yeniler — yeni doğrulanan kullanıcının katkı yazımları anında çalışır.
+- **K3 — Yorum beğenisi:** Rules'a `hasSafeCommentLikeToggle` eklendi: doğrulanmış kullanıcı yalnız kendi uid'ini `likedBy`'a ekleyip çıkarabilir, `likes == likedBy.size()` zorunlu. Client `toggleCommentLike`'a `_ensureEmailVerified` kapısı eklendi.
+- **K5 — Admin reset:** `priceGroups` update kuralına `isAdmin() ||` bypass eklendi; admin moderasyon reset'i artık çalışır.
+- **K6 — Sahte gamification:** `hasSafeUserCreateDefaults` artık `contributions`, `verifyContributions`, `photoContributions`, `currentStreak`, `longestStreak`, `badges` alanlarını da doğumda sıfıra zorluyor.
+- **K7 — Gizlilik:** `users/{uid}` read kuralı `isAdmin() || isOwner(uid)`'a daraltıldı (telefon/fcmToken sızıntısı kapandı; ekranlar denormalize yazar bilgisi kullandığı için client etkilenmiyor).
+- **Y9 — Yorum boyutları:** create'e 2-1000 karakter sınırı eklendi; update limiti 500→1000'e çekildi (uyumsuzluk giderildi). Ölü `hasOnlyCommentOwnerWritableKeys` fonksiyonu kaldırıldı.
+- Rules fixture'ı senkronlandı (`firestore_rules_tests/firestore.rules`).
+
+### Cloud Functions / altyapı
+- **Y1 — Maliyet bombası:** `onPriceGroupUpdate` ve `onProductPriceDrop`'taki `productAlerts` full-scan fallback'leri kaldırıldı (0 sonuçta bile tüm koleksiyonu tarıyordu).
+- **Y2 — Index deploy:** `firebase-deploy.yml` komutuna `firestore:indexes` eklendi.
+- **Y3 — Eksik index:** `store_places (isActive, status, createdAt DESC)` kompozit index'i eklendi — admin bekleyen şubeler ekranı çalışır.
+- **Y4 — Premium expiry:** Günlük `premiumExpirySweep` scheduled function eklendi (06:00 TSİ): `isPremium=true && premiumUntil < now` olan hesapları düşürür. Gerekli `(isPremium, premiumUntil)` index'i eklendi.
+
+### Client / UX
+- Splash artık dark mode'da koyu palete geçiyor (beyaz flaş bitti).
+- Ölü `checkout()` iskeleti (`deliveryFee`, `cartTotal`, `setRedeemPoints` vd.) kaldırıldı — rules'un puan-azaltma yasağına takılacak tehlikeli koddu.
+- İngilizce dil seçeneği "English (Beta)" + "kısmi çeviri" açıklamasıyla etiketlendi (yarı Türkçe arayüz bug sanılmasın).
+- Kullanılmayan 760KB JSON asset (`fiyatradar_marketler/urunler.json`) APK bundle'ından çıkarıldı (dosyalar repo'da duruyor).
+- `regionalDropPushEnabled` ile ilgili bayat TODO yorumu güncellendi (functions alanı zaten okuyor).
+
+### Engagement (kullanıcı bağlılığı)
+- **Ana sayfaya "Günlük Seri" kartı eklendi** (`_DailyStreakCard`): mevcut streak, bugünkü katkı durumu ("serin risk altında" uyarısı dahil), 3/7/30 gün rozet hedefine altın progress bar ve "Fiyat ekle" CTA'sı. Misafirde "Hesap aç" varyantı gösterilir. Tamamı mevcut gamification verisinden beslenir — ek Firestore okuması yok.
+
+### Premium değerlendirmesi
+Mevcut Pro seti **yeterli ve gerçek** (hepsi kodda doğrulandı): reklamsız deneyim, sınırsız alarm (free 3), 12 ay fiyat grafiği (free 7 gün), akıllı sepet önerisi, liderlikte Top-500 (free 200), haftalık bölge özeti (config default Pro-only), Pro rozeti. Eksik olan tek şey pazarlamasıydı: paywall'da anlatılmayan **"Haftalık bölge özeti"** ve **"Liderlikte Top 500"** ayrıcalıkları hem satış listesine hem "elindekiler" checklist'ine eklendi. `premiumExpirySweep` ile entitlement doğruluğu da güvenceye alındı.
+
+### Hâlâ açık kalanlar (bilinçli ertelendi)
+- **K4 — priceGroups fiyat manipülasyonu:** kalıcı çözüm aggregation'ın Cloud Function'a taşınması (büyük refactor; `submitRegionalPrice` transaction'ının yeniden tasarımı gerekir). Kural yüzeyi mevcut cap'lerle sınırlı kalmaya devam ediyor.
+- Y5 (weeklySummary N+1), Y6 (katalog tam indirme / priceHistory mirror phase-out), Y7 (priceReports çift şema), Y8 (çoklu FCM token) — mimari işler, ayrı sprint önerilir.
+- Deploy sonrası yapılacaklar: `firebase deploy` (functions + rules + indexes) çalıştırılmalı; rules emulator testleri (`firestore_rules_tests`) CI'da koşulmalı.
+
+---
+
+*Bu rapor ve 10. bölümdeki düzeltmeler `claude/kanka-app-review-w25ca9` branch'indedir.*

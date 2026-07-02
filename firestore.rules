@@ -216,6 +216,14 @@ service cloud.firestore {
         (!('trustTotalVotes' in request.resource.data) || request.resource.data.trustTotalVotes == 0) &&
         (!('trustVerifiedTotal' in request.resource.data) || request.resource.data.trustVerifiedTotal == 0) &&
         (!('trustWrongTotal' in request.resource.data) || request.resource.data.trustWrongTotal == 0) &&
+        // Gamification sayaçları da doğum anında sıfır olmalı — aksi halde
+        // yeni hesap kendine sahte katkı/rozet/streak yazabilir (audit K6).
+        (!('contributions' in request.resource.data) || request.resource.data.contributions == 0) &&
+        (!('verifyContributions' in request.resource.data) || request.resource.data.verifyContributions == 0) &&
+        (!('photoContributions' in request.resource.data) || request.resource.data.photoContributions == 0) &&
+        (!('currentStreak' in request.resource.data) || request.resource.data.currentStreak == 0) &&
+        (!('longestStreak' in request.resource.data) || request.resource.data.longestStreak == 0) &&
+        (!('badges' in request.resource.data) || request.resource.data.badges.size() == 0) &&
         // Premium kapısı doğum anında açık olamaz; Cloud Function aktifleştirir.
         (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false) &&
         (!('premiumUntil' in request.resource.data) || request.resource.data.premiumUntil == null);
@@ -256,15 +264,31 @@ service cloud.firestore {
       (!('authorTrustPercent' in request.resource.data) || request.resource.data.authorTrustPercent is int);
     }
 
-    function hasOnlyCommentOwnerWritableKeys() {
+    // Beğeni toggle'ı: yalnız likes/likedBy/updatedAt değişebilir, likes
+    // her zaman likedBy uzunluğuna eşit olmalı ve tek update'te SADECE
+    // çağıranın kendi uid'i eklenip/çıkarılabilir. Böylece sayaç şişirme
+    // ve başkası adına beğeni bırakma engellenir (audit K3).
+    function hasSafeCommentLikeToggle() {
+      let before = (('likedBy' in resource.data) && resource.data.likedBy is list)
+        ? resource.data.likedBy : [];
+      let after = request.resource.data.likedBy;
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
-        'text',
-        'updatedAt',
-        'authorName',
-        'authorAvatar',
-        'authorIsPro',
-        'authorTrustPercent'
-      ]);
+          'likes',
+          'likedBy',
+          'updatedAt'
+        ]) &&
+        after is list &&
+        request.resource.data.likes is int &&
+        request.resource.data.likes == after.size() &&
+        (
+          (
+            after.toSet().difference(before.toSet()) == [request.auth.uid].toSet() &&
+            before.toSet().difference(after.toSet()).size() == 0
+          ) || (
+            before.toSet().difference(after.toSet()) == [request.auth.uid].toSet() &&
+            after.toSet().difference(before.toSet()).size() == 0
+          )
+        );
     }
 
     function intFieldOrMissing(data, field) {
@@ -343,7 +367,12 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn();
+      // Kullanıcı dokümanı telefon numarası, fcmToken, sepet gibi özel
+      // veriler taşır — yalnız sahibi ve admin okuyabilir (audit K7).
+      // Başka kullanıcılara gösterilmesi gereken alanlar (görünen ad,
+      // avatar, Pro rozeti) zaten yorum/rapor dokümanlarına denormalize
+      // edilerek yazılıyor.
+      allow read: if isAdmin() || isOwner(uid);
 
       allow create: if isOwner(uid) &&
         (!(request.resource.data.keys().hasAny(['uid'])) || request.resource.data.uid == uid) &&
@@ -855,7 +884,9 @@ service cloud.firestore {
         (!('verifiedCount' in request.resource.data) || request.resource.data.verifiedCount == 0);
       // Updates: counters can grow by at most +1 per call (one report or one
       // verify at a time). Stops `verifiedCount: 99999` style attacks.
-      allow update: if isVerified() &&
+      // Admin bypass: moderasyon reset'i (verifiedCount=0'a çekme) monotonik
+      // sayaç kuralına takılmasın diye admin'e tam yetki (audit K5).
+      allow update: if isAdmin() || (isVerified() &&
         hasSafePriceGroupPayload() &&
         priceGroupCounterMonotonic('reportCount') &&
         priceGroupCounterMonotonic('verifiedCount') &&
@@ -864,8 +895,24 @@ service cloud.firestore {
         request.resource.data.productId == resource.data.productId &&
         request.resource.data.chainId == resource.data.chainId &&
         request.resource.data.cityId == resource.data.cityId &&
-        request.resource.data.districtId == resource.data.districtId;
+        request.resource.data.districtId == resource.data.districtId);
       allow delete: if isAdmin();
+    }
+
+    // Hesap silme talepleri (audit K1). Kullanıcı kendi uid'iyle bir talep
+    // doc'u yaratır; `processAccountDeletion` Cloud Function'ı Admin SDK ile
+    // tüm kullanıcı verisini (user doc + alt koleksiyonlar + username
+    // rezervasyonu + Storage dosyaları) ve Auth hesabını siler. Client'ın
+    // recent-login gereksinimi olmadan güvenilir silme sağlanır.
+    match /deletionRequests/{uid} {
+      allow read: if isAdmin() || isOwner(uid);
+      allow create: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly(['uid', 'status', 'requestedAt']) &&
+        request.resource.data.uid == uid &&
+        (!('status' in request.resource.data) || request.resource.data.status == 'pending');
+      // Durum güncellemesi yalnız sunucu/admin — kullanıcı talebi geri çekemez
+      // (silme zaten dakikalar içinde işlenir).
+      allow update, delete: if isAdmin();
     }
 
     // Dedupe ledger. Used to (a) detect same-day repeat submissions and
@@ -934,9 +981,14 @@ service cloud.firestore {
 
     match /comments/{commentId} {
       allow read: if true;
+      // Create'te metin boyutu da sınırlandı (audit Y9) — client 1000
+      // karakter kabul ediyor; kural bypass eden istemcinin dev doküman
+      // yazmasını engeller.
       allow create: if isVerified() &&
         hasSafeCommentCreatePayload() &&
         request.resource.data.userId == request.auth.uid &&
+        request.resource.data.text.size() >= 2 &&
+        request.resource.data.text.size() <= 1000 &&
         hasSafeCommentCreateDefaults();
       allow update: if isAdmin() ||
         (
@@ -952,8 +1004,13 @@ service cloud.firestore {
           ]) &&
           request.resource.data.text is string &&
           request.resource.data.text.size() > 0 &&
-          request.resource.data.text.size() <= 500
-        );
+          // Client 1000 karakter kabul ediyor; update limiti create ile
+          // hizalandı (eskiden 500 idi — 501-1000 karakterlik yorumlar
+          // düzenlenemiyordu, audit Y9).
+          request.resource.data.text.size() <= 1000
+        ) ||
+        // Doğrulanmış herhangi bir kullanıcı beğeni bırakabilir/geri alabilir.
+        (isVerified() && hasSafeCommentLikeToggle());
       allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
     }
 

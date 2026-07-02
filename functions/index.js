@@ -91,12 +91,16 @@ exports.onProductPriceDrop = onDocumentUpdated('products/{productId}', async (ev
       .get();
     interested = alertsSnap.docs;
   } catch (e) {
-    logger.warn('productAlerts indexed query failed, falling back to scan', {
+    // Full-scan fallback KALDIRILDI (audit Y1): tüm productAlerts
+    // koleksiyonunu taramak her fiyat değişiminde okuma maliyetini
+    // patlatıyordu. Index eksikse deploy pipeline'ı düzeltilmeli
+    // (firestore:indexes artık firebase-deploy.yml'da).
+    logger.error('productAlerts indexed query failed — is the '
+      + 'COLLECTION_GROUP productId index deployed?', {
       error: e.message,
       productId,
     });
-    const scan = await db.collectionGroup('productAlerts').get();
-    interested = scan.docs.filter((d) => d.id === productId);
+    return;
   }
   logger.info('PRICE_ALERT_QUERY_RESULT_COUNT', {
     productId,
@@ -568,43 +572,23 @@ exports.onPriceGroupUpdate = onDocumentWritten('priceGroups/{groupId}', async (e
       .get();
     alerts = snap.docs;
   } catch (e) {
-    // Indexli sorgu COLLECTION_GROUP scope'lu `productId` index'i ister.
-    // Prod deploy pipeline'ı `firestore:indexes`'i atladığı için bu index
-    // ortamda olmayabilir; sorgu FAILED_PRECONDITION fırlatır. Eskiden bu
-    // noktada `return` ediyorduk → alarm pipeline'ı sessizce ölüyor, hiç
-    // bildirim yazılmıyordu. Bunun yerine `onProductPriceDrop` ile aynı
-    // davranışı uygulayıp full-scan + doc-id eşleşmesine düşüyoruz.
-    logger.warn('priceGroup alerts indexed query failed, falling back to scan', {
+    // Full-scan fallback'leri KALDIRILDI (audit Y1): 0 sonuçta bile tüm
+    // productAlerts koleksiyonu taranıyordu — alarm kurulmamış ürünler en
+    // yaygın durum olduğu için HER fiyat raporu tam tarama tetikliyordu.
+    // Index eksikse sorun deploy'da: firestore:indexes artık
+    // firebase-deploy.yml'da deploy ediliyor.
+    logger.error('priceGroup alerts indexed query failed — is the '
+      + 'COLLECTION_GROUP productId index deployed?', {
       groupId: event.params.groupId,
       error: e.message,
     });
-    try {
-      const scan = await db.collectionGroup('productAlerts').get();
-      alerts = scan.docs.filter((d) => d.id === productId);
-    } catch (scanErr) {
-      logger.warn('priceGroup alerts scan fallback failed', {
-        groupId: event.params.groupId,
-        error: scanErr.message,
-      });
-      return;
-    }
+    return;
   }
   logger.info('PRICE_ALERT_QUERY_RESULT_COUNT', {
     productId,
     groupId: event.params.groupId,
     count: alerts.length,
   });
-  if (alerts.length === 0) {
-    try {
-      const scan = await db.collectionGroup('productAlerts').get();
-      alerts = scan.docs.filter((d) => d.id === productId);
-    } catch (e) {
-      logger.warn('priceGroup legacy alerts scan failed', {
-        groupId: event.params.groupId,
-        error: e.message,
-      });
-    }
-  }
   if (alerts.length === 0) {
     logger.info('PRICE_ALERT_CONDITION_NOT_MATCHED', {
       productId,
@@ -1593,5 +1577,163 @@ exports.onPriceVerificationChange = onDocumentUpdated(
       pushFailed,
       cleanedTokens: cleanupPromises.length,
     });
+  },
+);
+
+/**
+ * Hesap silme işleyicisi (audit K1).
+ *
+ * Client, `deletionRequests/{uid}` dokümanını yaratır (rules: yalnız kendi
+ * uid'i). Bu trigger Admin SDK ile kullanıcının TÜM verisini siler:
+ *   1. users/{uid} dokümanı + alt koleksiyonları (notifications,
+ *      productAlerts, notificationDedupes, ...) — recursiveDelete.
+ *   2. usernames rezervasyonu (uid eşleşen doc'lar).
+ *   3. Storage klasörleri: user_profiles/{uid}, price_proofs/{uid},
+ *      product_image_submissions/{uid} — best-effort.
+ *   4. Firebase Auth hesabı (client recent-login gerektirmeden).
+ *
+ * Topluluğa katkı olarak girilen fiyat raporları/yorumlar bilinçli olarak
+ * KORUNUR (kullanıcı sözleşmesindeki anonimleştirilmiş katkı istisnası);
+ * kişisel profil verisi tamamen gider.
+ */
+exports.processAccountDeletion = onDocumentCreated(
+  'deletionRequests/{uid}',
+  async (event) => {
+    const uid = event.params.uid;
+    const data = event.data?.data() || {};
+    if (!uid || (data.uid && data.uid !== uid)) {
+      logger.warn('processAccountDeletion: uid mismatch, skipping', { uid });
+      return;
+    }
+    logger.info('ACCOUNT_DELETION_START', { uid });
+
+    // 1) Kullanıcı dokümanı + tüm alt koleksiyonlar.
+    try {
+      await db.recursiveDelete(db.collection('users').doc(uid));
+      logger.info('ACCOUNT_DELETION_USER_DOC_DELETED', { uid });
+    } catch (e) {
+      logger.error('ACCOUNT_DELETION_USER_DOC_FAILED', {
+        uid,
+        error: e.message,
+      });
+    }
+
+    // 2) Username rezervasyonları.
+    try {
+      const reservations = await db
+        .collection('usernames')
+        .where('uid', '==', uid)
+        .get();
+      await Promise.all(reservations.docs.map((d) => d.ref.delete()));
+    } catch (e) {
+      logger.warn('ACCOUNT_DELETION_USERNAME_FAILED', {
+        uid,
+        error: e.message,
+      });
+    }
+
+    // 3) Storage klasörleri (best-effort).
+    const prefixes = [
+      `user_profiles/${uid}/`,
+      `price_proofs/${uid}/`,
+      `product_image_submissions/${uid}/`,
+    ];
+    for (const prefix of prefixes) {
+      try {
+        await admin.storage().bucket().deleteFiles({ prefix });
+      } catch (e) {
+        logger.warn('ACCOUNT_DELETION_STORAGE_FAILED', {
+          uid,
+          prefix,
+          error: e.message,
+        });
+      }
+    }
+
+    // 4) Auth hesabı. Client zaten kendi tarafında silmeyi denemiş olabilir
+    // (recent login varsa) — user-not-found hatası normaldir.
+    try {
+      await admin.auth().deleteUser(uid);
+      logger.info('ACCOUNT_DELETION_AUTH_DELETED', { uid });
+    } catch (e) {
+      const code = e.code || '';
+      if (code === 'auth/user-not-found') {
+        logger.info('ACCOUNT_DELETION_AUTH_ALREADY_GONE', { uid });
+      } else {
+        logger.error('ACCOUNT_DELETION_AUTH_FAILED', {
+          uid,
+          error: e.message,
+        });
+      }
+    }
+
+    // 5) Talep dokümanını işlenmiş olarak işaretle (audit izi).
+    try {
+      await event.data.ref.set(
+        {
+          status: 'processed',
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (e) {
+      logger.warn('ACCOUNT_DELETION_MARK_FAILED', { uid, error: e.message });
+    }
+    logger.info('ACCOUNT_DELETION_DONE', { uid });
+  },
+);
+
+/**
+ * Süresi dolan Pro aboneliklerini düşüren günlük süpürücü (audit Y4).
+ *
+ * `verifyPurchase` yalnız aktivasyon yazar; Play yenileme başarısız
+ * olduğunda `users/{uid}.isPremium` doc'ta true kalıyordu. Client'taki
+ * `premium.isActive` getter'ı `premiumUntil`'e baktığı için UI çoğunlukla
+ * doğruydu ama doc-bazlı okuma yapan her tüketici (weeklySummary, ileride
+ * yazılacak sorgular) yanılabilirdi. Bu job her gün 06:00'da
+ * isPremium=true && premiumUntil < now olanları kapatır.
+ *
+ * Index gereksinimi: (isPremium ASC, premiumUntil ASC) —
+ * firestore.indexes.json'a eklendi.
+ */
+exports.premiumExpirySweep = onSchedule(
+  {
+    schedule: '0 6 * * *',
+    timeZone: 'Europe/Istanbul',
+  },
+  async () => {
+    const now = admin.firestore.Timestamp.now();
+    let expired;
+    try {
+      expired = await db
+        .collection('users')
+        .where('isPremium', '==', true)
+        .where('premiumUntil', '<', now)
+        .limit(400)
+        .get();
+    } catch (e) {
+      logger.error('premiumExpirySweep query failed — is the '
+        + '(isPremium, premiumUntil) index deployed?', { error: e.message });
+      return;
+    }
+    if (expired.empty) {
+      logger.info('premiumExpirySweep: süresi dolan abonelik yok.');
+      return;
+    }
+    const batch = db.batch();
+    for (const doc of expired.docs) {
+      batch.set(
+        doc.ref,
+        {
+          isPremium: false,
+          premiumSubscriptionState: 'SUBSCRIPTION_STATE_EXPIRED',
+          premiumUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+    await batch.commit();
+    logger.info('premiumExpirySweep tamamlandı', { downgraded: expired.size });
   },
 );
