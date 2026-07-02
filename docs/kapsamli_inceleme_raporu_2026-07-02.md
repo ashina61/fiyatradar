@@ -225,4 +225,63 @@
 
 ---
 
+## 8. SAYFA BAZLI İNCELEME (UI katmanı)
+
+Genel durum: sayfalar özenli yazılmış — `mounted` kontrolleri, hata snackbar'ları, boş/yükleniyor durumları, misafir kotası overlay'leri tutarlı. Sayfa sayfa tespitler:
+
+| Sayfa | Durum | Not |
+|---|---|---|
+| Onboarding | ✅ | Slayt içerikleri gerçek davranışı anlatıyor, "+10 puan" koddaki sabitle tutarlı. Bitişte kayıtlı kullanıcı doğrudan MainScreen'e, diğerleri Login'e. |
+| Login / Kayıt | ✅ | Versiyonlu KVKK + 18+ onayı (`_kConsentVersion 2026.05`) `users/{uid}.consents` + `ageConfirmedAt` olarak yazılıyor — Play Data Safety için sağlam temel. Google girişinde auth-sonrası Firestore hatası girişi düşürmüyor (doğru). |
+| Ana sayfa (HomeTab) | ✅ | Bölge fallback'leri (`Türkiye geneli`) ve Pro'da reklam gizleme doğru. Banner carousel, scope kartı sorunsuz. |
+| Keşfet (ExploreTab) | ✅ | Filtre/kategori preset tüketimi one-shot, sorun yok. |
+| Sepet (BasketTab) | ✅ | Misafir 3-hesap kotası + Pro değilse cooldown'lu interstitial doğru sıralanmış. |
+| Ürün detay | ⚠ | "Ben de gördüm" akışı **K2 (stale token)** yüzünden yeni doğrulanan kullanıcıda permission-denied verir; yorum beğenisi **K3** ile tamamen kırık. Legacy fiyat geçmişi oy butonları rules ile uyumlu, çalışır. |
+| Yorumlar bölümü | ⚠ | K3 (beğeni) + Y9 (501-1000 karakter yorum düzenlenemez). |
+| Bildirim Merkezi | ✅ | Dismissible + silme yarışı bilinçli çözülmüş, izin-kapalı banner'ı var. |
+| Doğrulama e-postası ekranı | ⚠ | Cooldown/tekrar-gönder akışı iyi; ama K2 nedeniyle "Doğruladım" sonrası katkı aksiyonları ~1 saat reddedilebilir — **ilk gün deneyimini bozan en kritik sayfa bug'ı**. |
+| Paywall | ✅ | Restore + sunucu doğrulaması bekleme akışı doğru; mağaza kapalıyken net hata; 434 satır widget testi var. |
+| Profil > Hesap | 🔴 | **K1**: hesap silme veriyi silmiyor. |
+| Profil > Dil | ⚠ | İngilizce seçeneği sunuluyor ama yalnız ~211 string çevrili (Ayarlar/Bildirim ekranları); ana sayfa, keşfet, sepet, ürün detay, login tamamen hardcoded Türkçe. EN seçen kullanıcı **yarı Türkçe yarı İngilizce** arayüz görür. Ya seçeneği gizle ya çeviriyi tamamla. |
+| Bölgesel liderlik | ✅ | Pro/free limit ayrımı (500/200) çalışıyor. |
+| Watchlist / alarmlar | ✅ | Alarm listesi + silme akışı sorunsuz. |
+| Admin ekranları | ⚠ | Bekleyen şubeler ekranı **Y3** (eksik index) ile boş düşebilir; priceGroup reset **K5** ile her zaman hata verir. |
+| Splash | ⚠ | Dark mode'da açık tema flaşı (kozmetik). |
+
+---
+
+## 9. PLAY STORE DEĞERLENDİRMESİ
+
+### 9a. Teknik hazırlık — 7/10
+`targetSdk 35`, `minSdk 23`, R8 + shrinkResources, release imzalama key.properties'ten, `usesCleartextTraffic=false`, CI'da monoton versionCode, Crashlytics/Analytics release'te açık, UMP consent akışı doğru. Android tarafı yayına teknik olarak hazır sayılır.
+
+### 9b. Policy hazırlık — 5/10 (blocker'lar var)
+1. 🔴 **Hesap silme (K1)** — Play'in "hesap oluşturuluyorsa uygulama içi hesap silme + veri silme" politikası zorunlu. Buton var ama **Firestore verisi gerçekte silinmiyor** → beyan ile gerçek çelişiyor; reddedilme/kaldırılma riski. Ek olarak Play, uygulama dışından erişilebilir bir "hesap silme talebi" web URL'i de istiyor — netlify sayfalarına eklenebilir.
+2. 🔴 **Data Safety çelişkisi (K7)** — formda "veri 3. taraflarla paylaşılmıyor" denecek ama telefon numarası her giriş yapan kullanıcı tarafından okunabiliyor; kural daraltılmadan form beyanı riskli.
+3. ⚠ **İçerik derecelendirme** — kullanıcı üretimi içerik (yorum + fiyat) var: IARC anketinde "UGC var, moderasyon var" beyanı gerekir; şikayet/moderasyon mekanizması mevcut (✅ `reports`, admin panel), bu iyi.
+4. ⚠ **AdMob** — gerçek app ID manifest'te (✅); `app-ads.txt` alan adına konmalı, reklam + UGC kombinasyonunda içerik derecelendirmesi tutarlı olmalı. 18+ beyanı alındığı için "aile programı" hedeflenmemeli.
+5. ⚠ **Abonelikler** — `fr_pro_monthly` / `fr_pro_yearly` SKU'ları Play Console'da tanımlı ve aktif olmalı; `verifyPurchase` service account'una Play Console'da Finance rolü verilmeli — **yoksa premium hiç açılmaz** ve para alınıp entitlement verilmeyen kullanıcı şikayeti doğar. Y4 (expiry cron eksik) de gelir doğruluğunu etkiliyor.
+6. ✅ Gizlilik politikası + sözleşme URL'leri canlı (netlify), kayıtta versiyonlu onay alınıyor.
+
+### 9c. Pazar hazırlığı / ürün gerçekçiliği
+Fikir doğru kategoride: Türkiye'de fiyat takibi talebi gerçek ve kanıtlanmış (Cimri, Marketfiyatı, broşür uygulamaları). Teknik altyapı bu ölçekteki bir indie ürün için ortalamanın üstünde. **Ana risk teknik değil, soğuk başlangıç (cold start):** topluluk verisiyle çalışan uygulama boş açılırsa kullanıcı ikinci kez açmaz; rakipler hazır veriyle geliyor.
+
+Öneriler:
+1. **Seed veri stratejisi** — lansmanda en az 1-2 pilot şehir/ilçede gerçek raf fiyatı hazır olsun (`scripts/import_products_firestore.py` altyapısı zaten var). Boş "Türkiye geneli" feed'iyle çıkma.
+2. **Pilot bölge lansmanı** — tüm Türkiye yerine tek şehirde yoğun başla; yoğunluk topluluk uygulamalarında her şeydir.
+3. **Retention kancaları hazır** — alarm + haftalık özet + rozet/streak sistemi doğru kurgulanmış; K2 düzeltilmeden bunların hiçbiri yeni kullanıcıda çalışmaz, önce onu düzelt.
+4. **Internal → closed test** — Play'in yeni geliştirici hesaplarında 12 test kullanıcısı / 14 gün kapalı test şartı olabilir; planla. Pre-launch report'ta Crashlytics'i izle.
+5. **ASO** — ekran görüntüleri, kısa tanıtım videosu, "market fiyat karşılaştırma" anahtar kelimeleri.
+
+### 9d. Lansman öncesi sıralı yapılacaklar
+1. K1 (hesap silme) + K7 (users read) → policy blocker'ları
+2. K2 (`getIdToken(true)`) + K3 (beğeni) → ilk gün deneyimi
+3. Y1+Y2 (full-scan + index deploy) → kullanıcı gelince fatura sürprizi olmasın
+4. Play Console: SKU'lar + service account Finance rolü + Data Safety formu + hesap silme URL'i
+5. EN dilini gizle veya tamamla
+6. Seed veri + pilot bölge planı
+7. Y4 (premium expiry cron) — ilk abonelik yenileme dönemi öncesi
+
+---
+
 *Bu rapor `claude/kanka-app-review-w25ca9` branch'inde oluşturulmuştur; kod değişikliği yapılmamış, yalnızca inceleme çıktısıdır.*
