@@ -2402,7 +2402,7 @@ class _ProductPickerEmptyState extends StatelessWidget {
     final hasQuery = query.trim().isNotEmpty;
     return ListView(
       controller: scrollCtrl,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
+      padding: const EdgeInsetsDirectional.fromSTEB(FRSpace.xl, FRSpace.xl, FRSpace.xl, FRSpace.xxl),
       children: [
         Icon(Icons.search_off_rounded, color: FR.ink3, size: 34),
         const SizedBox(height: 12),

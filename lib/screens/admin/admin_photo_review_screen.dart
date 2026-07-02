@@ -103,7 +103,7 @@ class _PhotoReviewRowState extends State<_PhotoReviewRow> {
       context: context,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
+        insetPadding: const EdgeInsetsDirectional.all(FRSpace.l),
         child: InteractiveViewer(
           child: ClipRRect(
             borderRadius: FRRad.all(FRRad.l),
@@ -111,7 +111,7 @@ class _PhotoReviewRowState extends State<_PhotoReviewRow> {
               url,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsetsDirectional.all(FRSpace.xl),
                 color: FR.surface,
                 child: Text('Fotoğraf yüklenemedi.',
                     style: frText(13, FontWeight.w700, color: FR.ink2)),
@@ -140,7 +140,7 @@ class _PhotoReviewRowState extends State<_PhotoReviewRow> {
         .join(' / ');
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsetsDirectional.all(FRSpace.m),
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
@@ -257,7 +257,7 @@ class _DecisionPill extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          padding: const EdgeInsetsDirectional.symmetric(vertical: 9),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: radius,
