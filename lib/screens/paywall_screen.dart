@@ -57,6 +57,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Future<void> _purchase(ProductDetails p) async {
     if (_purchasing) return;
+    frHaptic();
     debugPrint('🛒 START_PURCHASE: ${p.id}');
     setState(() => _purchasing = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -86,6 +87,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         case PremiumPurchaseOutcome.verified:
           // Premium state listener üzerinden zaten "aktif" karta geçer;
           // kullanıcıya net onay ver.
+          frHapticSuccess();
           messenger.showSnackBar(
             const SnackBar(content: Text('Premium üyeliğin aktif. Teşekkürler!')),
           );
@@ -600,6 +602,8 @@ class _UnlockedBenefits extends StatelessWidget {
       'Geçmiş fiyat grafikleri · 12 ay',
       'Sınırsız akıllı alarm',
       'Reklamsız deneyim',
+      'Haftalık bölge fiyat özeti',
+      'Liderlikte Top 500 görünümü',
       'Pro rozeti + erken erişim',
     ];
     return Container(
@@ -670,6 +674,16 @@ class _BenefitList extends StatelessWidget {
         '🚫',
         'Reklamsız deneyim',
         'Tüm bannerlar ve geçiş reklamları kapatılır.'
+      ),
+      (
+        '📬',
+        'Haftalık bölge özeti',
+        'Her pazartesi bölgende son 7 günün fiyat raporu cebinde.'
+      ),
+      (
+        '🏆',
+        'Liderlikte Top 500',
+        'Bölgesel katkı sıralamasında derin görünüm (ücretsizde 200).'
       ),
       (
         '⭐',

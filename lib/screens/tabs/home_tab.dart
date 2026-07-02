@@ -57,6 +57,11 @@ class HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           FRFadeSlideIn(delay: nextDelay(), child: const _HomeActionStrip()),
+          const SizedBox(height: 14),
+          // Günlük seri kartı — retention kancası: kullanıcının streak'ini,
+          // bugünkü katkı durumunu ve bir sonraki rozet hedefini gösterir.
+          // Mevcut gamification verisiyle çalışır, backend değişikliği yok.
+          FRFadeSlideIn(delay: nextDelay(), child: _DailyStreakCard(state: state)),
           if (state.banners.isNotEmpty) ...[
             const SizedBox(height: 24),
             FRFadeSlideIn(
@@ -105,7 +110,10 @@ class HomeTab extends StatelessWidget {
                         return _TrendCard(
                           product: p,
                           isFavorite: state.isFavorite(p.id),
-                          onFavorite: () => state.toggleFavorite(p.id),
+                          onFavorite: () {
+                            frHaptic();
+                            state.toggleFavorite(p.id);
+                          },
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1490,6 +1498,170 @@ class _FeedEmptyState extends StatelessWidget {
             icon: Icons.place_outlined,
             filled: false,
             onTap: () => _changeRegion(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Günlük seri (streak) kartı — retention kancası ──────────────────────────
+//
+// Kullanıcının mevcut serisini, bugünkü katkı durumunu ve bir sonraki seri
+// rozetine (3/7/30 gün) ilerlemeyi gösterir. Tamamı mevcut gamification
+// snapshot'ından beslenir; ek Firestore okuması veya backend değişikliği yok.
+// Misafir kullanıcıda hesap açmaya yönlendiren varyant gösterilir.
+
+class _DailyStreakCard extends StatelessWidget {
+  const _DailyStreakCard({required this.state});
+  final AppState state;
+
+  bool get _contributedToday {
+    final last = state.gamification.lastContributionDay;
+    if (last == null) return false;
+    final now = DateTime.now().toUtc();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final lastDay = DateTime.utc(last.year, last.month, last.day);
+    return today.difference(lastDay).inDays == 0;
+  }
+
+  /// Sıradaki seri rozeti eşiği (3 → 7 → 30). Hepsi geçildiyse null.
+  int? _nextStreakTarget(int streak) {
+    for (final t in const [3, 7, 30]) {
+      if (streak < t) return t;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isGuest = state.isGuestUser;
+    final g = state.gamification;
+    final streak = g.streakActive ? g.currentStreak : 0;
+    final doneToday = _contributedToday;
+
+    final String title;
+    final String body;
+    final String ctaLabel;
+    final int ctaTabIndex;
+    if (isGuest) {
+      title = 'Seri toplamaya başla';
+      body = 'Ücretsiz hesap aç: her fiyat katkısı +10 PT, günlük serin '
+          'rozete dönüşsün.';
+      ctaLabel = 'Hesap aç';
+      ctaTabIndex = 4; // Profil sekmesi — kayıt/upgrade CTA'sı orada.
+    } else if (doneToday) {
+      title = '$streak günlük seri';
+      body = 'Bugünkü katkın tamam. Yarın da bir fiyat paylaş, serin '
+          'büyümeye devam etsin.';
+      ctaLabel = 'Fiyat ekle';
+      ctaTabIndex = 2;
+    } else if (streak > 0) {
+      title = '$streak günlük serin risk altında';
+      body = 'Bugün 1 fiyat paylaş, serini koru — her katkı +10 PT.';
+      ctaLabel = 'Fiyat ekle';
+      ctaTabIndex = 2;
+    } else {
+      title = 'Bugün serini başlat';
+      body = 'İlk fiyatını paylaş: +10 PT ve seri rozetlerine giden ilk adım.';
+      ctaLabel = 'Fiyat ekle';
+      ctaTabIndex = 2;
+    }
+
+    final target = isGuest ? null : _nextStreakTarget(streak);
+    final progress =
+        target == null ? 1.0 : (streak / target).clamp(0.0, 1.0).toDouble();
+
+    return Container(
+      padding: const EdgeInsetsDirectional.all(FRSpace.l),
+      decoration: BoxDecoration(
+        color: FR.surface,
+        borderRadius: FRRad.all(FRRad.l),
+        border: Border.all(color: FR.gold.withOpacity(.35)),
+        boxShadow: frShadow(blur: 18, y: 8, opacity: .07),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  FR.gold.withOpacity(.24),
+                  FR.gold.withOpacity(.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: FR.gold.withOpacity(.5)),
+            ),
+            child: Text(
+              doneToday || streak > 0 ? '🔥' : '✨',
+              style: const TextStyle(fontSize: 20),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('GÜNLÜK SERİ', style: frOverline(color: FR.gold, size: 9)),
+                const SizedBox(height: 4),
+                Text(title, style: frDisplay(15.5, FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text(
+                  body,
+                  style: frText(11.5, FontWeight.w600,
+                      color: FR.ink3, height: 1.4),
+                ),
+                if (target != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: FRRad.all(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 5,
+                      backgroundColor: FR.hairlineSoft,
+                      valueColor: AlwaysStoppedAnimation<Color>(FR.gold),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$streak / $target gün · sıradaki seri rozeti',
+                    style: frText(10.5, FontWeight.w700, color: FR.ink3),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          InkWell(
+            onTap: () {
+              frHaptic();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => MainScreen(initialIndex: ctaTabIndex),
+                ),
+              );
+            },
+            borderRadius: FRRad.all(999),
+            child: Container(
+              padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: FR.gold,
+                borderRadius: FRRad.all(999),
+                boxShadow: frShadow(blur: 10, y: 4, opacity: .12),
+              ),
+              child: Text(
+                ctaLabel,
+                style: frText(11.5, FontWeight.w900, color: FR.onGold),
+              ),
+            ),
           ),
         ],
       ),

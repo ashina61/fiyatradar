@@ -39,7 +39,10 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
 
       - name: Deploy Cloud Functions and Firestore rules/indexes
-        run: firebase deploy --project fiyatradar-611967 --only functions,firestore:rules --non-interactive
+        # NOT: firestore:indexes daha önce eksikti — step adı "indexes" dese de
+        # komut deploy etmiyordu (audit Y2). productAlerts collection-group
+        # index'i olmadan alarm sorguları FAILED_PRECONDITION alıyordu.
+        run: firebase deploy --project fiyatradar-611967 --only functions,firestore:rules,firestore:indexes --non-interactive
 
       - name: Clean up credentials
         if: always()

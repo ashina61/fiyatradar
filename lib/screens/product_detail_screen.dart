@@ -1079,6 +1079,7 @@ class _RegionalGroupCard extends StatelessWidget {
                         : 'Bölgen değil',
                     enabled: blockReason == null,
                     onTap: () async {
+                      frHaptic();
                       try {
                         await state.verifyRegionalPriceSeen(
                           productId: product.id,
@@ -1090,6 +1091,7 @@ class _RegionalGroupCard extends StatelessWidget {
                           district: group.districtName,
                         );
                         if (!ctx.mounted) return;
+                        frHapticSuccess();
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           const SnackBar(
                               content: Text('Doğrulaman kaydedildi.')),
@@ -1589,6 +1591,7 @@ class _ContributionRowState extends State<_ContributionRow> {
 
   Future<void> _cast(VoteKind kind) async {
     if (_busy) return;
+    frHaptic();
     setState(() => _busy = true);
     try {
       await widget.state.voteOnPrice(

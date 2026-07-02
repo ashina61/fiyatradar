@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'tokens.dart';
@@ -44,6 +45,18 @@ ThemeData buildFRTheme({required FRPalette palette}) {
       foregroundColor: palette.ink,
       elevation: 0,
       scrolledUnderElevation: 0,
+      // Edge-to-edge: sistem barları şeffaf, ikonlar tema parlaklığına göre.
+      // main() SystemUiMode.edgeToEdge açıyor; renk/ikon stili buradan gelir
+      // ki tema değişince (dark ↔ light) barlar da otomatik uysun.
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: palette.brightness,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

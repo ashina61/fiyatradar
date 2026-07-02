@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -2032,9 +2033,14 @@ class LanguageSettingsScreen extends StatelessWidget {
             onTap: () => state.setLocale('tr'),
           ),
           const SizedBox(height: 10),
+          // Beta etiketi: çeviri şu an yalnız Ayarlar / Bildirim ekranlarını
+          // kapsıyor; ana akış Türkçe kalıyor. Kullanıcı yarı çevrilmiş
+          // arayüzü bug sanmasın diye beklentiyi burada kuruyoruz.
           _LanguageRow(
-            label: 'English',
-            sub: 'İngilizce',
+            label: 'English (Beta)',
+            sub: isEn
+                ? 'Partial translation — core screens are still Turkish'
+                : 'Kısmi çeviri — ana ekranlar şimdilik Türkçe',
             selected: current == 'en',
             onTap: () => state.setLocale('en'),
           ),
@@ -2185,33 +2191,50 @@ class _AccountScreenState extends State<AccountScreen> {
     });
     final state = AppStateScope.read(context);
     final uid = user.uid;
-    final handle = state.username;
     try {
-      // Best-effort: drop FCM token + the user doc before deleting auth so
-      // we don't leave a tombstone with the user's profile data behind.
+      // FCM token'ı düşür — silinen hesaba push gitmesin (best-effort).
       try {
         await MessagingService.instance.clearTokenForCurrentUser();
       } catch (_) {}
+      // KALICI SİLME TALEBİ: `processAccountDeletion` Cloud Function'ı bu
+      // dokümanı görünce Admin SDK ile TÜM veriyi siler — user doc + alt
+      // koleksiyonlar + username rezervasyonu + Storage dosyaları + Auth
+      // hesabı. Eski akış user doc'unu client'tan silmeye çalışıyordu;
+      // rules (`users` delete: admin-only) bunu reddettiği için profil
+      // verisi geride kalıyordu (audit K1).
+      await FirebaseService.instance.db
+          .collection('deletionRequests')
+          .doc(uid)
+          .set({
+        'uid': uid,
+        'status': 'pending',
+        'requestedAt': FieldValue.serverTimestamp(),
+      });
+      // Auth hesabını client'tan da silmeyi dene (recent login varsa anında
+      // biter). requires-recent-login gelirse sorun değil — Cloud Function
+      // Admin SDK ile zaten silecek; kullanıcıyı reauth'a zorlamıyoruz.
       try {
-        await FirebaseService.instance
-            .releaseUsername(uid: uid, handle: handle);
-      } catch (_) {}
-      try {
-        await FirebaseService.instance.userDoc(uid).delete();
-      } catch (_) {}
-      await user.delete();
-      // Hesap silindi → login'e gidilecek. Manuel çıkışla aynı: bir sonraki
-      // cold start'ta oturum geri-yüklemesi beklenmeden login gösterilebilsin.
+        await user.delete();
+      } on FirebaseAuthException catch (e) {
+        if (e.code != 'requires-recent-login') rethrow;
+      }
+      // Bir sonraki cold start'ta oturum geri-yüklemesi beklenmeden login
+      // gösterilebilsin.
       await SessionDiagnostics.markExplicitLogout();
+      // Auth client'ta silinmediyse (recent-login yoksa) oturumu kapat —
+      // hesap sunucuda dakikalar içinde tamamen silinecek.
+      if (FirebaseAuth.instance.currentUser != null) {
+        try {
+          await FirebaseAuth.instance.signOut();
+        } catch (_) {}
+      }
       // Clear state and rebuild auth gate.
       await state.refreshFromAuthSession(preserveGuestAcknowledged: false);
       if (!mounted) return;
       Navigator.of(context).popUntil((r) => r.isFirst);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      setState(() => _deleteError = e.code == 'requires-recent-login'
-          ? 'Güvenlik için tekrar giriş yapman gerekiyor.'
-          : (e.message ?? e.code));
+      setState(() => _deleteError = e.message ?? e.code);
     } catch (e) {
       if (!mounted) return;
       setState(() => _deleteError = '$e');

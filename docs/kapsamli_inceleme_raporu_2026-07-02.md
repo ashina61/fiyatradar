@@ -225,4 +225,172 @@
 
 ---
 
-*Bu rapor `claude/kanka-app-review-w25ca9` branch'inde oluşturulmuştur; kod değişikliği yapılmamış, yalnızca inceleme çıktısıdır.*
+## 8. SAYFA BAZLI İNCELEME (UI katmanı)
+
+Genel durum: sayfalar özenli yazılmış — `mounted` kontrolleri, hata snackbar'ları, boş/yükleniyor durumları, misafir kotası overlay'leri tutarlı. Sayfa sayfa tespitler:
+
+| Sayfa | Durum | Not |
+|---|---|---|
+| Onboarding | ✅ | Slayt içerikleri gerçek davranışı anlatıyor, "+10 puan" koddaki sabitle tutarlı. Bitişte kayıtlı kullanıcı doğrudan MainScreen'e, diğerleri Login'e. |
+| Login / Kayıt | ✅ | Versiyonlu KVKK + 18+ onayı (`_kConsentVersion 2026.05`) `users/{uid}.consents` + `ageConfirmedAt` olarak yazılıyor — Play Data Safety için sağlam temel. Google girişinde auth-sonrası Firestore hatası girişi düşürmüyor (doğru). |
+| Ana sayfa (HomeTab) | ✅ | Bölge fallback'leri (`Türkiye geneli`) ve Pro'da reklam gizleme doğru. Banner carousel, scope kartı sorunsuz. |
+| Keşfet (ExploreTab) | ✅ | Filtre/kategori preset tüketimi one-shot, sorun yok. |
+| Sepet (BasketTab) | ✅ | Misafir 3-hesap kotası + Pro değilse cooldown'lu interstitial doğru sıralanmış. |
+| Ürün detay | ⚠ | "Ben de gördüm" akışı **K2 (stale token)** yüzünden yeni doğrulanan kullanıcıda permission-denied verir; yorum beğenisi **K3** ile tamamen kırık. Legacy fiyat geçmişi oy butonları rules ile uyumlu, çalışır. |
+| Yorumlar bölümü | ⚠ | K3 (beğeni) + Y9 (501-1000 karakter yorum düzenlenemez). |
+| Bildirim Merkezi | ✅ | Dismissible + silme yarışı bilinçli çözülmüş, izin-kapalı banner'ı var. |
+| Doğrulama e-postası ekranı | ⚠ | Cooldown/tekrar-gönder akışı iyi; ama K2 nedeniyle "Doğruladım" sonrası katkı aksiyonları ~1 saat reddedilebilir — **ilk gün deneyimini bozan en kritik sayfa bug'ı**. |
+| Paywall | ✅ | Restore + sunucu doğrulaması bekleme akışı doğru; mağaza kapalıyken net hata; 434 satır widget testi var. |
+| Profil > Hesap | 🔴 | **K1**: hesap silme veriyi silmiyor. |
+| Profil > Dil | ⚠ | İngilizce seçeneği sunuluyor ama yalnız ~211 string çevrili (Ayarlar/Bildirim ekranları); ana sayfa, keşfet, sepet, ürün detay, login tamamen hardcoded Türkçe. EN seçen kullanıcı **yarı Türkçe yarı İngilizce** arayüz görür. Ya seçeneği gizle ya çeviriyi tamamla. |
+| Bölgesel liderlik | ✅ | Pro/free limit ayrımı (500/200) çalışıyor. |
+| Watchlist / alarmlar | ✅ | Alarm listesi + silme akışı sorunsuz. |
+| Admin ekranları | ⚠ | Bekleyen şubeler ekranı **Y3** (eksik index) ile boş düşebilir; priceGroup reset **K5** ile her zaman hata verir. |
+| Splash | ⚠ | Dark mode'da açık tema flaşı (kozmetik). |
+
+---
+
+## 9. PLAY STORE DEĞERLENDİRMESİ
+
+### 9a. Teknik hazırlık — 7/10
+`targetSdk 35`, `minSdk 23`, R8 + shrinkResources, release imzalama key.properties'ten, `usesCleartextTraffic=false`, CI'da monoton versionCode, Crashlytics/Analytics release'te açık, UMP consent akışı doğru. Android tarafı yayına teknik olarak hazır sayılır.
+
+### 9b. Policy hazırlık — 5/10 (blocker'lar var)
+1. 🔴 **Hesap silme (K1)** — Play'in "hesap oluşturuluyorsa uygulama içi hesap silme + veri silme" politikası zorunlu. Buton var ama **Firestore verisi gerçekte silinmiyor** → beyan ile gerçek çelişiyor; reddedilme/kaldırılma riski. Ek olarak Play, uygulama dışından erişilebilir bir "hesap silme talebi" web URL'i de istiyor — netlify sayfalarına eklenebilir.
+2. 🔴 **Data Safety çelişkisi (K7)** — formda "veri 3. taraflarla paylaşılmıyor" denecek ama telefon numarası her giriş yapan kullanıcı tarafından okunabiliyor; kural daraltılmadan form beyanı riskli.
+3. ⚠ **İçerik derecelendirme** — kullanıcı üretimi içerik (yorum + fiyat) var: IARC anketinde "UGC var, moderasyon var" beyanı gerekir; şikayet/moderasyon mekanizması mevcut (✅ `reports`, admin panel), bu iyi.
+4. ⚠ **AdMob** — gerçek app ID manifest'te (✅); `app-ads.txt` alan adına konmalı, reklam + UGC kombinasyonunda içerik derecelendirmesi tutarlı olmalı. 18+ beyanı alındığı için "aile programı" hedeflenmemeli.
+5. ⚠ **Abonelikler** — `fr_pro_monthly` / `fr_pro_yearly` SKU'ları Play Console'da tanımlı ve aktif olmalı; `verifyPurchase` service account'una Play Console'da Finance rolü verilmeli — **yoksa premium hiç açılmaz** ve para alınıp entitlement verilmeyen kullanıcı şikayeti doğar. Y4 (expiry cron eksik) de gelir doğruluğunu etkiliyor.
+6. ✅ Gizlilik politikası + sözleşme URL'leri canlı (netlify), kayıtta versiyonlu onay alınıyor.
+
+### 9c. Pazar hazırlığı / ürün gerçekçiliği
+Fikir doğru kategoride: Türkiye'de fiyat takibi talebi gerçek ve kanıtlanmış (Cimri, Marketfiyatı, broşür uygulamaları). Teknik altyapı bu ölçekteki bir indie ürün için ortalamanın üstünde. **Ana risk teknik değil, soğuk başlangıç (cold start):** topluluk verisiyle çalışan uygulama boş açılırsa kullanıcı ikinci kez açmaz; rakipler hazır veriyle geliyor.
+
+Öneriler:
+1. **Seed veri stratejisi** — lansmanda en az 1-2 pilot şehir/ilçede gerçek raf fiyatı hazır olsun (`scripts/import_products_firestore.py` altyapısı zaten var). Boş "Türkiye geneli" feed'iyle çıkma.
+2. **Pilot bölge lansmanı** — tüm Türkiye yerine tek şehirde yoğun başla; yoğunluk topluluk uygulamalarında her şeydir.
+3. **Retention kancaları hazır** — alarm + haftalık özet + rozet/streak sistemi doğru kurgulanmış; K2 düzeltilmeden bunların hiçbiri yeni kullanıcıda çalışmaz, önce onu düzelt.
+4. **Internal → closed test** — Play'in yeni geliştirici hesaplarında 12 test kullanıcısı / 14 gün kapalı test şartı olabilir; planla. Pre-launch report'ta Crashlytics'i izle.
+5. **ASO** — ekran görüntüleri, kısa tanıtım videosu, "market fiyat karşılaştırma" anahtar kelimeleri.
+
+### 9d. Lansman öncesi sıralı yapılacaklar
+1. K1 (hesap silme) + K7 (users read) → policy blocker'ları
+2. K2 (`getIdToken(true)`) + K3 (beğeni) → ilk gün deneyimi
+3. Y1+Y2 (full-scan + index deploy) → kullanıcı gelince fatura sürprizi olmasın
+4. Play Console: SKU'lar + service account Finance rolü + Data Safety formu + hesap silme URL'i
+5. EN dilini gizle veya tamamla
+6. Seed veri + pilot bölge planı
+7. Y4 (premium expiry cron) — ilk abonelik yenileme dönemi öncesi
+
+---
+
+## 10. UYGULANAN DÜZELTMELER (2026-07-02, bu branch'te)
+
+Rapordaki bulguların önemli kısmı aynı branch'te koda işlendi:
+
+### Güvenlik / kural düzeltmeleri
+- **K1 — Hesap silme:** Yeni `deletionRequests/{uid}` koleksiyonu (rules) + `processAccountDeletion` Cloud Function'ı eklendi. Function, Admin SDK ile user doc + TÜM alt koleksiyonları (`recursiveDelete`), username rezervasyonunu, Storage klasörlerini (`user_profiles/`, `price_proofs/`, `product_image_submissions/`) ve Auth hesabını siler. Client akışı (`profile_screens._deleteAccount`) artık talep doc'u yazar; recent-login yoksa bile silme sunucuda tamamlanır.
+- **K2 — Stale token:** `reloadAndCheckVerification` artık doğrulama sonrası `getIdToken(true)` ile ID token'ı zorla yeniler — yeni doğrulanan kullanıcının katkı yazımları anında çalışır.
+- **K3 — Yorum beğenisi:** Rules'a `hasSafeCommentLikeToggle` eklendi: doğrulanmış kullanıcı yalnız kendi uid'ini `likedBy`'a ekleyip çıkarabilir, `likes == likedBy.size()` zorunlu. Client `toggleCommentLike`'a `_ensureEmailVerified` kapısı eklendi.
+- **K5 — Admin reset:** `priceGroups` update kuralına `isAdmin() ||` bypass eklendi; admin moderasyon reset'i artık çalışır.
+- **K6 — Sahte gamification:** `hasSafeUserCreateDefaults` artık `contributions`, `verifyContributions`, `photoContributions`, `currentStreak`, `longestStreak`, `badges` alanlarını da doğumda sıfıra zorluyor.
+- **K7 — Gizlilik:** `users/{uid}` read kuralı `isAdmin() || isOwner(uid)`'a daraltıldı (telefon/fcmToken sızıntısı kapandı; ekranlar denormalize yazar bilgisi kullandığı için client etkilenmiyor).
+- **Y9 — Yorum boyutları:** create'e 2-1000 karakter sınırı eklendi; update limiti 500→1000'e çekildi (uyumsuzluk giderildi). Ölü `hasOnlyCommentOwnerWritableKeys` fonksiyonu kaldırıldı.
+- Rules fixture'ı senkronlandı (`firestore_rules_tests/firestore.rules`).
+
+### Cloud Functions / altyapı
+- **Y1 — Maliyet bombası:** `onPriceGroupUpdate` ve `onProductPriceDrop`'taki `productAlerts` full-scan fallback'leri kaldırıldı (0 sonuçta bile tüm koleksiyonu tarıyordu).
+- **Y2 — Index deploy:** `firebase-deploy.yml` komutuna `firestore:indexes` eklendi.
+- **Y3 — Eksik index:** `store_places (isActive, status, createdAt DESC)` kompozit index'i eklendi — admin bekleyen şubeler ekranı çalışır.
+- **Y4 — Premium expiry:** Günlük `premiumExpirySweep` scheduled function eklendi (06:00 TSİ): `isPremium=true && premiumUntil < now` olan hesapları düşürür. Gerekli `(isPremium, premiumUntil)` index'i eklendi.
+
+### Client / UX
+- Splash artık dark mode'da koyu palete geçiyor (beyaz flaş bitti).
+- Ölü `checkout()` iskeleti (`deliveryFee`, `cartTotal`, `setRedeemPoints` vd.) kaldırıldı — rules'un puan-azaltma yasağına takılacak tehlikeli koddu.
+- İngilizce dil seçeneği "English (Beta)" + "kısmi çeviri" açıklamasıyla etiketlendi (yarı Türkçe arayüz bug sanılmasın).
+- Kullanılmayan 760KB JSON asset (`fiyatradar_marketler/urunler.json`) APK bundle'ından çıkarıldı (dosyalar repo'da duruyor).
+- `regionalDropPushEnabled` ile ilgili bayat TODO yorumu güncellendi (functions alanı zaten okuyor).
+
+### Engagement (kullanıcı bağlılığı)
+- **Ana sayfaya "Günlük Seri" kartı eklendi** (`_DailyStreakCard`): mevcut streak, bugünkü katkı durumu ("serin risk altında" uyarısı dahil), 3/7/30 gün rozet hedefine altın progress bar ve "Fiyat ekle" CTA'sı. Misafirde "Hesap aç" varyantı gösterilir. Tamamı mevcut gamification verisinden beslenir — ek Firestore okuması yok.
+
+### Premium değerlendirmesi
+Mevcut Pro seti **yeterli ve gerçek** (hepsi kodda doğrulandı): reklamsız deneyim, sınırsız alarm (free 3), 12 ay fiyat grafiği (free 7 gün), akıllı sepet önerisi, liderlikte Top-500 (free 200), haftalık bölge özeti (config default Pro-only), Pro rozeti. Eksik olan tek şey pazarlamasıydı: paywall'da anlatılmayan **"Haftalık bölge özeti"** ve **"Liderlikte Top 500"** ayrıcalıkları hem satış listesine hem "elindekiler" checklist'ine eklendi. `premiumExpirySweep` ile entitlement doğruluğu da güvenceye alındı.
+
+### Hâlâ açık kalanlar (bilinçli ertelendi)
+- **K4 — priceGroups fiyat manipülasyonu:** kalıcı çözüm aggregation'ın Cloud Function'a taşınması (büyük refactor; `submitRegionalPrice` transaction'ının yeniden tasarımı gerekir). Kural yüzeyi mevcut cap'lerle sınırlı kalmaya devam ediyor.
+- Y5 (weeklySummary N+1), Y6 (katalog tam indirme / priceHistory mirror phase-out), Y7 (priceReports çift şema), Y8 (çoklu FCM token) — mimari işler, ayrı sprint önerilir.
+- Deploy sonrası yapılacaklar: `firebase deploy` (functions + rules + indexes) çalıştırılmalı; rules emulator testleri (`firestore_rules_tests`) CI'da koşulmalı.
+
+---
+
+## 11. OTURUM KALICILIĞI + 2026 UI/UX TURU (2026-07-02, ikinci geçiş)
+
+### 11a. "Uygulamaya girmeyince otomatik çıkış" bug'ı — kök neden analizi ve düzeltmeler
+Semptom: uygulama bir süre açılmayınca sonraki soğuk açılışta login ekranı geliyor.
+Tespit edilen üç ayrı mekanizma, üçü de kapatıldı:
+
+1. **Yavaş restore + 8 sn timeout** — Play Store uygulamayı arka planda güncellediğinde bir sonraki açılış "ilk soğuk açılış"tır ve Firebase Auth'un disk restore'u 8 sn sınırını aşabiliyordu → AuthGate `timeout` ile login'e düşüyordu. Düzeltme: `SessionDiagnostics.expectsPersistedSession()` (daha önce kullanıcı görüldü + manuel çıkış yok) true iken deadline login'e düşmek yerine **2 kez 10'ar sn uzatılır**; `restoreAlreadyAttempted` hızlı-login kısayolu da aynı korumaya bağlandı.
+2. **Bayat explicit-logout bayrağı** — logout'un yarıda kalması (işaret yazıldı, signOut tamamlanmadı) durumunda bayrak sonsuza dek true kalıp her açılışta login'i öne alıyordu. Düzeltme: `recordAuthSeen` canlı bir oturum gördüğü anda bayrağı temizler.
+3. **Android Auto Backup bayat auth-state geri yüklüyordu** — `allowBackup` hiç set edilmemişti (default **true**): cihaz değişimi/yeniden kurulumda Firebase Auth'un disk durumu + uygulamanın kendi bayrakları (explicit-logout dahil!) eski haliyle geri gelebiliyordu. Düzeltme: `android:allowBackup="false"` + `fullBackupContent="false"` + Android 12+ için `dataExtractionRules` (cloud-backup ve device-transfer tamamen kapalı).
+
+### 11b. 2026 UI/UX cilası
+Mevcut tasarım sistemi zaten üst seviye (espresso+altın palet, global Dialog/SnackBar/BottomSheet/PageTransitions temaları, fade-through geçişler, giriş animasyonları). Eksik olan üç modern katman eklendi:
+- **Edge-to-edge**: `SystemUiMode.edgeToEdge` + şeffaf status/navigation bar, ikon parlaklığı temaya bağlı (`fr_theme` `systemOverlayStyle` + MaterialApp seviyesinde senkron). Android 15'in zorunlu kıldığı görünüm artık tüm sürümlerde tutarlı.
+- **Predictive back** (Android 14+): `android:enableOnBackInvokedCallback="true"`.
+- **Dokunsal geri bildirim**: `frHaptic()` / `frHapticSuccess()` token helper'ları; favori, oy, "Ben de gördüm", yorum beğenisi, fiyat gönderimi başarısı, streak CTA ve satın alma akışına bağlandı.
+
+Tutarlılık notu: sayfalardaki ham `AlertDialog`/`SnackBar` kullanımları global tema (DialogTheme/SnackBarTheme) sayesinde zaten tek stile iniyor — ekran ekran müdahale gerekmedi.
+
+### 11c. Play Store final eksik listesi (kod dışı — Console işleri)
+Kod tarafı blocker'ları bu branch'te kapandı. Kalanlar operasyonel:
+1. `firebase deploy --only functions,firestore:rules,firestore:indexes` çalıştır (yeni CF'ler + kurallar + index'ler canlıya insin).
+2. Play Console: `fr_pro_monthly` / `fr_pro_yearly` aboneliklerini tanımla + servis hesabına **Finance** rolü (yoksa premium doğrulama çalışmaz).
+3. **Data Safety formu** — `docs/play_console_readiness.md`'deki veri listesi hazır; artık "users okuması owner-only" olduğu için beyanlar tutarlı.
+4. **Hesap silme URL'i** — Play, uygulama dışından erişilebilir bir silme talep sayfası ister; netlify sitesine basit bir "hesap silme talebi" sayfası ekle (uygulama içi silme artık gerçek çalışıyor).
+5. Gizlilik politikası URL'ini Console'a gir (sayfa zaten canlı).
+6. **IARC içerik derecelendirme** anketi: UGC var + moderasyon/şikayet mekanizması var olarak beyan et.
+7. AdMob: alan adına `app-ads.txt`, ödeme profili.
+8. Yeni geliştirici hesabıysa: **kapalı test şartı** (12 test kullanıcısı / 14 gün) — planla.
+9. Lansman verisi: pilot il/ilçe için seed fiyat verisi (boş feed'le çıkma).
+10. İlk sürüm sonrası pre-launch report + Crashlytics'i izle.
+
+---
+
+## 12. KAPANIŞ — TESLİMAT ÖZETİ
+
+Bu inceleme-ve-düzeltme turunun tam dökümü:
+
+### Kapatılan bulgular
+| Kod | Bulgu | Durum |
+|---|---|---|
+| K1 | Hesap silme veri silmiyordu | ✅ deletionRequests + processAccountDeletion CF |
+| K2 | Doğrulama sonrası stale token | ✅ getIdToken(true) |
+| K3 | Yorum beğenisi kırık | ✅ hasSafeCommentLikeToggle kuralı |
+| K5 | Admin priceGroup reset kendi kuralına takılıyor | ✅ isAdmin bypass |
+| K6 | Create'te sahte gamification | ✅ create defaults sıkılaştırıldı |
+| K7 | Telefon/fcmToken sızıntısı | ✅ users read owner/admin |
+| Y1 | productAlerts full-scan maliyet bombası | ✅ fallback'ler kaldırıldı |
+| Y2 | Index'ler deploy edilmiyordu | ✅ workflow'a firestore:indexes |
+| Y3 | Admin şubeler index eksik | ✅ index eklendi |
+| Y4 | Premium expiry süpürücüsü yok | ✅ premiumExpirySweep cron |
+| Y9 | Yorum boyut tutarsızlığı | ✅ 2-1000 hizalandı |
+| — | "Girmeyince otomatik çıkış" | ✅ 3 kök neden (timeout uzatma, bayat bayrak, Auto Backup) |
+| — | Splash dark flaşı, ölü checkout, EN etiket, 760KB asset | ✅ |
+
+### Eklenen özellikler
+- Günlük Seri kartı (ana sayfa, retention)
+- Edge-to-edge + predictive back + haptics (2026 UI katmanları)
+- Paywall'da 2 ek Pro ayrıcalığı görünür kılındı
+
+### Bilinçli açık bırakılanlar (sonraki sprint)
+- K4: priceGroups aggregation'ının Cloud Function'a taşınması (büyük refactor)
+- Y5-Y8: weeklySummary N+1, katalog tam indirme, priceReports çift şema, çoklu FCM token
+
+### Merge + deploy prosedürü
+1. Bu branch (`claude/kanka-app-review-w25ca9`) → default branch (`claude/fiyatradar-app-oKr5R`) PR ile merge edilir (CI: Flutter analyze+test, Engineering Guardrails, Firestore rules testleri).
+2. Merge sonrası **Firebase Deploy** workflow'u default branch'ten `workflow_dispatch` ile tetiklenir → functions + firestore:rules + firestore:indexes canlıya iner.
+3. Deploy sonrası doğrulama: (a) Firebase Console → Functions'ta `processAccountDeletion` ve `premiumExpirySweep` listelenmeli, (b) Firestore → Indexes'te yeni 3 index "Building/Enabled" olmalı, (c) test cihazında hesap silme → `deletionRequests` doc'u `processed` olmalı.
+4. Play Console operasyon listesi: Bölüm 11c (SKU'lar + Finance rolü, Data Safety, hesap silme URL'i, IARC, app-ads.txt, kapalı test, seed veri).
+
+*Bu rapor ve 10-12. bölümlerdeki tüm düzeltmeler `claude/kanka-app-review-w25ca9` branch'indedir.*

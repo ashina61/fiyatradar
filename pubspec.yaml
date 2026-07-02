@@ -87,8 +87,10 @@ flutter:
     - assets/images/fiyatradar_logo.png
     - assets/images/fr_mark_foreground.png
     - assets/icons/icon.png
-    - assets/fiyatradar_marketler.json
-    - assets/fiyatradar_urunler.json
+    # NOT: fiyatradar_marketler.json (732KB) ve fiyatradar_urunler.json
+    # uygulama kodunda hiç okunmuyor — yalnız scripts/ import araçları
+    # repo'dan kullanıyor. APK'yı şişirmesin diye bundle'dan çıkarıldı;
+    # dosyalar repo'da duruyor.
     - assets/illustrations/
     - assets/illustrations/manifest.json
 flutter_launcher_icons:

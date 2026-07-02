@@ -220,6 +220,7 @@ class _ProductCommentsSectionState extends State<ProductCommentsSection> {
   }
 
   Future<void> _toggleLike(AppState state, ProductComment c) async {
+    frHaptic();
     try {
       await state.toggleCommentLike(c.id);
     } catch (e) {

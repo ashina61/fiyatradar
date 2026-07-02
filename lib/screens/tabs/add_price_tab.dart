@@ -302,6 +302,8 @@ class _AddPriceTabState extends State<AddPriceTab> {
           _consumeNextQueuedProduct(state);
         }
         if (!mounted) return;
+        // Katkı kabul edildi — kısa dokunsal başarı vurgusu (2026 UX).
+        frHapticSuccess();
         if (hasProofPhoto) {
           // Fotoğraflı fiyat moderasyona düşer; henüz "yayında" değil.
           _snack(

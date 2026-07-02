@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart' hide AppState;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,11 @@ import 'ui/tokens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 2026 standardı: içerik sistem barlarının altına akar (edge-to-edge).
+  // Android 15 (targetSdk 35) bunu zaten zorluyor; eski sürümlerde de aynı
+  // premium görünümü vermek için açıkça etkinleştiriyoruz. Bar renk/ikon
+  // stili tema tarafında (fr_theme appBarTheme.systemOverlayStyle) yönetilir.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   Object? bootError;
   try {
     await Firebase.initializeApp();
@@ -123,6 +129,21 @@ class _FiyatRadarAppState extends State<FiyatRadarApp> {
         // AnimatedBuilder altında birleştiriyoruz.
         animation: Listenable.merge([FRThemeController.instance, _state]),
         builder: (context, _) {
+          // Sekme ekranlarının çoğu AppBar kullanmıyor; sistem barı stilini
+          // tema değişiminde uygulama genelinde elle senkronla (AppBar'lı
+          // ekranlar zaten appBarTheme.systemOverlayStyle'dan alır).
+          final isDark = FRThemeController.instance.isDark;
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness:
+                isDark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarContrastEnforced: false,
+          ));
           return MaterialApp(
             title: 'FiyatRadar',
             debugShowCheckedModeBanner: false,
@@ -175,6 +196,15 @@ class _AuthRestoreController extends ChangeNotifier {
   /// ile beklemeyi yapar); bu yine de bağımsız bir emniyet ağı.
   static const Duration _restoreTimeout = Duration(seconds: 8);
 
+  /// Diskte geri yüklenmesi BEKLENEN bir oturum varken (daha önce kullanıcı
+  /// görüldü + manuel çıkış yok) timeout'ta login'e düşmek yerine bekleme bu
+  /// kadar uzatılır — en fazla [_maxDeadlineExtensions] kez. Play Store
+  /// güncellemesi sonrası ilk soğuk açılış gibi yavaş restore senaryolarında
+  /// kullanıcı "otomatik çıkış yapılmış" gibi login ekranına düşüyordu.
+  static const Duration _restoreExtension = Duration(seconds: 10);
+  static const int _maxDeadlineExtensions = 2;
+  int _deadlineExtensions = 0;
+
   bool _restoring = true;
   bool get restoring => _restoring;
 
@@ -216,7 +246,12 @@ class _AuthRestoreController extends ChangeNotifier {
       _resolveLogin('explicit_logout');
       return;
     }
-    if (FirebaseService.instance.restoreAlreadyAttempted) {
+    if (FirebaseService.instance.restoreAlreadyAttempted &&
+        !await SessionDiagnostics.expectsPersistedSession()) {
+      // Restore zaten denendi VE diskte beklenen bir oturum da yok →
+      // beklemeden login. Beklenen oturum varsa (ör. yavaş cihazda ilk
+      // bekleme yetmedi) aşağıdaki poll + uzatmalı deadline devam eder.
+      if (_resolved) return;
       debugPrint('AUTH_RESTORE_TIMEOUT_NO_USER: restore zaten denendi (beklenmeden login)');
       _resolveLogin('no_user_after_restore');
       return;
@@ -228,16 +263,33 @@ class _AuthRestoreController extends ChangeNotifier {
       final u = FirebaseAuth.instance.currentUser;
       if (u != null) _resolveUser(u, 'restored_poll');
     });
-    _deadline = Timer(_restoreTimeout, () {
-      if (_resolved) return;
-      final u = FirebaseAuth.instance.currentUser;
-      if (u != null) {
-        _resolveUser(u, 'restored_late');
-      } else {
-        debugPrint('AUTH_RESTORE_TIMEOUT_NO_USER');
-        _resolveLogin('timeout');
-      }
-    });
+    _deadline = Timer(_restoreTimeout, _onDeadline);
+  }
+
+  Future<void> _onDeadline() async {
+    if (_resolved) return;
+    final u = FirebaseAuth.instance.currentUser;
+    if (u != null) {
+      _resolveUser(u, 'restored_late');
+      return;
+    }
+    // Diskte oturum bekleniyorsa (önceden kullanıcı görüldü, manuel çıkış
+    // yok) login'e düşme — beklemeyi uzat. Firebase restore, app update
+    // sonrası ilk soğuk açılışta / düşük donanımda 8 sn'yi aşabiliyor;
+    // erken login "hesabım silindi / çıkış yapıldı" algısı yaratıyordu.
+    if (_deadlineExtensions < _maxDeadlineExtensions &&
+        await SessionDiagnostics.expectsPersistedSession()) {
+      if (_resolved) return; // await sırasında stream user getirmiş olabilir.
+      _deadlineExtensions++;
+      debugPrint(
+        'AUTH_RESTORE_DEADLINE_EXTENDED: beklenen oturum var, '
+        'uzatma $_deadlineExtensions/$_maxDeadlineExtensions',
+      );
+      _deadline = Timer(_restoreExtension, _onDeadline);
+      return;
+    }
+    debugPrint('AUTH_RESTORE_TIMEOUT_NO_USER');
+    _resolveLogin('timeout');
   }
 
   void _onAuthEvent(User? u) {
@@ -424,8 +476,12 @@ class _SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Keep Flutter boot visually continuous with the native launch
-    // background: warm cream field, restrained premium wordmark.
-    final bg = FRPalette.light.bg;
+    // background. Tema koyu ise koyu paleti kullan — eskiden her zaman
+    // açık krem geliyordu ve dark mode kullanıcısı açılışta beyaz flaş
+    // görüyordu.
+    final bg = FRThemeController.instance.isDark
+        ? FRPalette.dark.bg
+        : FRPalette.light.bg;
     return Scaffold(
       backgroundColor: bg,
       body: Center(
