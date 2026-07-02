@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../ui/components.dart';
 import '../ui/tokens.dart';
 import 'admin/admin_crud_screens.dart';
+import 'admin/admin_photo_review_screen.dart';
 import 'admin/admin_price_groups_screen.dart';
 import 'admin/admin_price_reports_screen.dart';
 import 'admin/admin_product_image_submissions_screen.dart';
@@ -1147,6 +1148,32 @@ class _PriceFlowTabState extends State<_PriceFlowTab> {
             context,
             MaterialPageRoute(builder: (_) => const AdminPriceReportsScreen()),
           ),
+        ),
+        const SizedBox(height: 10),
+        // Fotoğraflı fiyatlar onaylanana kadar yayına girmez; kuyruğun
+        // sayısı canlı gösterilir ki bekleyen iş gözden kaçmasın.
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseService.instance.db
+              .collection('priceReports')
+              .where('status', isEqualTo: 'pending_photo_review')
+              .limit(100)
+              .snapshots(),
+          builder: (_, snap) {
+            final count = snap.data?.docs.length ?? 0;
+            return _GenericRow(
+              title: 'Fotoğraf moderasyonu',
+              subtitle: count == 0
+                  ? 'Bekleyen fotoğraflı fiyat yok'
+                  : '$count fotoğraflı fiyat onay bekliyor',
+              icon: Icons.photo_camera_outlined,
+              withActions: true,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const AdminPhotoReviewScreen()),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 10),
         _GenericRow(

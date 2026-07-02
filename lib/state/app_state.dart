@@ -2128,6 +2128,20 @@ class AppState extends ChangeNotifier {
     if (!isAdmin) {
       throw StateError('Yalnız admin kullanıcı bu reseti yapabilir.');
     }
+    // Doğrulama kayıtlarını (dedupe ledger) da temizle — grup verifiedCount'u
+    // artık onPriceGroupReconcile Cloud Function'ı tarafından bu kayıtlardan
+    // yeniden hesaplanıyor; ledger silinmezse reset saniyeler içinde eski
+    // sayaçla geri yazılırdı. Yan etki: aynı gün aynı fiyat yeniden
+    // bildirilebilir hale gelir — şüpheli grup reset'inde istenen davranış.
+    final dedupes =
+        await _svc.priceDedupes.where('groupId', isEqualTo: groupId).get();
+    if (dedupes.docs.isNotEmpty) {
+      final batch = _svc.db.batch();
+      for (final d in dedupes.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+    }
     await _svc.priceGroups.doc(groupId).set({
       'verifiedCount': 0,
       'confidence': 'low',

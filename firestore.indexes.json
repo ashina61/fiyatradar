@@ -43,6 +43,14 @@
       "collectionGroup": "priceReports",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "priceReports",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "cityId", "order": "ASCENDING" },
         { "fieldPath": "districtId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }

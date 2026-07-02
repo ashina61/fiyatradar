@@ -135,11 +135,11 @@ service cloud.firestore {
     // (örn. hesap reset senaryosu — pratikte kullanılmıyor). Anahtar
     // değişmiyorsa sınır geçerli değil.
     function hasSafeEmailVerifiedMutation() {
-      return (!request.resource.data.diff(resource.data).changedKeys().hasAny(['emailVerified']) ||
+      return (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified']) ||
           (request.resource.data.emailVerified is bool &&
             (request.resource.data.emailVerified == false ||
               request.auth.token.email_verified == true))) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['emailVerifiedAt']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerifiedAt']) ||
           request.auth.token.email_verified == true);
     }
 
@@ -148,7 +148,7 @@ service cloud.firestore {
     // profil alanlarını" (ad, ilçe, dil, bildirim tercihi, vb.) ve
     // emailVerified senkronizasyonunu yapabilir.
     function touchesVerifiedOnlyUserFields() {
-      return request.resource.data.diff(resource.data).changedKeys().hasAny([
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'photoUrl',
         'profileImageUrl',
         'profileImagePath',
@@ -168,16 +168,16 @@ service cloud.firestore {
     }
 
     function hasSafeProfileImageMutation(uid) {
-      return (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImageUrl']) ||
+      return (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['profileImageUrl']) ||
           (request.resource.data.profileImageUrl is string &&
             request.resource.data.profileImageUrl.size() <= 2048)) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['photoUrl']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['photoUrl']) ||
           (request.resource.data.photoUrl is string &&
             request.resource.data.photoUrl.size() <= 2048)) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['profileImagePath']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['profileImagePath']) ||
           (request.resource.data.profileImagePath is string &&
             request.resource.data.profileImagePath.matches('^user_profiles/' + uid + '/[^/]+\\.(jpg|png|webp)$'))) &&
-        (!request.resource.data.diff(resource.data).changedKeys().hasAny(['avatarUrl']) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['avatarUrl']) ||
           (request.resource.data.avatarUrl is string &&
             request.resource.data.avatarUrl.size() <= 2048));
     }
@@ -271,7 +271,7 @@ service cloud.firestore {
       let before = (('likedBy' in resource.data) && resource.data.likedBy is list)
         ? resource.data.likedBy : [];
       let after = request.resource.data.likedBy;
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'likes',
           'likedBy',
           'updatedAt'
@@ -303,7 +303,7 @@ service cloud.firestore {
     // Firestore'un 1000-expression değerlendirme limitine yakın seyrediyor;
     // bu kapılar tipik profil güncellemelerini ucuz tutar.
     function touchesGamificationCounterFields() {
-      return request.resource.data.diff(resource.data).changedKeys().hasAny([
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'points', 'trustTotalVotes', 'trustVerifiedTotal',
         'trustWrongTotal', 'contributions'
       ]);
@@ -361,7 +361,7 @@ service cloud.firestore {
     //     başı yazılır; +1 gün tolerans).
     // Ucuz ön kontrol — bkz. touchesGamificationCounterFields notu.
     function touchesStreakBadgeFields() {
-      return request.resource.data.diff(resource.data).changedKeys().hasAny([
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'currentStreak', 'longestStreak', 'verifyContributions',
         'photoContributions', 'badges', 'lastContributionDay'
       ]);
@@ -385,7 +385,7 @@ service cloud.firestore {
         nVerify >= oVerify && nVerify <= oVerify + 1 &&
         nPhoto >= oPhoto && nPhoto <= oPhoto + 1 &&
         hasSafeBadgeMutation() &&
-        (!request.resource.data.diff(resource.data).changedKeys()
+        (!request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['lastContributionDay']) ||
           (request.resource.data.lastContributionDay is timestamp &&
             request.resource.data.lastContributionDay <=
@@ -849,7 +849,7 @@ service cloud.firestore {
 
     match /priceReports/{priceId} {
       function hasOnlyPriceReportOwnerWritableKeys() {
-        return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'price',
           'storeName',
           'chainId',
@@ -957,6 +957,21 @@ service cloud.firestore {
         (!('confidence' in request.resource.data) || request.resource.data.confidence in ['low', 'medium', 'high']);
     }
 
+    // "Ben de gördüm" doğrulama akışı: yalnız verifiedCount (+1) ve
+    // updatedAt değişir. Bu yol lastReporterId == auth.uid ŞARTINA TABİ
+    // DEĞİL — doğrulayan kişi neredeyse hiçbir zaman son raporlayan
+    // değildir; eski kural bu yüzden tüm doğrulama transaction'larını
+    // permission-denied ile düşürüyordu. Sayaç yine +1 ile sınırlı ve
+    // onPriceGroupReconcile Cloud Function'ı sahte artışları dedupe
+    // kayıtlarından yeniden hesaplayarak geri alır.
+    function hasSafeVerifyOnlyPriceGroupBump() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['verifiedCount', 'updatedAt']) &&
+        request.resource.data.verifiedCount is int &&
+        request.resource.data.verifiedCount >= intFieldOrZero(resource.data, 'verifiedCount') &&
+        request.resource.data.verifiedCount <= intFieldOrZero(resource.data, 'verifiedCount') + 1;
+    }
+
     match /priceGroups/{groupId} {
       allow read: if true;
       // First-write: yalnız doğrulanmış kullanıcı (counter 0 varsayılır).
@@ -968,7 +983,9 @@ service cloud.firestore {
       // verify at a time). Stops `verifiedCount: 99999` style attacks.
       // Admin bypass: moderasyon reset'i (verifiedCount=0'a çekme) monotonik
       // sayaç kuralına takılmasın diye admin'e tam yetki (audit K5).
-      allow update: if isAdmin() || (isVerified() &&
+      allow update: if isAdmin() ||
+        (isVerified() && hasSafeVerifyOnlyPriceGroupBump()) ||
+        (isVerified() &&
         hasSafePriceGroupPayload() &&
         priceGroupCounterMonotonic('reportCount') &&
         priceGroupCounterMonotonic('verifiedCount') &&

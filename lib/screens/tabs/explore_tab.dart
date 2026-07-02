@@ -53,7 +53,11 @@ class _ExploreTabState extends State<ExploreTab> {
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
       list = list.where(
-        (p) => p.name.toLowerCase().contains(q) || p.brand.toLowerCase().contains(q),
+        (p) =>
+            p.name.toLowerCase().contains(q) ||
+            p.brand.toLowerCase().contains(q) ||
+            p.category.toLowerCase().contains(q) ||
+            (p.cheapestStore ?? '').toLowerCase().contains(q),
       );
     }
     if (_category != 'Tümü') {
@@ -147,7 +151,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         isCollapsed: true,
-                        hintText: 'Ürün veya marka ara…',
+                        hintText: 'Ürün, marka, kategori veya market…',
                         hintStyle: frText(13, FontWeight.w600, color: FR.ink3),
                       ),
                     ),

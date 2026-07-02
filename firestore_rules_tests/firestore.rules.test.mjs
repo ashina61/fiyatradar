@@ -883,6 +883,43 @@ describe('priceGroups rules', () => {
     );
   });
 
+  test('another verified user can bump verifiedCount by +1 (ben de gördüm)', async () => {
+    await withDisabledRules(async (admin) => {
+      await setDoc(doc(admin, 'priceGroups/g_verify'), {
+        productId: 'p1',
+        chainId: 'a101',
+        cityId: 'adana',
+        districtId: 'seyhan',
+        reportCount: 3,
+        verifiedCount: 0,
+        confidence: 'low',
+        lastReporterId: 'user1',
+      });
+    });
+    // user2 son raporlayan DEĞİL — verify-only bump yine de geçmeli.
+    const db = testEnv.authenticatedContext('user2', { email_verified: true }).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'priceGroups/g_verify'), { verifiedCount: 1 }),
+    );
+  });
+
+  test('verify-only path cannot jump verifiedCount by more than +1', async () => {
+    const db = testEnv.authenticatedContext('user2', { email_verified: true }).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'priceGroups/g_verify'), { verifiedCount: 50 }),
+    );
+  });
+
+  test('verify-only path cannot smuggle other fields (price tamper)', async () => {
+    const db = testEnv.authenticatedContext('user2', { email_verified: true }).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'priceGroups/g_verify'), {
+        verifiedCount: 2,
+        trustedPrice: 0.01,
+      }),
+    );
+  });
+
   test('cannot rewrite chain identity after creation', async () => {
     const db = testEnv.authenticatedContext('user1', { email_verified: true }).firestore();
     await withDisabledRules(async (admin) => {
