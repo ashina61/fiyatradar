@@ -281,6 +281,9 @@ class _RegionalLeaderboardScreenState
   }
 }
 
+/// "Senin pozisyonun" — liderlik ekranının prestij anı, espresso Premium
+/// Dark Card. Diğer ekranların imza bloklarıyla aynı aile; renkler aktif
+/// temadan bağımsız [FRPalette.dark]'tan gelir.
 class _MyRankCard extends StatelessWidget {
   const _MyRankCard({
     required this.region,
@@ -293,68 +296,72 @@ class _MyRankCard extends StatelessWidget {
   final int total;
   final RegionalContributorScore? myScore;
 
+  static const FRPalette _d = FRPalette.dark;
+
   @override
   Widget build(BuildContext context) {
     final myRank = myIndex >= 0 ? myIndex + 1 : null;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsetsDirectional.all(FRSpace.l + 2),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [FR.surfaceHi, FR.surfaceLo],
+          colors: [_d.surfaceHi, _d.bgElev],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: FRRad.all(FRRad.xl),
-        border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+        border: Border.all(color: _d.hairline),
+        boxShadow: frShadow(blur: 22, y: 12, opacity: FR.isDark ? .4 : .18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('SENİN POZİSYONUN',
-              style: frOverline(color: FR.gold, size: 9.5)),
+              style: frOverline(color: _d.gold, size: 9.5)),
           const SizedBox(height: 6),
-          Text(region, style: frText(12, FontWeight.w700, color: FR.ink3)),
-          const SizedBox(height: 12),
+          Text(region, style: frText(12, FontWeight.w700, color: _d.ink3)),
+          const SizedBox(height: FRSpace.m),
           if (myRank == null) ...[
             Text(
               'Bu bölgede henüz katkın yok',
-              style: frDisplay(20, FontWeight.w700),
+              style: frDisplay(20, FontWeight.w700, color: _d.ink),
             ),
             const SizedBox(height: 6),
             Text(
               'İlk fiyatı sen ekle, sıralamayı aç.',
               style: frText(12.5, FontWeight.w600,
-                  color: FR.ink3, height: 1.45),
+                  color: _d.ink3, height: 1.45),
             ),
           ] else ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text('$myRank.',
-                    style: frDisplay(38, FontWeight.w800, color: FR.gold)),
-                const SizedBox(width: 8),
+                    style: frDisplay(38, FontWeight.w800, color: _d.gold)),
+                const SizedBox(width: FRSpace.s),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsetsDirectional.only(bottom: 8),
                   child: Text('/ $total kişi',
-                      style: frText(12.5, FontWeight.w800, color: FR.ink2)),
+                      style: frText(12.5, FontWeight.w800, color: _d.ink2)),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: FRSpace.xs),
             Text(
               '${myScore!.reportCount} fiyat · ${myScore!.photoCount} fotoğraf · skor ${myScore!.score.toStringAsFixed(1)}',
-              style: frText(12, FontWeight.w700, color: FR.ink3),
+              style: frText(12, FontWeight.w700, color: _d.ink3),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: FRSpace.s),
             if (myRank > 1)
               Text(
                 '${myRank - 1} kişi önünde · onları geçmek için fiyat ekle.',
-                style: frText(11.5, FontWeight.w700, color: FR.gold),
+                style: frText(11.5, FontWeight.w700, color: _d.ink2),
               )
             else
               Text(
                 'Bölgenin 1 numarasısın 🎯',
-                style: frText(12, FontWeight.w800, color: FR.good),
+                style: frText(12, FontWeight.w800, color: _d.good),
               ),
           ],
         ],
