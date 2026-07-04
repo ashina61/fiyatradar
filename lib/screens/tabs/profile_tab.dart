@@ -44,19 +44,22 @@ class ProfileTab extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: FRSpace.l),
+          // Sayfanın tek baskın bloğu: koyu espresso kimlik hero'su.
+          // Eski akış liste başlamadan 5 ayrı kart yığıyordu (kimlik + güven
+          // + seviye + sıralama + premium) ve dördü altın çerçeveliydi —
+          // design-language.md'nin "kart mezarlığı" yasağının ta kendisi.
           _IdentityCard(state: state),
-          const SizedBox(height: 12),
-          _TrustCard(state: state),
-          const SizedBox(height: 12),
-          _ProgressCard(snap: snap),
-          const SizedBox(height: 12),
-          _RegionalRankCta(state: state),
-          const SizedBox(height: 12),
+          const SizedBox(height: FRSpace.m),
+          // Güven + seviye + seri tek sakin kartta: hepsi "itibar" sinyali,
+          // üçü de ayrı progress-bar kartı olarak yarışıyordu.
+          _ReputationCard(state: state, snap: snap),
+          const SizedBox(height: FRSpace.m),
+          // Sayfadaki tek altın an — premium bunu hak ediyor.
           _PremiumCta(state: state),
-          const SizedBox(height: 18),
+          const SizedBox(height: FRSpace.xxl),
           const FRSectionHead(eyebrow: 'TAKİP', title: 'Radar takvimin'),
-          const SizedBox(height: 10),
+          const SizedBox(height: FRSpace.m),
           _ListGroup(
             items: [
               _ListItem(
@@ -87,6 +90,18 @@ class ProfileTab extends StatelessWidget {
                     '${snap.badges.length} / ${FRBadges.all.length} rozet kazandın',
                 onTap: () => _showBadgesSheet(context, snap),
               ),
+              // Bağımsız altın çerçeveli kart yerine liste satırı — bu bir
+              // gezinme hedefi, spot ışığı değil.
+              _ListItem(
+                icon: Icons.emoji_events_outlined,
+                title: 'Bölgemde sıralamam',
+                subtitle: _regionLabel(state),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const RegionalLeaderboardScreen()),
+                ),
+              ),
               _ListItem(
                 icon: Icons.inbox_rounded,
                 title: 'Bildirim merkezi',
@@ -100,9 +115,9 @@ class ProfileTab extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: FRSpace.xxl),
           const FRSectionHead(eyebrow: 'HESAP', title: 'Ayarlar'),
-          const SizedBox(height: 10),
+          const SizedBox(height: FRSpace.m),
           _ListGroup(
             items: [
               _ListItem(
@@ -138,7 +153,7 @@ class ProfileTab extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: FRSpace.xl),
           if (state.isAdmin)
             _AdminCta(onTap: () => Navigator.push(
                   context,
@@ -385,9 +400,21 @@ Future<void> _confirmLogout(BuildContext context, AppState state) async {
   }
 }
 
+String _regionLabel(AppState state) {
+  final city = (state.cityName ?? '').trim();
+  final district = (state.districtName ?? '').trim();
+  return (city.isEmpty || district.isEmpty) ? 'Bölgeni seç' : '$district / $city';
+}
+
+/// Kimlik hero'su — sayfanın tek koyu premium yüzeyi, ana sayfadaki radar
+/// hero'suyla aynı espresso ailesinden. Renkler aktif temadan değil
+/// [FRPalette.dark]'tan gelir; açık temada krem gövde üzerinde imza bloğu
+/// olur, koyu temada elevated yüzey gibi oturur.
 class _IdentityCard extends StatelessWidget {
   const _IdentityCard({required this.state});
   final AppState state;
+
+  static const FRPalette _d = FRPalette.dark;
 
   @override
   Widget build(BuildContext context) {
@@ -396,43 +423,47 @@ class _IdentityCard extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (_) => const ProfileInfoScreen()),
       ),
-      borderRadius: FRRad.all(24),
+      borderRadius: FRRad.all(FRRad.xxl),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsetsDirectional.all(FRSpace.xl),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [FR.surfaceHi, FR.surfaceLo],
+            colors: [_d.surfaceHi, _d.bgElev],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: FRRad.all(24),
-          border: Border.all(color: FR.goldDeep.withOpacity(.35)),
-          boxShadow: frShadow(blur: 30, y: 16, opacity: .14),
+          borderRadius: FRRad.all(FRRad.xxl),
+          border: Border.all(color: _d.hairline),
+          boxShadow: frShadow(blur: 26, y: 14, opacity: FR.isDark ? .4 : .2),
         ),
         child: Row(
           children: [
             Container(
-              width: 76,
-              height: 76,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
-                borderRadius: FRRad.all(22),
-                boxShadow: [BoxShadow(color: FR.gold.withOpacity(.3), blurRadius: 20)],
+                gradient: LinearGradient(colors: [_d.goldHi, _d.goldDeep]),
+                borderRadius: FRRad.all(FRRad.xl),
+                boxShadow: [
+                  BoxShadow(
+                      color: _d.gold.withOpacity(.25), blurRadius: 18),
+                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: ProfileAvatarImage(
                 imageUrl: state.profileImageUrl,
                 displayName: state.displayName,
-                size: 76,
-                radius: 22,
+                size: 72,
+                radius: FRRad.xl,
                 cacheWidth: 228,
-                initialStyle: frDisplay(34, FontWeight.w800, color: FR.onGold),
+                initialStyle: frDisplay(32, FontWeight.w800, color: _d.onGold),
                 onImageError: (url) => state.clearCachedProfileImageUrl(
                   failedUrl: url,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: FRSpace.l),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,48 +474,44 @@ class _IdentityCard extends StatelessWidget {
                         child: Text(state.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: frDisplay(22, FontWeight.w700)),
+                            style: frDisplay(22, FontWeight.w700,
+                                color: _d.ink)),
                       ),
                       if (state.premium.isActive) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: FRSpace.s),
                         const FRProBadge(compact: false),
                       ],
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(state.username,
-                      style: frText(12, FontWeight.w700, color: FR.ink3)),
-                  const SizedBox(height: 10),
+                      style: frText(12, FontWeight.w700, color: _d.ink3)),
+                  const SizedBox(height: FRSpace.s + 2),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                    padding: const EdgeInsetsDirectional.symmetric(
+                        horizontal: 11, vertical: 6),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          FR.gold.withOpacity(.22),
-                          FR.goldDeep.withOpacity(.12),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: FRRad.all(999),
-                      border: Border.all(color: FR.gold.withOpacity(.4)),
+                      color: _d.gold.withOpacity(.14),
+                      borderRadius: FRRad.all(FRRad.pill),
+                      border: Border.all(color: _d.gold.withOpacity(.4)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.auto_awesome_rounded,
-                            color: FR.gold, size: 13),
+                            color: _d.gold, size: 13),
                         const SizedBox(width: 5),
                         Text(
                             '${FRLevels.forPoints(state.points).name} · ${state.points} PT',
-                            style: frText(11, FontWeight.w800, color: FR.gold)),
+                            style:
+                                frText(11, FontWeight.w800, color: _d.gold)),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, size: 20),
+            Icon(Icons.chevron_right_rounded, size: 20, color: _d.ink3),
           ],
         ),
       ),
@@ -492,10 +519,13 @@ class _IdentityCard extends StatelessWidget {
   }
 }
 
-/// Combined level + streak card so the profile keeps progress signals
-/// without stacking two near-identical surfaces back-to-back.
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.snap});
+/// Seviye + seri + topluluk güveni tek sakin yüzeyde. Eskiden üç ayrı
+/// progress-bar kartı üst üste yığılıyordu (_TrustCard, _ProgressCard,
+/// altın çerçeveler) — hepsi aynı "itibar" sinyali olduğu için tek soft
+/// surface kartta toplandı; hero ile yarışan görsel ağırlık kalmadı.
+class _ReputationCard extends StatelessWidget {
+  const _ReputationCard({required this.state, required this.snap});
+  final AppState state;
   final GamificationSnapshot snap;
 
   @override
@@ -503,6 +533,12 @@ class _ProgressCard extends StatelessWidget {
     final level = snap.level;
     final next = FRLevels.nextOf(level);
     final pct = snap.levelProgress;
+    final trustPct = state.trustScorePercent;
+    final trustTone = trustPct >= 70
+        ? FR.good
+        : trustPct >= 40
+            ? FR.warn
+            : FR.bad;
     final flame = snap.currentStreak >= 30
         ? '🏆'
         : snap.currentStreak >= 7
@@ -511,19 +547,16 @@ class _ProgressCard extends StatelessWidget {
                 ? '🔥'
                 : '🌱';
     final streakLabel = snap.currentStreak == 0
-        ? 'Streak yok'
-        : '${snap.currentStreak} gün${snap.streakActive ? "" : " · sıfırlandı"}';
+        ? '—'
+        : '${snap.currentStreak} gün${snap.streakActive ? "" : " · sıfır"}';
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsetsDirectional.all(FRSpace.l),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [FR.surfaceHi, FR.surfaceLo],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
-        border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-        boxShadow: frShadow(blur: 24, y: 12, opacity: .12),
+        border: Border.all(color: FR.hairline),
+        boxShadow: frShadow(blur: 18, y: 9, opacity: .07),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,26 +564,26 @@ class _ProgressCard extends StatelessWidget {
           Row(
             children: [
               Text('SEVİYE · ${level.index + 1}',
-                  style: frOverline(color: FR.gold, size: 9.5)),
+                  style: frOverline(color: FR.goldDeep, size: 9.5)),
               const Spacer(),
               Text(
                 next == null
                     ? '${snap.points} PT · MAKSİMUM'
                     : '${snap.points} / ${next.minPoints} PT',
-                style: frText(11.5, FontWeight.w800, color: FR.gold),
+                style: frText(11.5, FontWeight.w800, color: FR.ink3),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: FRSpace.xs),
           Text(level.name, style: frDisplay(20, FontWeight.w700)),
-          const SizedBox(height: 10),
+          const SizedBox(height: FRSpace.s + 2),
           ClipRRect(
-            borderRadius: FRRad.all(999),
+            borderRadius: FRRad.all(FRRad.pill),
             child: LinearProgressIndicator(
               value: pct.clamp(0, 1).toDouble(),
-              minHeight: 8,
+              minHeight: 6,
               color: FR.gold,
-              backgroundColor: FR.bgElev,
+              backgroundColor: FR.hairlineSoft,
             ),
           ),
           if (next != null) ...[
@@ -560,28 +593,62 @@ class _ProgressCard extends StatelessWidget {
               style: frText(11, FontWeight.w700, color: FR.ink3),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: FRSpace.m),
           Container(height: 1, color: FR.hairlineSoft),
-          const SizedBox(height: 12),
-          Row(children: [
-            Text(flame, style: const TextStyle(fontSize: 22)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(streakLabel, style: frText(13, FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${snap.contributions} fiyat · ${snap.verifyContributions} doğrulama · en uzun ${snap.longestStreak} gün',
-                    style: frText(10.5, FontWeight.w600, color: FR.ink3),
-                  ),
-                ],
+          const SizedBox(height: FRSpace.m),
+          Row(
+            children: [
+              _stat(
+                value: '%$trustPct',
+                valueColor: trustTone,
+                label: 'TOPLULUK GÜVENİ',
               ),
-            ),
-          ]),
+              _divider(),
+              _stat(
+                value: '$flame $streakLabel',
+                label: 'SERİ',
+              ),
+              _divider(),
+              _stat(
+                value: '${snap.contributions}',
+                label: 'FİYAT KATKISI',
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _stat({
+    required String value,
+    required String label,
+    Color? valueColor,
+  }) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: frText(14, FontWeight.w800, color: valueColor ?? FR.ink)),
+          const SizedBox(height: 2),
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: frText(8.5, FontWeight.w800, color: FR.ink3, letter: .9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() {
+    return Container(
+      width: 1,
+      height: 28,
+      margin: const EdgeInsetsDirectional.symmetric(horizontal: FRSpace.m),
+      color: FR.hairlineSoft,
     );
   }
 }
@@ -642,7 +709,9 @@ class _ListItem extends StatelessWidget {
                 borderRadius: FRRad.all(12),
                 border: Border.all(color: FR.hairline),
               ),
-              child: Icon(icon, color: FR.gold, size: 18),
+              // Bakır: utility satır ikonu destek tonu kullanır, altın
+              // yalnız premium anlara kalır (design-language: bronz destek).
+              child: Icon(icon, color: FR.copper, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -698,63 +767,6 @@ class _AdminCta extends StatelessWidget {
             Icon(Icons.arrow_forward_rounded, color: FR.gold, size: 18),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TrustCard extends StatelessWidget {
-  const _TrustCard({required this.state});
-  final AppState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = state.trustScorePercent;
-    final c = pct >= 70
-        ? FR.good
-        : pct >= 40
-            ? FR.warn
-            : FR.bad;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: FR.surface,
-        borderRadius: FRRad.all(FRRad.l),
-        border: Border.all(color: FR.hairline),
-        boxShadow: frShadow(blur: 20, y: 10, opacity: .08),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.shield_moon_outlined, size: 16, color: c),
-              const SizedBox(width: 8),
-              Text('TOPLULUK GÜVENİ',
-                  style: frOverline(color: FR.ink3, size: 9.5)),
-              const Spacer(),
-              Text('%$pct', style: frPrice(18, color: c)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: FRRad.all(999),
-            child: LinearProgressIndicator(
-              value: (pct / 100).clamp(0, 1).toDouble(),
-              minHeight: 8,
-              color: c,
-              backgroundColor: FR.bgElev,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            state.trustTotalVotes == 0
-                ? 'Henüz oy kullanmadın. Doğrulama oyu kullandıkça güven ağırlığın artar.'
-                : '${state.trustVerifiedTotal} doğru · ${state.trustWrongTotal} hatalı · '
-                    '${state.contributions} fiyat katkın',
-            style: frText(11.5, FontWeight.w600, color: FR.ink3, height: 1.45),
-          ),
-        ],
       ),
     );
   }
@@ -964,66 +976,6 @@ class _BadgeChip extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _RegionalRankCta extends StatelessWidget {
-  const _RegionalRankCta({required this.state});
-  final AppState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final city = (state.cityName ?? '').trim();
-    final district = (state.districtName ?? '').trim();
-    final region = (city.isEmpty || district.isEmpty)
-        ? 'Bölgeni seç'
-        : '$district / $city';
-    return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => const RegionalLeaderboardScreen()),
-      ),
-      borderRadius: FRRad.all(FRRad.l),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: FR.surface,
-          borderRadius: FRRad.all(FRRad.l),
-          border: Border.all(color: FR.gold.withOpacity(.45)),
-          boxShadow: frShadow(blur: 18, y: 9, opacity: .08),
-        ),
-        child: Row(children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: FR.gold.withOpacity(.16),
-              borderRadius: FRRad.all(12),
-              border: Border.all(color: FR.gold.withOpacity(.45)),
-            ),
-            child: Icon(Icons.emoji_events_rounded, color: FR.gold, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Bölgemde sıralamam',
-                    style: frText(13.5, FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(
-                  region,
-                  style: frText(11.5, FontWeight.w700, color: FR.ink3),
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_rounded, size: 18, color: FR.gold),
-        ]),
       ),
     );
   }
