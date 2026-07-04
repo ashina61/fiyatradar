@@ -331,7 +331,6 @@ class _CommentsTogglePill extends StatelessWidget {
           color: FR.surfaceLo,
           borderRadius: FRRad.all(999),
           border: Border.all(color: FR.gold.withOpacity(.38)),
-          boxShadow: frGoldGlow(opacity: .08),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

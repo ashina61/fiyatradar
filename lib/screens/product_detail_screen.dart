@@ -1264,6 +1264,7 @@ class _RegionalEmptyCta extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(18),
+          // Boş durum kartı — premium an değil, sessiz yönlendirme.
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [FR.surfaceHi, FR.surfaceLo],
@@ -1271,7 +1272,7 @@ class _RegionalEmptyCta extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
             borderRadius: FRRad.all(FRRad.xl),
-            border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+            border: Border.all(color: FR.hairline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -743,16 +743,18 @@ class _AdminCta extends StatelessWidget {
       borderRadius: FRRad.all(FRRad.l),
       child: Container(
         padding: const EdgeInsets.all(16),
+        // Utility gezinme satırı — altın çerçeve yerine sessiz yüzey,
+        // ikon bakır destek tonunda (admin girişi spot ışığı değil).
         decoration: BoxDecoration(
           color: FR.surfaceHi,
           borderRadius: FRRad.all(FRRad.l),
-          border: Border.all(color: FR.goldDeep.withOpacity(.4)),
+          border: Border.all(color: FR.hairline),
           boxShadow: frShadow(blur: 18, y: 9, opacity: .08),
         ),
         child: Row(
           children: [
             Icon(Icons.admin_panel_settings_outlined,
-                color: FR.gold, size: 22),
+                color: FR.copper, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -764,7 +766,7 @@ class _AdminCta extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_rounded, color: FR.gold, size: 18),
+            Icon(Icons.chevron_right_rounded, color: FR.ink3, size: 20),
           ],
         ),
       ),
@@ -789,6 +791,8 @@ class _GuestProfile extends StatelessWidget {
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(20),
+            // Sakin kapı kartı — altın çerçeve "premium" değil "kilitli"
+            // hissi veriyordu; vurgu ikon kutusunda ve CTA'da yeterli.
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [FR.surfaceHi, FR.surfaceLo],
@@ -796,7 +800,7 @@ class _GuestProfile extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
               borderRadius: FRRad.all(24),
-              border: Border.all(color: FR.goldDeep.withOpacity(.35)),
+              border: Border.all(color: FR.hairline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
