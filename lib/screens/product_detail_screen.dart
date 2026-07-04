@@ -642,10 +642,15 @@ class _CategoryIllustrationFallback extends StatelessWidget {
 
 // ─── Headline price (the single dominant emphasis block) ─────────────────────
 
+/// Sayfanın tek baskın vurgusu — espresso Premium Dark Card. Ana sayfa
+/// hero'su, profil kimliği ve sepet kazananıyla aynı aileden; renkler
+/// [FRPalette.dark]'tan gelir, altın yalnız burada (tutar + rozet) yaşar.
 class _DetailHeadlinePrice extends StatelessWidget {
   const _DetailHeadlinePrice({required this.product, required this.state});
   final Product product;
   final AppState state;
+
+  static const FRPalette _d = FRPalette.dark;
 
   @override
   Widget build(BuildContext context) {
@@ -693,16 +698,17 @@ class _DetailHeadlinePrice extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsetsDirectional.all(FRSpace.xl),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [FR.surfaceHi, FR.surfaceLo],
+          colors: [_d.surfaceHi, _d.bgElev],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: FRRad.all(FRRad.xxl),
-        border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-        boxShadow: frGoldGlow(opacity: .14),
+        border: Border.all(color: _d.hairline),
+        boxShadow: frShadow(blur: 26, y: 14, opacity: FR.isDark ? .4 : .2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -710,73 +716,129 @@ class _DetailHeadlinePrice extends StatelessWidget {
           Row(
             children: [
               Flexible(
-                child: Text('TOPLULUKTAN EN İYİ FİYAT', style: frOverline()),
+                child: Text('TOPLULUKTAN EN İYİ FİYAT',
+                    style: frOverline(color: _d.goldDeep)),
               ),
               const SizedBox(width: 6),
               InkWell(
                 onTap: () => showTrustInfoSheet(context),
-                borderRadius: FRRad.all(999),
+                borderRadius: FRRad.all(FRRad.pill),
                 child: Padding(
-                  padding: const EdgeInsets.all(2), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+                  padding: const EdgeInsetsDirectional.all(2),
                   child: Icon(Icons.info_outline_rounded,
-                      size: 14, color: FR.ink3),
+                      size: 14, color: _d.ink3),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: FRSpace.s + 2),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              FRPriceText(lowest, size: 38, color: FR.gold),
-              const SizedBox(width: 10),
+              FRPriceText(lowest, size: 38, color: _d.gold),
+              const SizedBox(width: FRSpace.s + 2),
               if (pct != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: FRTrendPill(pct: pct),
+                  padding: const EdgeInsetsDirectional.only(bottom: 6),
+                  child: _darkTrend(pct),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: FRSpace.m),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: FRSpace.s,
+            runSpacing: FRSpace.s,
             children: [
-              if (store != null) FRStoreBadge(store, filled: true),
+              if (store != null) _darkStore(store),
               if (verified > 0)
-                FRVerifyBadge(
-                  label: '$verified doğrulandı',
-                  tone: FRVerifyTone.good,
-                  trustPercent: trust,
-                  dense: true,
+                _darkChip(
+                  icon: Icons.verified_rounded,
+                  label: '$verified doğrulandı · %$trust',
+                  tone: _d.good,
                 )
               else
-                FRVerifyBadge(
-                  label: trust >= 50 ? 'İncelemede' : 'Yeni',
-                  tone: FRVerifyTone.neutral,
-                  trustPercent: trust,
-                  dense: true,
+                _darkChip(
+                  icon: Icons.schedule_rounded,
+                  label:
+                      '${trust >= 50 ? 'İncelemede' : 'Yeni'} · %$trust',
+                  tone: _d.ink2,
                 ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: FR.bgElev,
-                  borderRadius: FRRad.all(999),
-                  border: Border.all(color: FR.hairline),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bar_chart_rounded, size: 12, color: FR.ink2),
-                    const SizedBox(width: 4),
-                    Text('$dataPoints veri noktası',
-                        style: frText(10.5, FontWeight.w800, color: FR.ink2)),
-                  ],
-                ),
+              _darkChip(
+                icon: Icons.bar_chart_rounded,
+                label: '$dataPoints veri noktası',
+                tone: _d.ink2,
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  /// [FRTrendPill]/[FRVerifyBadge] aktif tema renklerini kullanır — açık
+  /// temada koyu yeşil/kırmızı espresso üzerinde okunmaz. Bu yüzden koyu
+  /// yüzeye özel yerel pil varyantları çiziyoruz.
+  Widget _darkTrend(double pct) {
+    final down = pct < 0;
+    final color = down ? _d.good : _d.bad;
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.14),
+        borderRadius: FRRad.all(FRRad.pill),
+        border: Border.all(color: color.withOpacity(.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(down ? Icons.trending_down_rounded : Icons.trending_up_rounded,
+              size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            '%${pct.abs().toStringAsFixed(pct.abs() < 10 ? 1 : 0)}',
+            style: frText(11, FontWeight.w800, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _darkStore(String store) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: _d.gold,
+        borderRadius: FRRad.all(6),
+        border: Border.all(color: _d.gold),
+      ),
+      child: Text(
+        store,
+        style: frText(10.5, FontWeight.w800, color: _d.onGold, letter: .3),
+      ),
+    );
+  }
+
+  Widget _darkChip({
+    required IconData icon,
+    required String label,
+    required Color tone,
+  }) {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: _d.bg.withOpacity(.4),
+        borderRadius: FRRad.all(FRRad.pill),
+        border: Border.all(color: _d.hairline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: tone),
+          const SizedBox(width: 4),
+          Text(label, style: frText(10.5, FontWeight.w800, color: tone)),
         ],
       ),
     );
@@ -1020,10 +1082,10 @@ class _RegionalGroupCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // Altın sadece başlık kartında — liste kartında fiyat mürekkep.
               FRPriceText(
                 group.preferredPrice ?? group.latestPrice,
                 size: 18,
-                color: FR.gold,
               ),
             ],
           ),
@@ -1842,7 +1904,6 @@ class _SquareIconAction extends StatelessWidget {
           color: bg,
           borderRadius: FRRad.all(16),
           border: Border.all(color: border),
-          boxShadow: filled ? frGoldGlow(opacity: .22) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1940,13 +2001,14 @@ class _CommunityImageCtaState extends State<_CommunityImageCta> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
 
+    // Yardımcı modül — spot ışığı değil. Altın çerçeve/glow yerine sakin
+    // soft surface; altın yalnız "Öner" aksiyonunda.
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsetsDirectional.all(FRSpace.l),
       decoration: BoxDecoration(
         color: FR.surface,
         borderRadius: FRRad.all(FRRad.l),
-        border: Border.all(color: FR.gold.withOpacity(.32)),
-        boxShadow: frGoldGlow(opacity: .08),
+        border: Border.all(color: FR.hairline),
       ),
       child: Row(
         children: [
@@ -1955,12 +2017,12 @@ class _CommunityImageCtaState extends State<_CommunityImageCta> {
             height: 42,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: FR.gold.withOpacity(.14),
+              color: FR.surfaceHi,
               borderRadius: FRRad.all(12),
-              border: Border.all(color: FR.gold.withOpacity(.4)),
+              border: Border.all(color: FR.hairline),
             ),
             child: Icon(Icons.add_a_photo_outlined,
-                color: FR.gold, size: 20),
+                color: FR.copper, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1990,7 +2052,6 @@ class _CommunityImageCtaState extends State<_CommunityImageCta> {
               decoration: BoxDecoration(
                 color: FR.gold,
                 borderRadius: FRRad.all(12),
-                boxShadow: frGoldGlow(opacity: .18),
               ),
               child: _busy
                   ? SizedBox(

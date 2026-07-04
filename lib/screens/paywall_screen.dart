@@ -361,33 +361,40 @@ class _PaywallScreenState extends State<PaywallScreen> {
   }
 }
 
+/// Pro satış vitrini — espresso Premium Dark Card. "Premium feature card"
+/// design-language.md'nin koyu yüzey için saydığı ana kullanım alanı; ekranın
+/// tek koyu bloğu budur, altın madalyon + rozet yalnız burada parlar. Renkler
+/// aktif temadan bağımsız [FRPalette.dark]'tan gelir.
 class _Hero extends StatelessWidget {
   const _Hero({required this.active});
   final bool active;
 
+  static const FRPalette _d = FRPalette.dark;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsetsDirectional.all(FRSpace.xl + 2),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [FR.surfaceHi, FR.surfaceLo],
+          colors: [_d.surfaceHi, _d.bgElev],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: FRRad.all(FRRad.xxl),
-        border: Border.all(color: FR.goldDeep.withOpacity(active ? .6 : .45)),
-        boxShadow: frGoldGlow(opacity: active ? .22 : .14),
+        border: Border.all(color: _d.hairline),
+        boxShadow: frShadow(blur: 26, y: 14, opacity: FR.isDark ? .4 : .2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (active) ...[
             const _ActiveBadge(),
-            const SizedBox(height: 14),
+            const SizedBox(height: FRSpace.l),
           ] else ...[
             const _FreeTrialBadge(),
-            const SizedBox(height: 14),
+            const SizedBox(height: FRSpace.l),
           ],
           Container(
             width: 56,
@@ -395,26 +402,30 @@ class _Hero extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [FR.goldHi, FR.goldDeep],
+                colors: [_d.goldHi, _d.goldDeep],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: FRRad.all(18),
+              borderRadius: FRRad.all(FRRad.l),
+              boxShadow: [
+                BoxShadow(
+                    color: _d.gold.withOpacity(.25), blurRadius: 18),
+              ],
             ),
             child: Icon(Icons.workspace_premium_rounded,
-                color: FR.onGold, size: 28),
+                color: _d.onGold, size: 28),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: FRSpace.l),
           Text(
             active ? 'FiyatRadar Pro · aktif' : 'FiyatRadar Pro',
-            style: frDisplay(28, FontWeight.w800, height: 1.1),
+            style: frDisplay(28, FontWeight.w800, color: _d.ink, height: 1.1),
           ),
           const SizedBox(height: 6),
           Text(
             active
                 ? 'Premium özelliklerin senin için açık.'
                 : 'Bölgenin gerçek fiyat zekâsı, derinlemesine.',
-            style: frText(13, FontWeight.w600, color: FR.ink2, height: 1.5),
+            style: frText(13, FontWeight.w600, color: _d.ink2, height: 1.5),
           ),
         ],
       ),
@@ -422,26 +433,32 @@ class _Hero extends StatelessWidget {
   }
 }
 
+/// Hero koyu espresso yüzey olduğu için rozetler tema paletinden değil
+/// [FRPalette.dark]'tan renk alır (açık temada FR.gold koyu bakırdır ve
+/// koyu yüzeyde okunmaz).
 class _FreeTrialBadge extends StatelessWidget {
   const _FreeTrialBadge();
+
+  static const FRPalette _d = FRPalette.dark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: FR.gold.withOpacity(.16),
-        borderRadius: FRRad.all(999),
-        border: Border.all(color: FR.gold.withOpacity(.45)),
+        color: _d.gold.withOpacity(.16),
+        borderRadius: FRRad.all(FRRad.pill),
+        border: Border.all(color: _d.gold.withOpacity(.45)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.bolt_rounded, size: 14, color: FR.gold),
+          Icon(Icons.bolt_rounded, size: 14, color: _d.gold),
           const SizedBox(width: 6),
           Text('7 gün ücretsiz dene',
               style: frText(11, FontWeight.w800,
-                  color: FR.gold, letter: 0.4)),
+                  color: _d.gold, letter: 0.4)),
         ],
       ),
     );
@@ -449,27 +466,30 @@ class _FreeTrialBadge extends StatelessWidget {
 }
 
 /// "Üyeliğin aktif" yeşil rozeti — aktif hero'nun tepesinde, satın alma sonrası
-/// kutlamacı bir onay verir.
+/// kutlamacı bir onay verir. Koyu hero yüzeyine göre [FRPalette.dark] tonları.
 class _ActiveBadge extends StatelessWidget {
   const _ActiveBadge();
+
+  static const FRPalette _d = FRPalette.dark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: FR.good.withOpacity(.14),
-        borderRadius: FRRad.all(999),
-        border: Border.all(color: FR.good.withOpacity(.5)),
+        color: _d.good.withOpacity(.14),
+        borderRadius: FRRad.all(FRRad.pill),
+        border: Border.all(color: _d.good.withOpacity(.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_rounded, size: 14, color: FR.good),
+          Icon(Icons.verified_rounded, size: 14, color: _d.good),
           const SizedBox(width: 6),
           Text('ÜYELİĞİN AKTİF',
               style: frText(10.5, FontWeight.w800,
-                  color: FR.good, letter: 0.8)),
+                  color: _d.good, letter: 0.8)),
         ],
       ),
     );
@@ -518,7 +538,6 @@ class _ActiveCard extends StatelessWidget {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: FRRad.all(14),
-                  boxShadow: frGoldGlow(opacity: .25),
                 ),
                 child: Icon(Icons.verified_rounded,
                     color: FR.onGold, size: 24),
