@@ -126,14 +126,8 @@ class _ExploreTabState extends State<ExploreTab> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Text(
-              'Binlerce market ürünü · topluluktan gerçek fiyatlar.',
-              style: frText(13, FontWeight.w500, color: FR.ink3, height: 1.5),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            padding: const EdgeInsetsDirectional.fromSTEB(
+                FRSpace.xl, FRSpace.l, FRSpace.xl, 0),
             child: Container(
               height: 54,
               padding: const EdgeInsets.symmetric(horizontal: 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
@@ -180,12 +174,15 @@ class _ExploreTabState extends State<ExploreTab> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: FRSpace.l),
+          // 44px: chip dikey padding'i + descender payı (40'ta "Ucuzlayanlar"
+          // gibi kuyruklu harfler kırpılıyordu — home'daki düzeltmeyle aynı).
           SizedBox(
-            height: 40,
+            height: 44,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: FRSpace.xl),
               itemCount: _filters.length,
               itemBuilder: (_, i) => FRFilterChip(
                 _filters[i],
@@ -194,49 +191,27 @@ class _ExploreTabState extends State<ExploreTab> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: FRSpace.s),
+          // Kategori satırı filtre satırıyla aynı chip ailesini kullanır —
+          // aynı ekranda iki farklı chip görsel dili premium hissi bozuyordu.
           SizedBox(
             height: 44,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: FRSpace.xl),
               itemCount: state.categories.length,
               itemBuilder: (_, i) {
                 final c = state.categories[i];
-                final active = _category == c;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: InkWell(
-                    onTap: () => setState(() => _category = c),
-                    borderRadius: FRRad.all(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: active
-                            ? FR.gold.withOpacity(.14)
-                            : FR.surface,
-                        borderRadius: FRRad.all(12),
-                        border: Border.all(
-                          color: active ? FR.goldDeep : FR.hairline,
-                        ),
-                      ),
-                      child: Text(
-                        c,
-                        maxLines: 1,
-                        overflow: TextOverflow.fade,
-                        softWrap: false,
-                        style: frText(13, FontWeight.w800,
-                            color: active ? FR.gold : FR.ink2),
-                      ),
-                    ),
-                  ),
+                return FRFilterChip(
+                  c,
+                  active: _category == c,
+                  onTap: () => setState(() => _category = c),
                 );
               },
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: FRSpace.s),
           Expanded(
             child: products.isEmpty
                 ? Center(
@@ -485,7 +460,9 @@ class _ExploreCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: frText(12.5, FontWeight.w800, height: 1.25)),
                   const SizedBox(height: 6),
-                  FRPriceText(product.lowestPrice, size: 21, color: FR.gold),
+                  // Altın sadece vurgu: katalogda her kartta altın fiyat
+                  // tekrar edince değer hissi kayboluyordu.
+                  FRPriceText(product.lowestPrice, size: 21),
                   Text(
                     '${product.brand} · ${product.unit}',
                     maxLines: 1,

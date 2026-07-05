@@ -39,28 +39,32 @@ class HomeTab extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(20, 14, 20, frBottomScrollPadding(context)),
         children: [
           FRFadeSlideIn(delay: nextDelay(), child: _HomeHeader(state: state)),
-          const SizedBox(height: 18),
+          const SizedBox(height: FRSpace.l),
+          // Sayfanın tek baskın bloğu: koyu espresso hero. Bölge seçimi de
+          // ayrı bir kart yerine hero içinde kompakt bir chip olarak yaşar —
+          // "açık gövde + tek koyu premium vurgu" kontrast modeli.
           FRFadeSlideIn(
             delay: nextDelay(),
             child: _RadarHero(
               state: state,
+              hasRegion: hasRegion,
               onInspect: () => MainScreen.switchTab(context, 1),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: FRSpace.m),
+          // Kapsam seçimi: kart kabuğu olmadan sessiz bir chip satırı.
+          // Feed'in hangi bölgeye baktığını kontrol eder.
           FRFadeSlideIn(
             delay: nextDelay(),
-            child: _RegionScopeCard(state: state, hasRegion: hasRegion),
+            child: _ScopeChipsRow(state: state, hasRegion: hasRegion),
           ),
-          const SizedBox(height: 14),
-          FRFadeSlideIn(delay: nextDelay(), child: const _HomeActionStrip()),
-          const SizedBox(height: 14),
-          // Günlük seri kartı — retention kancası: kullanıcının streak'ini,
-          // bugünkü katkı durumunu ve bir sonraki rozet hedefini gösterir.
-          // Mevcut gamification verisiyle çalışır, backend değişikliği yok.
-          FRFadeSlideIn(delay: nextDelay(), child: _DailyStreakCard(state: state)),
+          const SizedBox(height: FRSpace.m),
+          // Günlük seri — retention kancası, ama hero ile yarışmayan tek
+          // satırlık sakin bir utility row. Mevcut gamification verisiyle
+          // çalışır, backend değişikliği yok.
+          FRFadeSlideIn(delay: nextDelay(), child: _DailyStreakRow(state: state)),
           if (state.banners.isNotEmpty) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: FRSpace.xxl),
             FRFadeSlideIn(
               delay: nextDelay(),
               child: const FRSectionHead(
@@ -74,7 +78,7 @@ class HomeTab extends StatelessWidget {
               child: _BannerCarousel(banners: state.banners),
             ),
           ],
-          const SizedBox(height: 26),
+          const SizedBox(height: FRSpace.xxl),
           FRFadeSlideIn(
             delay: nextDelay(),
             child: FRSectionHead(
@@ -120,7 +124,7 @@ class HomeTab extends StatelessWidget {
             ),
           ),
           if (state.categories.isNotEmpty) ...[
-            const SizedBox(height: 26),
+            const SizedBox(height: FRSpace.xxl),
             FRFadeSlideIn(
               delay: nextDelay(),
               child: const FRSectionHead(
@@ -134,7 +138,7 @@ class HomeTab extends StatelessWidget {
               child: _CategoryStrip(categories: state.categories),
             ),
           ],
-          const SizedBox(height: 26),
+          const SizedBox(height: FRSpace.xxl),
           FRFadeSlideIn(
             delay: nextDelay(),
             child: FRSectionHead(
@@ -289,221 +293,72 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
-// ─── Region scope row (Utility Row card style) ───────────────────────────────
+// ─── Bölge seçimi (hero chip + boş durum ortak kullanır) ─────────────────────
 
-class _RegionScopeCard extends StatelessWidget {
-  const _RegionScopeCard({required this.state, required this.hasRegion});
+Future<void> _pickRegion(BuildContext context, AppState state) async {
+  final result = await showRegionPickerSheet(
+    context,
+    initialCity: state.cityName,
+    initialDistrict: state.districtName,
+  );
+  if (result == null) return;
+  try {
+    await state.updateRegionSettings(
+      cityName: result.city,
+      districtName: result.district,
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content:
+              Text('Bölge güncellendi: ${result.city} / ${result.district}')),
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Bölge güncellenemedi: $e')),
+    );
+  }
+}
+
+// ─── Kapsam chip satırı (kart kabuğu yok — sessiz kontrol) ───────────────────
+
+/// Feed kapsamını seçen çıplak chip satırı. Eski hali koca bir "bölge kartı"
+/// içinde yaşıyordu; kart kabuğu, ayraç ve BÖLGE etiketi kaldırıldı — bölge
+/// bilgisi artık hero içindeki chip'te. 44px: chip dikey padding'i +
+/// descender'lar için gereken yükseklik.
+class _ScopeChipsRow extends StatelessWidget {
+  const _ScopeChipsRow({required this.state, required this.hasRegion});
   final AppState state;
   final bool hasRegion;
 
-  Future<void> _openPicker(BuildContext context) async {
-    final result = await showRegionPickerSheet(
-      context,
-      initialCity: state.cityName,
-      initialDistrict: state.districtName,
-    );
-    if (result == null) return;
-    try {
-      await state.updateRegionSettings(
-        cityName: result.city,
-        districtName: result.district,
-      );
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text('Bölge güncellendi: ${result.city} / ${result.district}')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bölge güncellenemedi: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final city = (state.cityName ?? '').trim();
-    final district = (state.districtName ?? '').trim();
     final scope = state.activeHomeScope;
-
-    return Container(
-      decoration: frSurface(radius: FRRad.l),
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         children: [
-          InkWell(
-            onTap: () => _openPicker(context),
-            borderRadius: FRRad.all(10),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Icon(Icons.place_outlined, size: 18, color: FR.gold),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('BÖLGE',
-                            style: frOverline(color: FR.ink3, size: 9.5)),
-                        const SizedBox(height: 2),
-                        Text(
-                          hasRegion
-                              ? '$district / $city'
-                              : 'İl ve ilçe seçilmedi',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: frText(14.5, FontWeight.w800),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: FR.gold.withOpacity(.14),
-                      borderRadius: FRRad.all(999),
-                      border: Border.all(color: FR.gold.withOpacity(.4)),
-                    ),
-                    child: Text(
-                      hasRegion ? 'Değiştir' : 'Seç',
-                      style: frText(11.5, FontWeight.w800, color: FR.gold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(height: 1, color: FR.hairlineSoft),
-          const SizedBox(height: 10),
-          // Filter chips were clipped at the previous 36px height — the
-          // chip's vertical padding (10+10) plus glyph height pushed past
-          // the box and the bottom of "Türkiye geneli" descenders went
-          // missing. Bump to 44 to give descenders room and add a soft
-          // bounce scroll physics so the user can reach the last chip.
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              children: [
-                FRFilterChip('Yakınımda',
-                    active: scope == HomePriceScope.nearby,
-                    onTap: hasRegion
-                        ? () => state.setHomePriceScope(HomePriceScope.nearby)
-                        : null),
-                FRFilterChip('Şehrimde',
-                    active: scope == HomePriceScope.city,
-                    onTap: hasRegion
-                        ? () => state.setHomePriceScope(HomePriceScope.city)
-                        : null),
-                FRFilterChip('Online',
-                    active: scope == HomePriceScope.online,
-                    onTap: () =>
-                        state.setHomePriceScope(HomePriceScope.online)),
-                FRFilterChip('Türkiye geneli',
-                    active: scope == HomePriceScope.turkeyWide,
-                    onTap: () =>
-                        state.setHomePriceScope(HomePriceScope.turkeyWide)),
-              ],
-            ),
-          ),
+          FRFilterChip('Yakınımda',
+              active: scope == HomePriceScope.nearby,
+              onTap: hasRegion
+                  ? () => state.setHomePriceScope(HomePriceScope.nearby)
+                  : null),
+          FRFilterChip('Şehrimde',
+              active: scope == HomePriceScope.city,
+              onTap: hasRegion
+                  ? () => state.setHomePriceScope(HomePriceScope.city)
+                  : null),
+          FRFilterChip('Online',
+              active: scope == HomePriceScope.online,
+              onTap: () => state.setHomePriceScope(HomePriceScope.online)),
+          FRFilterChip('Türkiye geneli',
+              active: scope == HomePriceScope.turkeyWide,
+              onTap: () =>
+                  state.setHomePriceScope(HomePriceScope.turkeyWide)),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Birincil aksiyonlar (tek segmentli şerit) ───────────────────────────────
-
-/// Eskiden iki ayrı bordürlü kart olan "Fiyat ekle" ve "Sepet karşılaştır"
-/// aksiyonlarını tek bir yüzeyde, ince bir dikey ayraçla birleştirir. İki
-/// kutu yığılması yerine sakin, premium bir aksiyon şeridi verir. Davranış
-/// aynı: sol yarım fiyat ekleme (index 2), sağ yarım sepet (index 3).
-class _HomeActionStrip extends StatelessWidget {
-  const _HomeActionStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: frSurface(radius: FRRad.l),
-      clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: _HomeAction(
-                icon: Icons.add_rounded,
-                title: 'Fiyat ekle',
-                subtitle: '20 saniyede paylaş',
-                onTap: () => MainScreen.switchTab(context, 2),
-              ),
-            ),
-            Container(width: 1, color: FR.hairlineSoft),
-            Expanded(
-              child: _HomeAction(
-                icon: Icons.compare_arrows_rounded,
-                title: 'Sepeti karşılaştır',
-                subtitle: 'En ucuz marketi bul',
-                onTap: () => MainScreen.switchTab(context, 3),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeAction extends StatelessWidget {
-  const _HomeAction({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: FR.gold.withOpacity(.14),
-                borderRadius: FRRad.all(11),
-                border: Border.all(color: FR.gold.withOpacity(.4)),
-              ),
-              child: Icon(icon, color: FR.gold, size: 19),
-            ),
-            const SizedBox(height: 10),
-            Text(title, style: frText(13.5, FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: frText(11.5, FontWeight.w600, color: FR.ink3)),
-          ],
-        ),
       ),
     );
   }
@@ -940,12 +795,24 @@ class _BannerImageFallback extends StatelessWidget {
   }
 }
 
-// ─── Radar hero (the dominant premium block of the page) ────────────────────
+// ─── Radar hero (sayfanın tek baskın premium bloğu) ──────────────────────────
 
+/// Her iki temada da koyu espresso yüzey: design-language.md'nin çekirdek
+/// kontrast modeli "açık gövde + tek koyu premium vurgu". Bu yüzden renkler
+/// aktif temadan değil doğrudan [FRPalette.dark]'tan gelir — açık temada
+/// sayfanın krem gövdesi üzerinde imza bloğu olur, koyu temada zaten aynı
+/// aileden bir elevated yüzey gibi oturur.
 class _RadarHero extends StatelessWidget {
-  const _RadarHero({required this.state, required this.onInspect});
+  const _RadarHero({
+    required this.state,
+    required this.hasRegion,
+    required this.onInspect,
+  });
   final AppState state;
+  final bool hasRegion;
   final VoidCallback onInspect;
+
+  static const FRPalette _d = FRPalette.dark;
 
   @override
   Widget build(BuildContext context) {
@@ -966,16 +833,17 @@ class _RadarHero extends StatelessWidget {
         : 'Ürün ekle, topluluk doğrulasın.';
 
     return Container(
-      padding: const EdgeInsets.all(20), // LEGACY_EXCEPTION: reason=token_migration owner=codex remove_by=2026-06-30
+      padding: const EdgeInsetsDirectional.all(FRSpace.xl),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [FR.surfaceHi, FR.surfaceLo],
+          colors: [_d.surfaceHi, _d.bgElev],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: FRRad.all(FRRad.xxl),
-        border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-        boxShadow: frGoldGlow(opacity: .14),
+        border: Border.all(color: _d.hairline),
+        boxShadow: frShadow(blur: 26, y: 14, opacity: FR.isDark ? .4 : .2),
       ),
       child: Stack(
         children: [
@@ -983,55 +851,42 @@ class _RadarHero extends StatelessWidget {
             right: -16,
             top: -10,
             child: Icon(Icons.radar_rounded,
-                size: 156, color: FR.gold.withOpacity(.07)),
+                size: 156, color: _d.gold.withOpacity(.08)),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: FR.good.withOpacity(.16),
-                      borderRadius: FRRad.all(999),
-                      border: Border.all(color: FR.good.withOpacity(.35)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const FRLiveDot(),
-                        const SizedBox(width: 6),
-                        Text('RADAR AKTİF',
-                            style: frText(9.5, FontWeight.w800,
-                                color: FR.good, letter: 1.3)),
-                      ],
+                  _livePill(),
+                  const SizedBox(width: FRSpace.s),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: _regionChip(context),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: FRSpace.l),
               Text(headline,
-                  style: frDisplay(24, FontWeight.w700, height: 1.15)),
-              const SizedBox(height: 8),
+                  style: frDisplay(24, FontWeight.w700,
+                      color: _d.ink, height: 1.15)),
+              const SizedBox(height: FRSpace.s),
               Text(subtitle,
-                  style: frText(12, FontWeight.w600, color: FR.ink3)),
-              const SizedBox(height: 16),
+                  style: frText(12, FontWeight.w600, color: _d.ink2)),
+              const SizedBox(height: FRSpace.l),
               Row(
                 children: [
                   _heroStat('$fresh', 'YENİ VERİ · 24s'),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: FRSpace.s),
                   _heroStat('$verified', 'DOĞRULANDI'),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: FRSpace.s),
                   _heroStat(trust == 0 ? '—' : '%$trust', 'GÜVEN'),
                 ],
               ),
-              const SizedBox(height: 16),
-              FRCta(
-                  label: 'Radarı incele',
-                  icon: Icons.arrow_forward_rounded,
-                  onTap: onInspect),
+              const SizedBox(height: FRSpace.l),
+              _heroCta(),
             ],
           ),
         ],
@@ -1039,23 +894,121 @@ class _RadarHero extends StatelessWidget {
     );
   }
 
+  Widget _livePill() {
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: FRSpace.s + 1, vertical: FRSpace.xs),
+      decoration: BoxDecoration(
+        color: _d.good.withOpacity(.16),
+        borderRadius: FRRad.all(FRRad.pill),
+        border: Border.all(color: _d.good.withOpacity(.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FRLiveDot(color: _d.good),
+          const SizedBox(width: 6),
+          Text('RADAR AKTİF',
+              style: frText(9.5, FontWeight.w800,
+                  color: _d.good, letter: 1.3)),
+        ],
+      ),
+    );
+  }
+
+  /// Bölge bağlamı hero içinde yaşar — ayrı bir kart yerine sağ üstte
+  /// dokunulabilir bir chip. Tık → bölge seçici sheet.
+  Widget _regionChip(BuildContext context) {
+    final city = (state.cityName ?? '').trim();
+    final district = (state.districtName ?? '').trim();
+    return InkWell(
+      onTap: () => _pickRegion(context, state),
+      borderRadius: FRRad.all(FRRad.pill),
+      child: Container(
+        padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: FRSpace.m, vertical: 6),
+        decoration: BoxDecoration(
+          color: _d.bg.withOpacity(.4),
+          borderRadius: FRRad.all(FRRad.pill),
+          border: Border.all(color: _d.hairline),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.place_outlined, size: 13, color: _d.gold),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                hasRegion ? '$district / $city' : 'Bölge seç',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: frText(11, FontWeight.w800, color: _d.ink2),
+              ),
+            ),
+            const SizedBox(width: FRSpace.xs),
+            Icon(Icons.keyboard_arrow_down_rounded,
+                size: 14, color: _d.ink3),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _heroStat(String value, String label) {
     return Expanded(
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        padding: const EdgeInsetsDirectional.symmetric(
+            vertical: FRSpace.s + 2, horizontal: FRSpace.s + 2),
         decoration: BoxDecoration(
-          color: FR.surface.withOpacity(FR.isDark ? .34 : .88),
-          borderRadius: FRRad.all(12),
-          border: Border.all(color: FR.hairline),
+          color: _d.bg.withOpacity(.4),
+          borderRadius: FRRad.all(FRRad.m),
+          border: Border.all(color: _d.hairline),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value, style: frPrice(18, color: FR.gold)),
+            Text(value, style: frPrice(18, color: _d.gold)),
             Text(label,
-                style:
-                    frText(9, FontWeight.w800, color: FR.ink3, letter: 1.2)),
+                style: frText(9, FontWeight.w800,
+                    color: _d.ink3, letter: 1.2)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Koyu yüzey üzerinde altın dolgulu birincil CTA — [FRCta] aktif temanın
+  /// altınını kullandığı için (açık temada koyu bakır) burada sabit espresso
+  /// paletiyle yerel bir kapsül çiziyoruz.
+  Widget _heroCta() {
+    return InkWell(
+      onTap: () {
+        frHaptic();
+        onInspect();
+      },
+      borderRadius: FRRad.all(FRRad.pill),
+      child: Container(
+        height: 50,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _d.gold,
+          borderRadius: FRRad.all(FRRad.pill),
+          boxShadow: [
+            BoxShadow(
+              color: _d.gold.withOpacity(.28),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Radarı incele',
+                style: frText(14, FontWeight.w800, color: _d.onGold)),
+            const SizedBox(width: FRSpace.s),
+            Icon(Icons.arrow_forward_rounded, size: 18, color: _d.onGold),
           ],
         ),
       ),
@@ -1218,8 +1171,9 @@ class _TrendCard extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      FRPriceText(product.lowestPrice,
-                          size: 22, color: FR.gold),
+                      // Fiyat altın değil mürekkep: altın sadece vurgu rengi,
+                      // her kartta tekrar edince değerini yitiriyordu.
+                      FRPriceText(product.lowestPrice, size: 22),
                       const Spacer(),
                       Text(product.unit,
                           style: frText(11, FontWeight.w700, color: FR.ink3)),
@@ -1404,32 +1358,6 @@ class _FeedEmptyState extends StatelessWidget {
   const _FeedEmptyState({required this.state});
   final AppState state;
 
-  Future<void> _changeRegion(BuildContext context) async {
-    final result = await showRegionPickerSheet(
-      context,
-      initialCity: state.cityName,
-      initialDistrict: state.districtName,
-    );
-    if (result == null) return;
-    try {
-      await state.updateRegionSettings(
-        cityName: result.city,
-        districtName: result.district,
-      );
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Bölge güncellendi: ${result.city} / ${result.district}')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bölge güncellenemedi: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1475,7 +1403,7 @@ class _FeedEmptyState extends StatelessWidget {
             label: 'Bölge değiştir',
             icon: Icons.place_outlined,
             filled: false,
-            onTap: () => _changeRegion(context),
+            onTap: () => _pickRegion(context, state),
           ),
         ],
       ),
@@ -1483,15 +1411,16 @@ class _FeedEmptyState extends StatelessWidget {
   }
 }
 
-// ─── Günlük seri (streak) kartı — retention kancası ──────────────────────────
+// ─── Günlük seri (streak) — sakin utility row ────────────────────────────────
 //
-// Kullanıcının mevcut serisini, bugünkü katkı durumunu ve bir sonraki seri
+// Retention kancası: mevcut seriyi, bugünkü katkı durumunu ve sıradaki seri
 // rozetine (3/7/30 gün) ilerlemeyi gösterir. Tamamı mevcut gamification
 // snapshot'ından beslenir; ek Firestore okuması veya backend değişikliği yok.
-// Misafir kullanıcıda hesap açmaya yönlendiren varyant gösterilir.
+// Eski hali altın çerçeveli, altın CTA'lı büyük bir karttı ve hero ile
+// yarışıyordu — artık satırın tamamı dokunulabilir tek bir utility row.
 
-class _DailyStreakCard extends StatelessWidget {
-  const _DailyStreakCard({required this.state});
+class _DailyStreakRow extends StatelessWidget {
+  const _DailyStreakRow({required this.state});
   final AppState state;
 
   bool get _contributedToday {
@@ -1520,29 +1449,22 @@ class _DailyStreakCard extends StatelessWidget {
 
     final String title;
     final String body;
-    final String ctaLabel;
     final int ctaTabIndex;
     if (isGuest) {
       title = 'Seri toplamaya başla';
-      body = 'Ücretsiz hesap aç: her fiyat katkısı +10 PT, günlük serin '
-          'rozete dönüşsün.';
-      ctaLabel = 'Hesap aç';
+      body = 'Hesap aç, her fiyat katkısı +10 PT olsun.';
       ctaTabIndex = 4; // Profil sekmesi — kayıt/upgrade CTA'sı orada.
     } else if (doneToday) {
       title = '$streak günlük seri';
-      body = 'Bugünkü katkın tamam. Yarın da bir fiyat paylaş, serin '
-          'büyümeye devam etsin.';
-      ctaLabel = 'Fiyat ekle';
+      body = 'Bugünkü katkın tamam — yarın da paylaş, seri büyüsün.';
       ctaTabIndex = 2;
     } else if (streak > 0) {
       title = '$streak günlük serin risk altında';
-      body = 'Bugün 1 fiyat paylaş, serini koru — her katkı +10 PT.';
-      ctaLabel = 'Fiyat ekle';
+      body = 'Bugün 1 fiyat paylaş, serini koru.';
       ctaTabIndex = 2;
     } else {
       title = 'Bugün serini başlat';
-      body = 'İlk fiyatını paylaş: +10 PT ve seri rozetlerine giden ilk adım.';
-      ctaLabel = 'Fiyat ekle';
+      body = 'İlk fiyatını paylaş — +10 PT.';
       ctaTabIndex = 2;
     }
 
@@ -1550,93 +1472,75 @@ class _DailyStreakCard extends StatelessWidget {
     final progress =
         target == null ? 1.0 : (streak / target).clamp(0.0, 1.0).toDouble();
 
-    return Container(
-      padding: const EdgeInsetsDirectional.all(FRSpace.l),
-      decoration: BoxDecoration(
-        color: FR.surface,
-        borderRadius: FRRad.all(FRRad.l),
-        border: Border.all(color: FR.gold.withOpacity(.35)),
-        boxShadow: frShadow(blur: 18, y: 8, opacity: .07),
-      ),
+    return FRCard(
+      radius: FRRad.l,
+      padding: const EdgeInsetsDirectional.all(FRSpace.m),
+      onTap: () {
+        frHaptic();
+        MainScreen.switchTab(context, ctaTabIndex);
+      },
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 40,
+            height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  FR.gold.withOpacity(.24),
-                  FR.gold.withOpacity(.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: FR.gold.withOpacity(.5)),
+              color: FR.gold.withOpacity(.12),
+              border: Border.all(color: FR.gold.withOpacity(.3)),
             ),
             child: Text(
               doneToday || streak > 0 ? '🔥' : '✨',
-              style: const TextStyle(fontSize: 20),
+              style: const TextStyle(fontSize: 17),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: FRSpace.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('GÜNLÜK SERİ', style: frOverline(color: FR.gold, size: 9)),
-                const SizedBox(height: 4),
-                Text(title, style: frDisplay(15.5, FontWeight.w800)),
-                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: frText(13.5, FontWeight.w800)),
+                    ),
+                    if (target != null) ...[
+                      const SizedBox(width: FRSpace.s),
+                      Text('$streak/$target gün',
+                          style: frText(10.5, FontWeight.w800,
+                              color: FR.ink3)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
                 Text(
                   body,
-                  style: frText(11.5, FontWeight.w600,
-                      color: FR.ink3, height: 1.4),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: frText(11.5, FontWeight.w600, color: FR.ink3),
                 ),
                 if (target != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: FRSpace.s),
                   ClipRRect(
-                    borderRadius: FRRad.all(999),
+                    borderRadius: FRRad.all(FRRad.pill),
                     child: LinearProgressIndicator(
                       value: progress,
-                      minHeight: 5,
+                      minHeight: 4,
                       backgroundColor: FR.hairlineSoft,
                       valueColor: AlwaysStoppedAnimation<Color>(FR.gold),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$streak / $target gün · sıradaki seri rozeti',
-                    style: frText(10.5, FontWeight.w700, color: FR.ink3),
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          InkWell(
-            onTap: () {
-              frHaptic();
-              MainScreen.switchTab(context, ctaTabIndex);
-            },
-            borderRadius: FRRad.all(999),
-            child: Container(
-              padding: const EdgeInsetsDirectional.symmetric(
-                  horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: FR.gold,
-                borderRadius: FRRad.all(999),
-                boxShadow: frShadow(blur: 10, y: 4, opacity: .12),
-              ),
-              child: Text(
-                ctaLabel,
-                style: frText(11.5, FontWeight.w900, color: FR.onGold),
-              ),
-            ),
-          ),
+          const SizedBox(width: FRSpace.s),
+          Icon(Icons.chevron_right_rounded, size: 20, color: FR.ink3),
         ],
       ),
     );

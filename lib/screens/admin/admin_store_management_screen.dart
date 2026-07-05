@@ -2030,7 +2030,6 @@ class _SourceChoice extends StatelessWidget {
           color: active ? FRPalette.dark.bgElev : FR.surfaceHi,
           borderRadius: FRRad.all(FRRad.m),
           border: Border.all(color: active ? FR.goldDeep : FR.hairline),
-          boxShadow: active ? frGoldGlow(opacity: .14) : null,
         ),
         child: Row(
           children: [

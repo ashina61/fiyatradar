@@ -307,7 +307,8 @@ class _CartRow extends StatelessWidget {
                   style: frText(11.5, FontWeight.w600, color: FR.ink3),
                 ),
                 const SizedBox(height: 4),
-                FRPriceText(item.product.lowestPrice, size: 15, color: FR.gold),
+                // Altın sadece vurgu — liste satırında fiyat mürekkep kalır.
+                FRPriceText(item.product.lowestPrice, size: 15),
               ],
             ),
           ),
@@ -994,6 +995,11 @@ class _CompareEmptyData extends StatelessWidget {
   }
 }
 
+/// "Sepet avantajı anı" — design-language.md'nin Premium Dark Card için
+/// saydığı kullanım alanlarından biri. Ana sayfa hero'su ve profil kimlik
+/// kartıyla aynı espresso ailesinden; renkler aktif temadan bağımsız olarak
+/// [FRPalette.dark]'tan gelir. Sayfadaki tek koyu blok budur — altın vurgu
+/// (tutar + rozet) yalnız burada yaşar.
 class _CompareWinnerCard extends StatelessWidget {
   const _CompareWinnerCard({
     required this.estimate,
@@ -1008,21 +1014,24 @@ class _CompareWinnerCard extends StatelessWidget {
   final String region;
   final VoidCallback onAddMissing;
 
+  static const FRPalette _d = FRPalette.dark;
+
   @override
   Widget build(BuildContext context) {
     final coverage = estimate.foundItemCount /
         ((estimate.foundItemCount + estimate.missingItemCount).clamp(1, 9999));
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsetsDirectional.all(FRSpace.xl),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [FR.surfaceHi, FR.surfaceLo],
+          colors: [_d.surfaceHi, _d.bgElev],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: FRRad.all(FRRad.xxl),
-        border: Border.all(color: FR.goldDeep.withOpacity(.4)),
-        boxShadow: frGoldGlow(opacity: .14),
+        border: Border.all(color: _d.hairline),
+        boxShadow: frShadow(blur: 26, y: 14, opacity: FR.isDark ? .4 : .2),
       ),
       child: Stack(
         children: [
@@ -1030,7 +1039,7 @@ class _CompareWinnerCard extends StatelessWidget {
             right: -16,
             top: -16,
             child: Icon(Icons.workspace_premium_rounded,
-                size: 140, color: FR.gold.withOpacity(.07)),
+                size: 140, color: _d.gold.withOpacity(.08)),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1038,61 +1047,66 @@ class _CompareWinnerCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsetsDirectional.symmetric(
+                        horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: FR.gold.withOpacity(.16),
-                      borderRadius: FRRad.all(999),
-                      border: Border.all(color: FR.gold.withOpacity(.4)),
+                      color: _d.gold.withOpacity(.16),
+                      borderRadius: FRRad.all(FRRad.pill),
+                      border: Border.all(color: _d.gold.withOpacity(.4)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.workspace_premium_rounded,
-                            size: 12, color: FR.gold),
+                            size: 12, color: _d.gold),
                         const SizedBox(width: 6),
                         Text('EN İYİ SEÇENEK',
                             style: frText(10, FontWeight.w800,
-                                color: FR.gold, letter: 1.2)),
+                                color: _d.gold, letter: 1.2)),
                       ],
                     ),
                   ),
                   const Spacer(),
                   Text('$totalChains market',
-                      style: frText(11, FontWeight.w800, color: FR.ink3)),
+                      style: frText(11, FontWeight.w800, color: _d.ink3)),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: FRSpace.l),
               Text(estimate.chainName,
-                  style: frDisplay(26, FontWeight.w700, height: 1.1)),
-              const SizedBox(height: 4),
+                  style: frDisplay(26, FontWeight.w700,
+                      color: _d.ink, height: 1.1)),
+              const SizedBox(height: FRSpace.xs),
               Text(region,
-                  style: frText(12, FontWeight.w700, color: FR.ink3)),
-              const SizedBox(height: 14),
+                  style: frText(12, FontWeight.w700, color: _d.ink3)),
+              const SizedBox(height: FRSpace.l),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  FRPriceText(estimate.estimatedTotal, size: 36, color: FR.gold),
-                  const SizedBox(width: 10),
+                  FRPriceText(estimate.estimatedTotal,
+                      size: 36, color: _d.gold),
+                  const SizedBox(width: FRSpace.s + 2),
                   if (savingsVsWorst > 0)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsetsDirectional.only(bottom: 6),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: const EdgeInsetsDirectional.symmetric(
                             horizontal: 9, vertical: 4),
                         decoration: BoxDecoration(
-                          color: FR.good.withOpacity(.16),
-                          borderRadius: FRRad.all(999),
-                          border: Border.all(color: FR.good.withOpacity(.4)),
+                          color: _d.good.withOpacity(.16),
+                          borderRadius: FRRad.all(FRRad.pill),
+                          border:
+                              Border.all(color: _d.good.withOpacity(.4)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.trending_down_rounded,
-                                size: 12, color: FR.good),
+                                size: 12, color: _d.good),
                             const SizedBox(width: 4),
                             Text(
                               '₺${savingsVsWorst.toStringAsFixed(0)} avantaj',
-                              style: frText(11, FontWeight.w800, color: FR.good),
+                              style: frText(11, FontWeight.w800,
+                                  color: _d.good),
                             ),
                           ],
                         ),
@@ -1100,12 +1114,12 @@ class _CompareWinnerCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: FRSpace.l),
               _coverageBar(coverage.toDouble(), estimate),
               // Düşük kapsama uyarısı: kullanıcı %30 coverage'lı bir
               // marketin "EN İYİ SEÇENEK" olduğunu sanmasın.
               if (coverage < 0.7) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: FRSpace.s + 2),
                 _warnRow(
                   icon: Icons.info_outline_rounded,
                   text: 'Bu marketin sepet kapsaması düşük — ${(coverage * 100).round()}% '
@@ -1114,36 +1128,33 @@ class _CompareWinnerCard extends StatelessWidget {
               ],
               // Bayat fiyat uyarısı: en eski bildirim 30+ gün ise sinyal ver.
               if (estimate.isStale) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: FRSpace.s),
                 _warnRow(
                   icon: Icons.schedule_rounded,
                   text: 'En eski fiyat ${estimate.oldestPriceAgeDays} gün önce '
                       'bildirilmiş — gerçek raf fiyatı değişmiş olabilir.',
                 ),
               ],
-              const SizedBox(height: 14),
+              const SizedBox(height: FRSpace.l),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: FRSpace.s,
+                runSpacing: FRSpace.s,
                 children: [
                   _MetaPill(
                     icon: Icons.shield_outlined,
                     label: 'Güven · ${confidenceLabelTr(estimate.confidence)}',
+                    dark: true,
                   ),
                   _MetaPill(
                     icon: Icons.bolt_rounded,
                     label: _sourceTr(estimate.usedPriceSource),
+                    dark: true,
                   ),
                 ],
               ),
               if (estimate.missingItemCount > 0) ...[
-                const SizedBox(height: 14),
-                FRCta(
-                  label: 'Eksik fiyatları ekle',
-                  icon: Icons.add_rounded,
-                  filled: false,
-                  onTap: onAddMissing,
-                ),
+                const SizedBox(height: FRSpace.l),
+                _ghostCta(),
               ],
             ],
           ),
@@ -1152,23 +1163,55 @@ class _CompareWinnerCard extends StatelessWidget {
     );
   }
 
+  /// Koyu yüzey üzerinde hayalet CTA — [FRCta] aktif temanın mürekkebini
+  /// kullandığı için (açık temada koyu yazı) burada sabit espresso paletiyle
+  /// yerel bir kapsül çiziyoruz.
+  Widget _ghostCta() {
+    return InkWell(
+      onTap: () {
+        frHaptic();
+        onAddMissing();
+      },
+      borderRadius: FRRad.all(FRRad.pill),
+      child: Container(
+        height: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: FRRad.all(FRRad.pill),
+          border: Border.all(color: _d.hairline),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_rounded, size: 18, color: _d.ink),
+            const SizedBox(width: FRSpace.s),
+            Text('Eksik fiyatları ekle',
+                style: frText(14, FontWeight.w800, color: _d.ink)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _warnRow({required IconData icon, required String text}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: FR.warn.withOpacity(.10),
-        borderRadius: FRRad.all(10),
-        border: Border.all(color: FR.warn.withOpacity(.35)),
+        color: _d.warn.withOpacity(.12),
+        borderRadius: FRRad.all(FRRad.s),
+        border: Border.all(color: _d.warn.withOpacity(.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 13, color: FR.warn),
-          const SizedBox(width: 8),
+          Icon(icon, size: 13, color: _d.warn),
+          const SizedBox(width: FRSpace.s),
           Expanded(
             child: Text(text,
                 style: frText(11, FontWeight.w700,
-                    color: FR.ink2, height: 1.4)),
+                    color: _d.ink2, height: 1.4)),
           ),
         ],
       ),
@@ -1182,24 +1225,25 @@ class _CompareWinnerCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('KAPSAMA', style: frOverline(color: FR.ink3, size: 9.5)),
+            Text('KAPSAMA', style: frOverline(color: _d.ink3, size: 9.5)),
             const Spacer(),
             Text('$pct% · ${e.foundItemCount}/${e.foundItemCount + e.missingItemCount} ürün',
-                style: frText(11, FontWeight.w800, color: FR.ink2)),
+                style: frText(11, FontWeight.w800, color: _d.ink2)),
           ],
         ),
         const SizedBox(height: 6),
         ClipRRect(
-          borderRadius: FRRad.all(999),
+          borderRadius: FRRad.all(FRRad.pill),
           child: Stack(
             children: [
-              Container(height: 6, color: FR.bgElev),
+              Container(height: 6, color: _d.bg.withOpacity(.6)),
               FractionallySizedBox(
                 widthFactor: coverage.clamp(0.0, 1.0),
                 child: Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [FR.goldHi, FR.goldDeep]),
+                    gradient:
+                        LinearGradient(colors: [_d.goldHi, _d.goldDeep]),
                   ),
                 ),
               ),
@@ -1440,25 +1484,34 @@ class _CompareInsightBanner extends StatelessWidget {
 }
 
 class _MetaPill extends StatelessWidget {
-  const _MetaPill({required this.icon, required this.label});
+  const _MetaPill({required this.icon, required this.label, this.dark = false});
   final IconData icon;
   final String label;
 
+  /// true → pil koyu espresso yüzey üzerinde durur (kazanan kart); renkler
+  /// aktif temadan değil [FRPalette.dark]'tan gelir.
+  final bool dark;
+
   @override
   Widget build(BuildContext context) {
+    const d = FRPalette.dark;
+    final bg = dark ? d.bg.withOpacity(.4) : FR.bgElev;
+    final border = dark ? d.hairline : FR.hairline;
+    final fg = dark ? d.ink2 : FR.ink2;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: FR.bgElev,
-        borderRadius: FRRad.all(999),
-        border: Border.all(color: FR.hairline),
+        color: bg,
+        borderRadius: FRRad.all(FRRad.pill),
+        border: Border.all(color: border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: FR.ink2),
+          Icon(icon, size: 12, color: fg),
           const SizedBox(width: 5),
-          Text(label, style: frText(10.5, FontWeight.w800, color: FR.ink2)),
+          Text(label, style: frText(10.5, FontWeight.w800, color: fg)),
         ],
       ),
     );

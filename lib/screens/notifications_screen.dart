@@ -269,7 +269,10 @@ class _Pill extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: frText(11.5, FontWeight.w800, color: active ? FR.bg : FR.ink2),
+          // onGold: altın dolgu üzerindeki metin için ayrılmış token —
+          // FR.bg açık temada krem olduğu için kontrast garantisi vermez.
+          style: frText(11.5, FontWeight.w800,
+              color: active ? FR.onGold : FR.ink2),
         ),
       ),
     );

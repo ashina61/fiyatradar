@@ -334,7 +334,6 @@ class _AdminModuleTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? FR.gold : Colors.transparent,
           borderRadius: FRRad.all(FRRad.l),
-          boxShadow: active ? frGoldGlow(opacity: .18) : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

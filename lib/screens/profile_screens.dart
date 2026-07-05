@@ -1558,7 +1558,6 @@ class ReleaseNotesScreen extends StatelessWidget {
                 color: isLatest ? FR.gold.withOpacity(.55) : FR.hairline,
                 width: isLatest ? 1.4 : 1.0,
               ),
-              boxShadow: isLatest ? frGoldGlow(opacity: .14) : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2073,7 +2072,6 @@ class _LanguageRow extends StatelessWidget {
             color: selected ? FR.goldDeep : FR.hairline,
             width: selected ? 1.3 : 1,
           ),
-          boxShadow: selected ? frGoldGlow(opacity: .15) : null,
         ),
         child: Row(
           children: [
@@ -2424,7 +2422,7 @@ class _ToggleRow extends StatelessWidget {
               borderRadius: FRRad.all(12),
               border: Border.all(color: FR.hairline),
             ),
-            child: Icon(icon, color: FR.gold, size: 18),
+            child: Icon(icon, color: FR.copper, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2439,7 +2437,9 @@ class _ToggleRow extends StatelessWidget {
           ),
           Switch(
             value: value,
-            activeColor: FR.bg,
+            // onGold: altın track üzerindeki thumb için ayrılmış token
+            // (FR.bg açık temada krem — kontrast garantisi yok).
+            activeColor: FR.onGold,
             activeTrackColor: FR.gold,
             inactiveThumbColor: FR.ink2,
             inactiveTrackColor: FR.surfaceHi,
@@ -2536,7 +2536,9 @@ class _HubRow extends StatelessWidget {
                 borderRadius: FRRad.all(12),
                 border: Border.all(color: FR.hairline),
               ),
-              child: Icon(icon, color: FR.gold, size: 18),
+              // Bakır: utility satır ikonu destek tonu kullanır — profil
+              // sekmesindeki _ListItem ile aynı kural.
+              child: Icon(icon, color: FR.copper, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(

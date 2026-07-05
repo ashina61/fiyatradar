@@ -278,7 +278,6 @@ class _SubmissionTileState extends State<_SubmissionTile> {
                           decoration: BoxDecoration(
                             color: FR.gold,
                             borderRadius: FRRad.all(12),
-                            boxShadow: frGoldGlow(opacity: .2),
                           ),
                           child: _busy
                               ? SizedBox(

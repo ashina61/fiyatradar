@@ -919,8 +919,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                             : FR.hairline,
                         width: _selectedProduct != null ? 1.4 : 1.0,
                       ),
-                      boxShadow:
-                          _selectedProduct != null ? frGoldGlow(opacity: .12) : null,
                     ),
                     child: Row(children: [
                       Container(
@@ -981,7 +979,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                       color: priceValid ? FR.gold.withOpacity(.55) : FR.hairline,
                       width: priceValid ? 1.4 : 1.0,
                     ),
-                    boxShadow: priceValid ? frGoldGlow(opacity: .12) : null,
                   ),
                   child: Row(children: [
                     Text('₺', style: frDisplay(26, FontWeight.w700, color: FR.gold)),
@@ -1166,11 +1163,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                                           : FR.hairline,
                                   width: selected ? 1.4 : 1.0,
                                 ),
-                                boxShadow: selected
-                                    ? frGoldGlow(opacity: .18)
-                                    : (openToday
-                                        ? frGoldGlow(opacity: .10)
-                                        : null),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1257,7 +1249,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
                         color: FR.surface,
                         borderRadius: FRRad.all(FRRad.m),
                         border: Border.all(color: FR.gold.withOpacity(.55), width: 1.4),
-                        boxShadow: frGoldGlow(opacity: .12),
                       ),
                       child: Row(children: [
                         Container(
@@ -1527,7 +1518,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
           color: FR.surface,
           borderRadius: FRRad.all(FRRad.m),
           border: Border.all(color: FR.gold.withOpacity(.55), width: 1.4),
-          boxShadow: frGoldGlow(opacity: .12),
         ),
         child: Row(children: [
           Container(
@@ -1663,7 +1653,6 @@ class _AddPriceTabState extends State<AddPriceTab> {
               border: Border.all(
                 color: completed ? FR.gold : FR.hairline,
               ),
-              boxShadow: completed ? frGoldGlow(opacity: .22) : null,
             ),
             child: completed
                 ? Icon(Icons.check_rounded, color: FR.onGold, size: 15)
@@ -1806,7 +1795,6 @@ class _ChainQuickPickRow extends StatelessWidget {
                       color: selected ? FR.gold : FR.surface,
                       borderRadius: FRRad.all(999),
                       border: Border.all(color: selected ? FR.gold : FR.hairline),
-                      boxShadow: selected ? frGoldGlow(opacity: .14) : null,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -2134,7 +2122,6 @@ class _DayChip extends StatelessWidget {
             color: selected ? FR.gold : FR.hairline,
             width: selected ? 1.4 : 1.0,
           ),
-          boxShadow: selected ? frGoldGlow(opacity: .14) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
